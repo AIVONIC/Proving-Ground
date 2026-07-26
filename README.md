@@ -87,7 +87,7 @@ backend/
     private/                held-out grading suites (gitignored — the moat)
   tests/                    engine tests (adapters, dimensions, scoring)
 frontend/                   the landing page (self-contained HTML)
-docs/                       capability map, landing concept, self-cert runbook
+docs/                       self-certification runbook
 ```
 
 ---
