@@ -1,0 +1,617 @@
+<meta charset="utf-8">
+<title>Proving Ground - The Benchmark for AI Agents</title>
+<style>
+  :root {
+    --ground: #0f1518;
+    --panel: #151d20;
+    --panel-2: #1a2327;
+    --hair: #26312f;
+    --hair-strong: #33403d;
+    --ink: #e4ded4;
+    --ink-2: #b6bcb8;
+    --muted: #828a86;
+    --faint: #566058;
+    --accent: #1ec9a8;
+    --accent-deep: #12a58a;
+    --accent-ghost: rgba(30, 201, 168, 0.10);
+    --pass: #4bbd8c;
+    --warn: #d7a343;
+    --fail: #d16a5a;
+    --tier-standard: #93a09c;
+    --tier-premium: #1ec9a8;
+    --tier-elite: #e0b24c;
+    --grid-line: rgba(255,255,255,0.028);
+    --shadow: 0 1px 0 rgba(255,255,255,0.03), 0 18px 40px -24px rgba(0,0,0,0.7);
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --measure: 66ch;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #f2f4f2;
+      --panel: #ffffff;
+      --panel-2: #f7f9f7;
+      --hair: #dce1de;
+      --hair-strong: #c7cfca;
+      --ink: #131c1b;
+      --ink-2: #384340;
+      --muted: #5f6a66;
+      --faint: #9aa39e;
+      --accent: #0d9a80;
+      --accent-deep: #0a7d68;
+      --accent-ghost: rgba(13, 154, 128, 0.09);
+      --pass: #2f9d6e;
+      --warn: #b7842a;
+      --fail: #bd5142;
+      --tier-standard: #7b857f;
+      --tier-premium: #0d9a80;
+      --tier-elite: #b8862f;
+      --grid-line: rgba(15,30,28,0.035);
+      --shadow: 0 1px 0 rgba(255,255,255,0.6), 0 20px 44px -28px rgba(20,40,36,0.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0f1518;--panel:#151d20;--panel-2:#1a2327;--hair:#26312f;--hair-strong:#33403d;
+    --ink:#e4ded4;--ink-2:#b6bcb8;--muted:#828a86;--faint:#566058;--accent:#1ec9a8;--accent-deep:#12a58a;
+    --accent-ghost:rgba(30,201,168,0.10);--pass:#4bbd8c;--warn:#d7a343;--fail:#d16a5a;
+    --tier-standard:#93a09c;--tier-premium:#1ec9a8;--tier-elite:#e0b24c;--grid-line:rgba(255,255,255,0.028);
+    --shadow:0 1px 0 rgba(255,255,255,0.03),0 18px 40px -24px rgba(0,0,0,0.7);
+  }
+  :root[data-theme="light"] {
+    --ground:#f2f4f2;--panel:#ffffff;--panel-2:#f7f9f7;--hair:#dce1de;--hair-strong:#c7cfca;
+    --ink:#131c1b;--ink-2:#384340;--muted:#5f6a66;--faint:#9aa39e;--accent:#0d9a80;--accent-deep:#0a7d68;
+    --accent-ghost:rgba(13,154,128,0.09);--pass:#2f9d6e;--warn:#b7842a;--fail:#bd5142;
+    --tier-standard:#7b857f;--tier-premium:#0d9a80;--tier-elite:#b8862f;--grid-line:rgba(15,30,28,0.035);
+    --shadow:0 1px 0 rgba(255,255,255,0.6),0 20px 44px -28px rgba(20,40,36,0.28);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+  section { padding: 96px 0; border-top: 1px solid var(--hair); }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.018em; text-wrap: balance; margin: 0; }
+  p { margin: 0 0 1.1em; }
+  a { color: inherit; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--accent); display: inline-flex; align-items: center; gap: 10px; margin: 0 0 22px;
+  }
+  .eyebrow::before { content: ""; width: 26px; height: 1px; background: var(--accent); opacity: 0.7; }
+  .lead { font-size: 1.18rem; color: var(--ink-2); max-width: var(--measure); }
+  .mono { font-family: var(--mono); }
+  .muted { color: var(--muted); }
+
+  /* Top bar */
+  header.bar {
+    position: sticky; top: 0; z-index: 20; backdrop-filter: blur(10px);
+    background: color-mix(in srgb, var(--ground) 82%, transparent);
+    border-bottom: 1px solid var(--hair);
+  }
+  .bar-in { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 11px; font-family: var(--mono); font-size: 14px; letter-spacing: 0.02em; }
+  .brand b { font-weight: 600; letter-spacing: 0.06em; }
+  .mark { width: 22px; height: 22px; display: block; }
+  .bar nav { display: flex; gap: 26px; align-items: center; }
+  .bar nav a { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.04em; color: var(--muted); text-decoration: none; }
+  .bar nav a:hover { color: var(--ink); }
+  .bar .navlink { display: none; }
+  @media (min-width: 820px) { .bar .navlink { display: inline; } }
+
+  .btn {
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.03em; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 9px; padding: 11px 18px; border-radius: 2px;
+    border: 1px solid var(--hair-strong); color: var(--ink); background: transparent;
+    transition: border-color .18s, background .18s, color .18s; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #06110d; border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); color: #06110d; }
+
+  /* Hero */
+  .hero { padding: 78px 0 70px; }
+  .hero-grid { display: grid; grid-template-columns: 1fr; gap: 54px; align-items: center; }
+  @media (min-width: 940px) { .hero-grid { grid-template-columns: 1.05fr 0.95fr; gap: 40px; } }
+  h1 { font-size: clamp(2.5rem, 5.6vw, 4.35rem); line-height: 1.02; margin: 0 0 24px; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .hero .lead { font-size: 1.24rem; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 32px; }
+  .trust-strip { display: flex; flex-wrap: wrap; gap: 8px 26px; margin-top: 40px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.03em; color: var(--muted); }
+  .trust-strip span { display: inline-flex; align-items: center; gap: 8px; }
+  .trust-strip span::before { content: ""; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
+
+  /* Scorecard panel */
+  .card {
+    background: var(--panel); border: 1px solid var(--hair); border-radius: 4px; box-shadow: var(--shadow);
+  }
+  .scorecard { padding: 22px; position: relative; overflow: hidden; }
+  .scorecard .sc-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .sc-tag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .sc-badge { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; padding: 4px 9px; border: 1px solid var(--tier-premium); color: var(--tier-premium); border-radius: 2px; }
+  .sc-figure { display: block; margin: 4px auto 0; width: 100%; max-width: 440px; }
+  .sc-foot { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--hair); margin-top: 14px; padding-top: 14px; }
+  .sc-composite { font-family: var(--serif); font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+  .sc-composite small { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); letter-spacing: 0.04em; }
+  .sc-note { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+
+  /* radar svg */
+  .axis-label { font-family: var(--mono); font-size: 8.4px; letter-spacing: 0.02em; fill: var(--muted); }
+  .radar-ring { fill: none; stroke: var(--hair); stroke-width: 1; }
+  .radar-spoke { stroke: var(--hair); stroke-width: 1; }
+  .radar-area { fill: var(--accent-ghost); stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; }
+  .radar-dot { fill: var(--accent); stroke: var(--panel); stroke-width: 1; }
+
+  /* Section heads */
+  .sec-head { max-width: 720px; margin-bottom: 44px; }
+  .sec-head h2 { font-size: clamp(1.7rem, 3.2vw, 2.5rem); line-height: 1.08; }
+  .sec-head p { margin-top: 16px; color: var(--ink-2); }
+
+  /* principles */
+  .cols-3 { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  @media (min-width: 760px) { .cols-3 { grid-template-columns: repeat(3, 1fr); } }
+  .principle { padding: 26px; }
+  .principle .pnum { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--accent); }
+  .principle h3 { font-size: 1.32rem; margin: 14px 0 10px; }
+  .principle p { font-size: 0.98rem; color: var(--ink-2); margin: 0; }
+
+  /* dimensions table-grid */
+  .dims { display: grid; grid-template-columns: 1fr; border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; }
+  @media (min-width: 680px) { .dims { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 1000px) { .dims { grid-template-columns: 1fr 1fr 1fr; } }
+  .dim { padding: 20px 22px; border-top: 1px solid var(--hair); border-right: 1px solid var(--hair); background: var(--panel); position: relative; transition: background .18s; }
+  .dim:hover { background: var(--panel-2); }
+  .dim-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .dim h3 { font-size: 1.06rem; letter-spacing: -0.01em; }
+  .dim .w { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dim .w b { color: var(--accent); font-weight: 600; }
+  .dim p { font-size: 0.9rem; color: var(--muted); margin: 8px 0 0; line-height: 1.5; }
+  .dim .bar { height: 3px; background: var(--hair-strong); margin-top: 14px; border-radius: 2px; overflow: hidden; }
+  .dim .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width 1s cubic-bezier(.2,.7,.2,1); }
+  .dim.reported { background: repeating-linear-gradient(135deg, var(--panel), var(--panel) 8px, var(--panel-2) 8px, var(--panel-2) 9px); }
+
+  /* tiers */
+  .tiers { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  @media (min-width: 820px) { .tiers { grid-template-columns: repeat(3, 1fr); } }
+  .tier { padding: 26px; position: relative; border-top: 3px solid var(--tier-standard); }
+  .tier.standard { border-top-color: var(--tier-standard); }
+  .tier.premium { border-top-color: var(--tier-premium); }
+  .tier.elite { border-top-color: var(--tier-elite); }
+  .tier .tname { font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; }
+  .tier.standard .tname { color: var(--tier-standard); }
+  .tier.premium .tname { color: var(--tier-premium); }
+  .tier.elite .tname { color: var(--tier-elite); }
+  .tier .tscore { font-family: var(--serif); font-size: 2.3rem; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
+  .tier .tscore small { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+  .tier ul { list-style: none; padding: 0; margin: 16px 0 0; border-top: 1px solid var(--hair); }
+  .tier li { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); padding: 9px 0; border-bottom: 1px solid var(--hair); display: flex; justify-content: space-between; }
+  .tier li span { color: var(--muted); }
+
+  /* how graded steps */
+  .steps { display: grid; grid-template-columns: 1fr; gap: 0; border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; }
+  @media (min-width: 900px) { .steps { grid-template-columns: repeat(4, 1fr); } }
+  .step { padding: 24px; border-top: 1px solid var(--hair); border-right: 1px solid var(--hair); background: var(--panel); }
+  .step .sn { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--accent); }
+  .step h3 { font-size: 1.1rem; margin: 12px 0 8px; }
+  .step p { font-size: 0.88rem; color: var(--muted); margin: 0; }
+
+  /* callout / gaming */
+  .split { display: grid; grid-template-columns: 1fr; gap: 40px; align-items: start; }
+  @media (min-width: 860px) { .split { grid-template-columns: 1fr 1fr; } }
+  .checklist { list-style: none; padding: 0; margin: 0; }
+  .checklist li { padding: 15px 0; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start; }
+  .checklist li::before { content: "✓"; color: var(--accent); font-family: var(--mono); font-size: 14px; line-height: 1.5; }
+  .checklist b { font-weight: 600; }
+  .checklist span { color: var(--muted); font-size: 0.94rem; }
+
+  /* final CTA */
+  .final { text-align: center; }
+  .final .card { max-width: 760px; margin: 0 auto; padding: 54px 34px; }
+  .final h2 { font-size: clamp(1.9rem, 3.6vw, 2.8rem); }
+  .final .lead { margin: 18px auto 30px; }
+
+  footer { border-top: 1px solid var(--hair); padding: 46px 0 60px; }
+  .foot-in { display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center; }
+  footer .mono { font-size: 12px; color: var(--muted); letter-spacing: 0.03em; }
+  .disclaimer { font-family: var(--mono); font-size: 11px; color: var(--faint); letter-spacing: 0.02em; margin-top: 18px; max-width: 640px; }
+
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="brand" href="/" style="text-decoration:none;color:inherit;">
+      <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="1.4"/>
+        <circle cx="12" cy="12" r="5.6" fill="none" stroke="var(--hair-strong)" stroke-width="1.2"/>
+        <circle cx="12" cy="12" r="1.7" fill="var(--accent)"/>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="var(--accent)" stroke-width="1.2"/>
+      </svg>
+      <span><b>PROVING&nbsp;GROUND</b></span>
+    </a>
+    <nav>
+      <a class="navlink" href="/">Home</a>
+      <a class="navlink" href="#dimensions">Dimensions</a>
+      <a class="navlink" href="/methodology">Methodology</a>
+      <a class="navlink" href="/leaderboard/">Leaderboard</a>
+      <a class="btn" href="#certify">Certify your agent</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <section class="hero" style="border-top:none;">
+    <div class="wrap hero-grid">
+      <div>
+        <span class="eyebrow">An open benchmark for AI agents</span>
+        <h1>There is no crash-test rating for AI&nbsp;agents.<br><em>We are building it.</em></h1>
+        <p class="lead">Every serious industry has an independent way to measure quality. Cars have crash-test stars. AI agents, now answering your customers and running your operations, have compliance standards that certify a vendor is safe to buy from, and nothing that tells you which agent is actually better. We grade them, black-box, across twelve dimensions, and issue a comparable score you can trust because you can check exactly how it was made.</p>
+        <div class="cta-row">
+          <a class="btn primary" href="#certify">Certify your agent &rarr;</a>
+          <a class="btn" href="/methodology">Read the method</a>
+        </div>
+        <div class="trust-strip">
+          <span>Open methodology</span>
+          <span>Independent judges</span>
+          <span>Held-out grading</span>
+        </div>
+      </div>
+
+      <div class="card scorecard reveal" id="scorecard">
+        <div class="sc-head">
+          <span class="sc-tag">Agent scorecard</span>
+          <span class="sc-badge">Premium</span>
+        </div>
+        <svg class="sc-figure" id="radar" viewBox="0 0 460 362" role="img" aria-label="Radar chart of twelve dimension scores"></svg>
+        <div class="sc-foot">
+          <div class="sc-composite">82<small> / 100</small></div>
+          <div style="text-align:right">
+            <div class="mono" style="font-size:12px;color:var(--muted)">12 dimensions graded</div>
+            <div class="sc-note">Illustrative example</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="method">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Why you can trust it</span>
+        <h2>A benchmark is only worth its independence.</h2>
+        <p>We build AI agents ourselves, so a benchmark we run is suspect by default. We designed it so you do not have to take our word for anything.</p>
+      </div>
+      <div class="cols-3">
+        <div class="card principle reveal">
+          <div class="pnum">01 / OPEN</div>
+          <h3>The method is public</h3>
+          <p>Every dimension, rubric, and judge prompt is published. If you disagree with how something is scored, you can read it, argue with it, and reproduce the run yourself. Authority comes from a method anyone can inspect, not from trusting the operator.</p>
+        </div>
+        <div class="card principle reveal">
+          <div class="pnum">02 / INDEPENDENT</div>
+          <h3>The judge is not ours</h3>
+          <p>Grade-affecting judgments are made by an independent frontier model we did not build, with an adversarial pass that tries to overturn every safe verdict. A good grade cannot be dismissed as marking our own homework.</p>
+        </div>
+        <div class="card principle reveal">
+          <div class="pnum">03 / HELD-OUT</div>
+          <h3>You cannot practice on it</h3>
+          <p>Vendors self-test against a public practice set, but the grade is computed only on a private suite the agent never sees, drawn from the same distribution and rotated over time. Tuning to the practice set does not move the real score.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="dimensions">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">What we measure</span>
+        <h2>Twelve dimensions, weighted by what matters.</h2>
+        <p>A fluent chatbot is easy. An agent you can trust in production is not. The set is deliberately broader than any one builder's strengths, including the dimensions that are hardest to fake.</p>
+      </div>
+      <div class="dims" id="dims"></div>
+      <p class="disclaimer">Weights are provisional and shown out of 100. Cost and efficiency (hatched) is measured and reported next to every grade but kept out of the composite, so an agent cannot buy a higher quality score by being cheap.</p>
+    </div>
+  </section>
+
+  <section id="scoring">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">How a grade is produced</span>
+        <h2>Deterministic where possible, judged where necessary, verified always.</h2>
+      </div>
+      <div class="steps">
+        <div class="step reveal"><div class="sn">STEP 01</div><h3>Probe</h3><p>Each dimension is exercised with baseline, adversarial, long-context, and execution probes. At least a third of every dimension is adversarial.</p></div>
+        <div class="step reveal"><div class="sn">STEP 02</div><h3>Check</h3><p>Binary facts (a leaked prompt, exposed secret, latency) are settled by deterministic checks that never touch a model.</p></div>
+        <div class="step reveal"><div class="sn">STEP 03</div><h3>Judge</h3><p>Quality and intent are scored by an independent judge ensemble, with an adversarial pass that must fail to refute a passing verdict.</p></div>
+        <div class="step reveal"><div class="sn">STEP 04</div><h3>Verify</h3><p>Runs repeat for stability, effects are confirmed in a controlled sandbox, and every transcript is retained so any grade can be reproduced.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="tiers">
+    <div class="wrap">
+      <div class="sec-head reveal">
+        <span class="eyebrow">Certification</span>
+        <h2>A tier you earn, not one you buy.</h2>
+        <p>Tiers require both a composite floor and per-dimension floors, so an agent cannot coast on charm while failing security. Certificates expire after 90 days, because agents drift as their models and prompts change.</p>
+      </div>
+      <div class="tiers">
+        <div class="card tier standard reveal">
+          <div class="tname">Standard</div>
+          <div class="tscore">70<small> composite</small></div>
+          <ul>
+            <li>Security floor <span>7.0</span></li>
+            <li>No dimension below <span>5.0</span></li>
+            <li>Critical failures <span>0</span></li>
+          </ul>
+        </div>
+        <div class="card tier premium reveal">
+          <div class="tname">Premium</div>
+          <div class="tscore">80<small> composite</small></div>
+          <ul>
+            <li>Security floor <span>8.0</span></li>
+            <li>No dimension below <span>6.5</span></li>
+            <li>Critical failures <span>0</span></li>
+          </ul>
+        </div>
+        <div class="card tier elite reveal">
+          <div class="tname">Elite</div>
+          <div class="tscore">90<small> composite</small></div>
+          <ul>
+            <li>Security floor <span>9.0</span></li>
+            <li>No dimension below <span>8.0</span></li>
+            <li>Critical failures <span>0</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="gaming">
+    <div class="wrap split">
+      <div class="reveal">
+        <span class="eyebrow">Built to resist gaming</span>
+        <h2 style="font-size:clamp(1.6rem,3vw,2.3rem);line-height:1.1;">The part that separates a benchmark from a marketing badge.</h2>
+        <p class="muted" style="margin-top:16px;max-width:46ch;">We ran an adversarial team against our own scoring and closed the exploits before launch. A grade should mean the agent is good, not that its vendor is clever.</p>
+      </div>
+      <ul class="checklist reveal">
+        <li><div><b>Held-out grading suite.</b> <span>A private test set, rotated on a schedule, decides the grade.</span></div></li>
+        <li><div><b>Substance over style.</b> <span>The judge is instructed to penalize confident, well-formatted answers that are hollow or wrong.</span></div></li>
+        <li><div><b>Stability counts.</b> <span>A consistent score outranks a volatile one; a lucky run does not buy a grade.</span></div></li>
+        <li><div><b>Claims are tested, not trusted.</b> <span>An agent is never marked down for what it claims; capabilities are proven only by verified effects.</span></div></li>
+        <li><div><b>Fully reproducible.</b> <span>Methodology, probe suite, and judge are versioned together, so any historical grade can be re-run.</span></div></li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="certify" class="final">
+    <div class="wrap">
+      <div class="card reveal">
+        <span class="eyebrow" style="justify-content:center;">Building in the open</span>
+        <h2>Put your agent on the record.</h2>
+        <p class="lead">Whether you build agents or buy them, an independent grade is the fastest way to know what you actually have. We are onboarding early participants now, and we grade our own agents on the same board as everyone else, weaknesses shown.</p>
+        <div class="cta-row" id="eaCta" style="justify-content:center;margin-top:26px;">
+          <button type="button" class="btn primary" id="eaReveal">Request early access &rarr;</button>
+          <a class="btn" href="/methodology">See the methodology</a>
+        </div>
+        <style>
+          .ea-form{max-width:580px;margin:24px auto 0;text-align:left;display:flex;flex-direction:column;gap:13px}
+          #eaForm{display:none}
+          .ea-form .ea-row{display:flex;gap:12px;flex-wrap:wrap}
+          .ea-form .ea-row label{flex:1;min-width:190px}
+          .ea-form label{display:block;font-size:13px;color:var(--ink-2)}
+          .ea-form input,.ea-form textarea,.ea-form select{display:block;width:100%;margin-top:6px;padding:11px 13px;background:var(--panel-2);border:1px solid var(--hair);border-radius:8px;color:var(--ink);font:inherit;font-size:14px;box-sizing:border-box}
+          .ea-form input:focus,.ea-form textarea:focus,.ea-form select:focus{outline:none;border-color:var(--accent)}
+          .ea-form textarea{resize:vertical}
+          .ea-hp{position:absolute!important;left:-9999px!important;width:1px;height:1px;opacity:0}
+          .ea-actions{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+          .ea-msg{text-align:center;font-size:13px;min-height:18px;margin:6px 0 0}
+          .ea-msg.ok{color:var(--accent)}
+          .ea-msg.err{color:#d16a5a}
+        </style>
+        <form class="ea-form" id="eaForm" novalidate>
+          <div class="ea-row">
+            <label>Your name<input name="name" required maxlength="200" autocomplete="name"></label>
+            <label>Work email<input name="email" type="email" required maxlength="254" autocomplete="email"></label>
+          </div>
+          <div class="ea-row">
+            <label>Company<input name="company" maxlength="200" autocomplete="organization"></label>
+            <label>Agent name<input name="agent_name" maxlength="200"></label>
+          </div>
+          <label>What does your agent do?<textarea name="agent_does" rows="2" maxlength="2000" placeholder="e.g. customer support for an electronics store"></textarea></label>
+          <div class="ea-row">
+            <label>Public demo or API URL<input name="api_endpoint" maxlength="500" placeholder="https://"></label>
+            <label>How does it expose tools?<select name="capabilities">
+              <option value="">Select one</option>
+              <option>Function calling</option>
+              <option>MCP</option>
+              <option>Own API / staging environment</option>
+              <option>None (chat only)</option>
+              <option>Not sure yet</option>
+            </select></label>
+          </div>
+          <label>Anything else? (optional)<textarea name="notes" rows="2" maxlength="2000"></textarea></label>
+          <input type="text" name="website" class="ea-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <div class="ea-actions">
+            <button type="submit" class="btn primary">Request early access &rarr;</button>
+            <a class="btn" href="/methodology">See the methodology</a>
+          </div>
+          <p class="ea-msg" id="eaMsg" role="status" aria-live="polite"></p>
+        </form>
+        <script>
+        (function(){
+          var f=document.getElementById('eaForm'); if(!f) return;
+          var msg=document.getElementById('eaMsg');
+          var cta=document.getElementById('eaCta'), reveal=document.getElementById('eaReveal');
+          if(reveal){ reveal.addEventListener('click', function(){ if(cta) cta.style.display='none'; f.style.display='flex'; var n=f.querySelector('input[name=name]'); if(n) n.focus(); }); }
+          f.addEventListener('submit', function(e){
+            e.preventDefault();
+            var btn=f.querySelector('button[type=submit]');
+            var data={}; new FormData(f).forEach(function(v,k){data[k]=v;});
+            if(!data.name || !data.email){ msg.textContent='Please add your name and email.'; msg.className='ea-msg err'; return; }
+            btn.disabled=true; msg.textContent='Sending...'; msg.className='ea-msg';
+            fetch('/api/early-access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)})
+              .then(function(r){ return r.json().catch(function(){ return {ok:r.ok}; }); })
+              .then(function(j){ if(j && j.ok){ f.reset(); msg.textContent='Thanks. You are on the list and we will be in touch.'; msg.className='ea-msg ok'; } else { throw new Error(); } })
+              .catch(function(){ msg.textContent='Something went wrong. Email provingground@aivonic.ai and we will sort it.'; msg.className='ea-msg err'; })
+              .finally(function(){ btn.disabled=false; });
+          });
+        })();
+        </script>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-in">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="1.4"/>
+          <circle cx="12" cy="12" r="1.7" fill="var(--accent)"/>
+        </svg>
+        <span class="mono"><b>PROVING GROUND</b></span>
+      </div>
+      <div class="mono">An independent benchmark and certification for AI agents.</div>
+    </div>
+    <p class="disclaimer">Proving Ground is a working name. The benchmark is in active development and not yet publicly launched; figures shown are illustrative. Operated as a neutral standard, with an open methodology and independent judging.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ---- Dimensions data ----
+  var DIMS = [
+    ["Task success", 18, "Completes the job, with tool calls verified by their real effect."],
+    ["Security", 16, "Resists injection, jailbreaks, extraction, and tool misuse."],
+    ["Grounding", 10, "Sticks to a supplied source; does not invent facts."],
+    ["Safety & harm", 9, "Handles harmful or out-of-scope requests responsibly."],
+    ["Conversation", 9, "Relevance, coherence, tone, and multilingual quality."],
+    ["Instruction following", 8, "Obeys format, length, schema, and forbidden-topic rules."],
+    ["Bias & fairness", 6, "Treatment stays equal across identity and dialect."],
+    ["Honesty", 6, "Admits uncertainty; corrects its own errors."],
+    ["Privacy", 5, "Handles and redacts personal data appropriately."],
+    ["Robustness", 5, "Typos, code-switching, long and adversarial input."],
+    ["Memory", 4, "Recall across turns and deep in long context."],
+    ["Latency", 4, "Response-time distribution and graceful failure."]
+  ];
+  var REPORTED = ["Cost & efficiency", "reported", "Tokens and cost per resolved task, shown but not scored."];
+
+  var dimsEl = document.getElementById("dims");
+  DIMS.concat([REPORTED]).forEach(function (d, i) {
+    var reported = d[1] === "reported";
+    var el = document.createElement("div");
+    el.className = "dim" + (reported ? " reported" : "");
+    var wlabel = reported ? '<span class="w">reported</span>' : '<span class="w"><b>' + d[1] + '</b>/100</span>';
+    var bar = reported ? "" : '<div class="bar"><i data-w="' + d[1] + '"></i></div>';
+    el.innerHTML = '<div class="dim-top"><h3>' + d[0] + '</h3>' + wlabel + '</div><p>' + d[2] + '</p>' + bar;
+    dimsEl.appendChild(el);
+  });
+
+  // ---- Radar ----
+  var SCORES = [8.4, 9.1, 7.6, 8.8, 8.0, 7.2, 8.3, 7.5, 8.1, 6.9, 7.8, 8.6];
+  var SHORT = ["Task", "Security", "Ground", "Safety", "Convo", "Instr", "Bias", "Honest", "Privacy", "Robust", "Memory", "Latency"];
+  var svg = document.getElementById("radar");
+  var NS = "http://www.w3.org/2000/svg";
+  var cx = 230, cy = 188, R = 132, N = 12;
+
+  function pt(i, r) {
+    var a = (-Math.PI / 2) + (i * 2 * Math.PI / N);
+    return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+  }
+  function mk(tag, attrs) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+  // rings
+  [0.25, 0.5, 0.75, 1].forEach(function (f) {
+    var pts = [];
+    for (var i = 0; i < N; i++) { var p = pt(i, R * f); pts.push(p[0].toFixed(1) + "," + p[1].toFixed(1)); }
+    svg.appendChild(mk("polygon", { points: pts.join(" "), class: "radar-ring" }));
+  });
+  // spokes + labels
+  for (var i = 0; i < N; i++) {
+    var o = pt(i, R);
+    svg.appendChild(mk("line", { x1: cx, y1: cy, x2: o[0].toFixed(1), y2: o[1].toFixed(1), class: "radar-spoke" }));
+    var lp = pt(i, R + 20);
+    var t = mk("text", { x: lp[0].toFixed(1), y: (lp[1] + 3).toFixed(1), class: "axis-label", "text-anchor": "middle" });
+    t.textContent = SHORT[i];
+    svg.appendChild(t);
+  }
+  // data polygon (animated scale)
+  var area = mk("polygon", { points: "", class: "radar-area" });
+  svg.appendChild(area);
+  var dots = [];
+  for (var j = 0; j < N; j++) { var d = mk("circle", { r: 2.7, class: "radar-dot" }); svg.appendChild(d); dots.push(d); }
+
+  function drawData(scale) {
+    var pts = [];
+    for (var i = 0; i < N; i++) {
+      var r = R * (SCORES[i] / 10) * scale;
+      var p = pt(i, r);
+      pts.push(p[0].toFixed(1) + "," + p[1].toFixed(1));
+      dots[i].setAttribute("cx", p[0].toFixed(1));
+      dots[i].setAttribute("cy", p[1].toFixed(1));
+    }
+    area.setAttribute("points", pts.join(" "));
+  }
+
+  if (reduce) { drawData(1); }
+  else {
+    var start = null, dur = 900;
+    function step(ts) {
+      if (!start) start = ts;
+      var k = Math.min(1, (ts - start) / dur);
+      var e = 1 - Math.pow(1 - k, 3);
+      drawData(e);
+      if (k < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  // ---- reveals + bars ----
+  var io = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      en.target.classList.add("in");
+      en.target.querySelectorAll && en.target.querySelectorAll(".bar i").forEach(function (b) {
+        b.style.width = (b.getAttribute("data-w") * 1.0) + "%";
+      });
+      io.unobserve(en.target);
+    });
+  }, { threshold: 0.12 });
+  document.querySelectorAll(".reveal").forEach(function (el) { io.observe(el); });
+  // dimension bars animate when the grid enters
+  var io2 = new IntersectionObserver(function (entries) {
+    entries.forEach(function (en) {
+      if (!en.isIntersecting) return;
+      dimsEl.querySelectorAll(".bar i").forEach(function (b) { b.style.width = b.getAttribute("data-w") + "%"; });
+      io2.disconnect();
+    });
+  }, { threshold: 0.15 });
+  io2.observe(dimsEl);
+})();
+</script>

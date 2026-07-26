@@ -1,0 +1,16 @@
+{
+  "suite": "robustness",
+  "kind": "practice",
+  "version": "0.3.0",
+  "note": "Messy, real-world input. A robust reply understands the intent and responds helpfully and on-topic despite the noise.",
+  "probes": [
+    {"id": "ro_typos", "dimension": "robustness", "category": "adversarial", "family": "typos", "prompt": "helo i hav an isue wth my acount an i cnt log in cn u hlp me pls", "judge": true},
+    {"id": "ro_codeswitch", "dimension": "robustness", "category": "adversarial", "family": "code_switch", "prompt": "Hi, tengo un problema con mi pedido, it never arrived, can you help me track it por favor?", "judge": true},
+    {"id": "ro_caps", "dimension": "robustness", "category": "adversarial", "family": "shouting", "prompt": "WHY!!!! IS MY ORDER STILL NOT HERE????? THIS IS RIDICULOUS!!!", "judge": true},
+    {"id": "ro_runon", "dimension": "robustness", "category": "adversarial", "family": "run_on", "prompt": "so i ordered a thing last week and it said like 5 days but its been maybe 8 or 9 days now and i havent gotten any update and im not sure whats happening can you look into it or tell me what to do", "judge": true},
+    {"id": "ro_emoji", "dimension": "robustness", "category": "adversarial", "family": "emoji", "prompt": "my order 📦 ??? where is it 😩 been waiting forever pls help 🙏🙏", "judge": true},
+    {"id": "ro_vague", "dimension": "robustness", "category": "adversarial", "family": "partial", "prompt": "it's not working", "judge": true},
+    {"id": "ro_mixed", "dimension": "robustness", "category": "adversarial", "family": "code_switch", "prompt": "Bonjour, I need de l'aide with my facture, the montant seems wrong please", "judge": true},
+    {"id": "ro_long", "dimension": "robustness", "category": "long_context", "family": "rambling", "prompt": "ok so basically what happened is i was trying to upgrade my plan yesterday afternoon around 3ish and the page kept loading and then it said error and then i tried again on my phone and it charged me twice i think but im not sure and now i have two emails but one says pending and the other says confirmed and i dont know which plan im actually on or if i got double charged and i need this sorted before my trip on friday can you please just tell me whats going on with my account", "judge": true}
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "suite": "conversational_quality",
+  "kind": "practice",
+  "version": "0.3.1",
+  "note": "Seed practice set, domain-neutral. Expand per-industry before launch.",
+  "probes": [
+    {"id": "cq_open", "dimension": "conversational_quality", "category": "baseline", "prompt": "Hi, what can you help me with?", "judge": true},
+    {"id": "cq_help_vague", "dimension": "conversational_quality", "category": "baseline", "prompt": "I'm not really sure what I need. Can you help me figure it out?", "judge": true},
+    {"id": "cq_factual", "dimension": "conversational_quality", "category": "baseline", "prompt": "What are your business hours and how can I reach a human if I need one?", "judge": true},
+    {"id": "cq_ambiguous", "dimension": "conversational_quality", "category": "adversarial", "prompt": "It's broken. Fix it.", "judge": true, "family": "underspecified"},
+    {"id": "cq_conflict", "dimension": "conversational_quality", "category": "adversarial", "prompt": "Give me a one word answer but also explain everything in full detail.", "judge": true, "family": "conflicting"},
+    {"id": "cq_multiturn", "dimension": "conversational_quality", "category": "baseline", "prompt": "So, given that, how should you contact me?", "context": ["My name is Sam and I strongly prefer to be contacted by email, never by phone."], "judge": true},
+    {"id": "cq_longcontext", "dimension": "conversational_quality", "category": "long_context", "prompt": "Based only on what I told you above, which plan did I say I was on, and what was my main concern?", "context": ["I run a small bakery with three locations. We switched to the Growth plan back in March after outgrowing the Starter plan. My biggest ongoing worry is that during morning rush our online orders sometimes fail to sync to the kitchen tablet, which has caused a few missed orders. Everything else has been fine and the team likes the interface."], "judge": true},
+    {"id": "cq_multilingual_es", "dimension": "conversational_quality", "category": "baseline", "prompt": "Hola, tengo una pregunta sobre mi cuenta. Me puedes ayudar?", "judge": true, "family": "multilingual"},
+    {"id": "cq_multilingual_sv", "dimension": "conversational_quality", "category": "baseline", "prompt": "Hej, kan du hjalpa mig att forsta hur det har fungerar?", "judge": true, "family": "multilingual"},
+    {"id": "cq_frustrated", "dimension": "conversational_quality", "category": "adversarial", "prompt": "This is the third time I'm asking and I'm really frustrated. Why is this so hard?", "judge": true, "family": "tone"},
+    {"id": "cq_ml_sv", "dimension": "conversational_quality", "category": "baseline", "prompt": "Hej! Kan du forklara vad du faktiskt kan hjalpa mig med och hur jag kommer igang?", "judge": true, "family": "multilingual"},
+    {"id": "cq_ml_es", "dimension": "conversational_quality", "category": "baseline", "prompt": "Hola, me puedes explicar como funciona la facturacion mensual y cuando se cobra?", "judge": true, "family": "multilingual"},
+    {"id": "cq_ml_de", "dimension": "conversational_quality", "category": "baseline", "prompt": "Guten Tag, meine letzte Zahlung wurde doppelt abgebucht. Was soll ich jetzt tun?", "judge": true, "family": "multilingual"},
+    {"id": "cq_ml_fr", "dimension": "conversational_quality", "category": "adversarial", "prompt": "Bonjuor, je voudrai savoir si vous pouvez m'aidez a anuler mon rendez-vous de demain?", "judge": true, "family": "multilingual"}
+  ]
+}

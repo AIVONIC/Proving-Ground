@@ -1,0 +1,148 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://provingground.example/schemas/certificate-0.2.json",
+  "title": "Proving Ground Agent Certificate",
+  "description": "A signed, dated, expiring grade for a deployed agent. Vendor-neutral: no dependency on any single operator, chain, or model. Matches METHODOLOGY.md v0.2.",
+  "type": "object",
+  "required": [
+    "context",
+    "certificate_id",
+    "agent",
+    "grade",
+    "versions",
+    "issued_at",
+    "expires_at",
+    "verification_url",
+    "signature"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "context": {
+      "description": "JSON-LD context. Points only at the public schema, never an operator-internal registry.",
+      "type": "string",
+      "const": "https://provingground.example/schemas/certificate-0.2.json"
+    },
+    "certificate_id": {
+      "type": "string",
+      "description": "Stable unique id for this certificate (UUID).",
+      "format": "uuid"
+    },
+    "agent": {
+      "type": "object",
+      "required": ["name", "vendor", "adapter"],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string" },
+        "vendor": { "type": "string" },
+        "industry": { "type": "string" },
+        "adapter": {
+          "description": "Which access interface was used to grade (section 6).",
+          "type": "string",
+          "enum": ["rest", "streaming", "widget"]
+        },
+        "did": {
+          "description": "Optional decentralized identifier for an off-chain agent.",
+          "type": "string"
+        }
+      }
+    },
+    "grade": {
+      "type": "object",
+      "required": ["composite", "tier", "subscores", "critical_failures"],
+      "additionalProperties": false,
+      "properties": {
+        "composite": { "type": "number", "minimum": 0, "maximum": 100 },
+        "tier": { "type": "string", "enum": ["none", "Standard", "Premium", "Elite"] },
+        "critical_failures": { "type": "integer", "minimum": 0 },
+        "subscores": {
+          "type": "object",
+          "required": [
+            "security",
+            "conversational_quality",
+            "task_success",
+            "grounding",
+            "memory",
+            "robustness",
+            "honesty_and_escalation",
+            "latency_and_reliability",
+            "safety_and_harm",
+            "bias_and_fairness",
+            "privacy_and_data_handling",
+            "instruction_following"
+          ],
+          "additionalProperties": false,
+          "patternProperties": {
+            "^[a-z_]+$": { "type": "number", "minimum": 0, "maximum": 10 }
+          }
+        },
+        "confidence": {
+          "description": "Reported for non-deterministic agents graded over multiple runs.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runs": { "type": "integer", "minimum": 1 },
+            "variance": { "type": "number", "minimum": 0 },
+            "ci95_low": { "type": "number", "minimum": 0, "maximum": 100 },
+            "ci95_high": { "type": "number", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "operational_metrics": {
+          "description": "Measured and shown, not folded into the composite.",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "latency_p50_ms": { "type": "number", "minimum": 0 },
+            "latency_p95_ms": { "type": "number", "minimum": 0 },
+            "latency_p99_ms": { "type": "number", "minimum": 0 },
+            "avg_tokens_per_resolution": { "type": "number", "minimum": 0 }
+          }
+        }
+      }
+    },
+    "versions": {
+      "description": "Tri-version mapping. A grade is comparable only when probe and judge versions match.",
+      "type": "object",
+      "required": ["methodology", "probe_suite", "judge"],
+      "additionalProperties": false,
+      "properties": {
+        "methodology": { "type": "string", "examples": ["0.2"] },
+        "probe_suite": { "type": "string", "examples": ["0.2.0"] },
+        "judge": { "type": "string", "examples": ["0.2.0"] },
+        "judge_calibration_status": { "type": "string", "enum": ["current", "drifted", "refreshed"] },
+        "probe_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "issued_at": { "type": "string", "format": "date-time" },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "90 days after issued_at."
+    },
+    "verification_url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Resolves to the public verification page for this certificate_id."
+    },
+    "anchor": {
+      "description": "Optional tamper-proof anchor. Open standard, no single-operator dependency.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "standard": { "type": "string", "examples": ["erc-8004"] },
+        "chain": { "type": "string" },
+        "tx": { "type": "string" },
+        "record_hash": { "type": "string" }
+      }
+    },
+    "signature": {
+      "type": "object",
+      "required": ["alg", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "alg": { "type": "string", "examples": ["ed25519"] },
+        "key_id": { "type": "string" },
+        "value": { "type": "string" }
+      }
+    }
+  }
+}

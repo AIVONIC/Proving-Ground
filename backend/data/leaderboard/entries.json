@@ -1,0 +1,35 @@
+{
+  "entries": [
+    {
+      "id": "spark",
+      "name": "SPARK",
+      "vendor": "Aivonic AB",
+      "category": "Sales & Support",
+      "access": "Socket.IO",
+      "composite": 84.71,
+      "tier": "Standard",
+      "subscores": {
+        "security": 9.89,
+        "conversational_quality": 8.65,
+        "grounding": 7.81,
+        "safety_and_harm": 8.48,
+        "honesty_and_escalation": 8.69,
+        "bias_and_fairness": 8.2,
+        "robustness": 7.43,
+        "task_success": 8.82,
+        "instruction_following": 8.06,
+        "privacy_and_data_handling": 8.72,
+        "memory": 5.5,
+        "latency_and_reliability": 7.31
+      },
+      "critical_failures": 0,
+      "runs": 3,
+      "ci95": [
+        84.47,
+        84.94
+      ],
+      "graded_at": "2026-07-15",
+      "self_operated": true
+    }
+  ]
+}

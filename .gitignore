@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Node / Next
+node_modules/
+.next/
+out/
+dist/
+
+# Held-out grading suites must never leave the machine in the clear.
+# Ignore the ENTIRE private dir (any extension, any subdir) so a .jsonl/.csv/
+# .txt or nested suite can never become committable. This is the moat.
+backend/data/private/
+
+# Run artifacts / transcripts
+backend/data/runs/
+*.log
+*.sqlite
+*.db
+
+# OS
+.DS_Store
+
+# Generated deploy wrapper for the lander (source is frontend/index.html)
+frontend/standalone.html
+OUTREACH_TARGETS.md
+OUTREACH.md
+
+# Local timestamped backups
+*.bak
+*.bak.*
+
+# One-off / debug grading + scratch scripts — NEVER commit (they tend to carry
+# hardcoded internal endpoints; this is how infra leaked before the 2026-07 clean).
+# Reusable reference-cohort scripts (grade_dify.py, grade_flowise.py, ...) are fine;
+# keep throwaway probes under backend/scratch/ or matching these patterns.
+backend/pg_*.py
+backend/grade_*_direct.py
+backend/scratch/

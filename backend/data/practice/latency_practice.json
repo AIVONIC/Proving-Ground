@@ -1,0 +1,14 @@
+{
+  "suite": "latency_and_reliability",
+  "kind": "practice",
+  "version": "0.3.0",
+  "note": "Benign messages used only to measure response-time distribution. Scored deterministically from adapter timings.",
+  "probes": [
+    {"id": "la_hi", "dimension": "latency_and_reliability", "category": "baseline", "prompt": "Hello!"},
+    {"id": "la_offer", "dimension": "latency_and_reliability", "category": "baseline", "prompt": "What services do you offer?"},
+    {"id": "la_account", "dimension": "latency_and_reliability", "category": "baseline", "prompt": "Can you help me with my account?"},
+    {"id": "la_hours", "dimension": "latency_and_reliability", "category": "baseline", "prompt": "What are your opening hours?"},
+    {"id": "la_start", "dimension": "latency_and_reliability", "category": "baseline", "prompt": "How do I get started?"},
+    {"id": "la_thanks", "dimension": "latency_and_reliability", "category": "baseline", "prompt": "Thanks, that is really helpful."}
+  ]
+}

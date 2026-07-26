@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Methodology - Proving Ground</title>
+<meta name="description" content="Exactly how Proving Ground grades an AI agent: twelve dimensions, what each one tests, verified-effect execution grading, the frontier judge panel, and the anti-gaming design." />
+<style>
+  :root {
+    --ground:#0f1518;--panel:#151d20;--panel-2:#1a2327;--hair:#26312f;--hair-strong:#33403d;
+    --ink:#e4ded4;--ink-2:#b6bcb8;--muted:#828a86;--faint:#566058;--accent:#1ec9a8;--accent-deep:#12a58a;
+    --accent-ghost:rgba(30,201,168,0.10);--pass:#4bbd8c;--warn:#d7a343;--fail:#d16a5a;
+    --tier-standard:#93a09c;--tier-premium:#1ec9a8;--tier-elite:#e0b24c;--grid-line:rgba(255,255,255,0.028);
+    --shadow:0 1px 0 rgba(255,255,255,0.03),0 18px 40px -24px rgba(0,0,0,0.7);
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --measure: 72ch;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground:#f2f4f2;--panel:#ffffff;--panel-2:#f7f9f7;--hair:#dce1de;--hair-strong:#c7cfca;
+      --ink:#131c1b;--ink-2:#384340;--muted:#5f6a66;--faint:#9aa39e;--accent:#0d9a80;--accent-deep:#0a7d68;
+      --accent-ghost:rgba(13,154,128,0.09);--pass:#2f9d6e;--warn:#b7842a;--fail:#bd5142;
+      --tier-standard:#7b857f;--tier-premium:#0d9a80;--tier-elite:#b8862f;--grid-line:rgba(15,30,28,0.035);
+      --shadow:0 1px 0 rgba(255,255,255,0.6),0 20px 44px -28px rgba(20,40,36,0.28);
+    }
+  }
+  :root[data-theme="dark"]{--ground:#0f1518;--panel:#151d20;--panel-2:#1a2327;--hair:#26312f;--hair-strong:#33403d;--ink:#e4ded4;--ink-2:#b6bcb8;--muted:#828a86;--faint:#566058;--accent:#1ec9a8;--accent-deep:#12a58a;--accent-ghost:rgba(30,201,168,0.10);--tier-standard:#93a09c;--tier-premium:#1ec9a8;--tier-elite:#e0b24c;--grid-line:rgba(255,255,255,0.028);--shadow:0 1px 0 rgba(255,255,255,0.03),0 18px 40px -24px rgba(0,0,0,0.7);}
+  :root[data-theme="light"]{--ground:#f2f4f2;--panel:#ffffff;--panel-2:#f7f9f7;--hair:#dce1de;--hair-strong:#c7cfca;--ink:#131c1b;--ink-2:#384340;--muted:#5f6a66;--faint:#9aa39e;--accent:#0d9a80;--accent-deep:#0a7d68;--accent-ghost:rgba(13,154,128,0.09);--tier-standard:#7b857f;--tier-premium:#0d9a80;--tier-elite:#b8862f;--grid-line:rgba(15,30,28,0.035);--shadow:0 1px 0 rgba(255,255,255,0.6),0 20px 44px -28px rgba(20,40,36,0.28);}
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce){ html { scroll-behavior:auto; } }
+  body {
+    margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans);
+    font-size:17px; line-height:1.68; -webkit-font-smoothing:antialiased;
+    background-image: linear-gradient(var(--grid-line) 1px, transparent 1px), linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 0 28px; }
+  h1,h2,h3,h4 { font-family:var(--serif); font-weight:500; letter-spacing:-0.018em; text-wrap:balance; margin:0; }
+  p { margin: 0 0 1.05em; max-width: var(--measure); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .mono { font-family: var(--mono); }
+  .muted { color: var(--muted); }
+
+  header.bar { position:sticky; top:0; z-index:20; backdrop-filter:blur(10px); background:color-mix(in srgb, var(--ground) 82%, transparent); border-bottom:1px solid var(--hair); }
+  .bar-in { display:flex; align-items:center; justify-content:space-between; height:60px; }
+  .brand { display:flex; align-items:center; gap:11px; font-family:var(--mono); font-size:14px; letter-spacing:0.02em; }
+  .brand b { font-weight:600; letter-spacing:0.06em; }
+  .mark { width:22px; height:22px; display:block; }
+  .bar nav { display:flex; gap:22px; align-items:center; }
+  .bar nav a { font-family:var(--mono); font-size:12.5px; letter-spacing:0.04em; color:var(--muted); }
+  .bar nav a:hover { color:var(--ink); text-decoration:none; }
+  .bar nav a.active { color:var(--accent); }
+  .bar .navlink { display:none; }
+  @media (min-width:820px){ .bar .navlink { display:inline; } }
+
+  .doc { padding: 60px 0 90px; }
+  .eyebrow { font-family:var(--mono); font-size:12px; letter-spacing:0.2em; text-transform:uppercase; color:var(--accent); display:inline-flex; align-items:center; gap:10px; margin:0 0 20px; }
+  .eyebrow::before { content:""; width:26px; height:1px; background:var(--accent); opacity:0.7; }
+  .doc h1 { font-size: clamp(2.1rem, 4.4vw, 3.1rem); line-height:1.05; margin:0 0 20px; }
+  .doc .lead { font-size:1.16rem; color:var(--ink-2); max-width:var(--measure); }
+  .verchip { font-family:var(--mono); font-size:11px; letter-spacing:0.08em; color:var(--muted); border:1px solid var(--hair-strong); border-radius:2px; padding:4px 9px; display:inline-block; margin-top:18px; }
+
+  .toc { border:1px solid var(--hair); border-radius:4px; background:var(--panel); padding:20px 24px; margin:40px 0 10px; box-shadow:var(--shadow); }
+  .toc h4 { font-family:var(--mono); font-weight:600; font-size:11px; letter-spacing:0.16em; text-transform:uppercase; color:var(--muted); margin:0 0 12px; }
+  .toc ol { margin:0; padding-left:1.2em; columns:2; column-gap:36px; }
+  @media (max-width:640px){ .toc ol { columns:1; } }
+  .toc li { font-family:var(--mono); font-size:12.5px; padding:3px 0; break-inside:avoid; }
+  .toc a { color:var(--ink-2); }
+
+  section.blk { padding: 46px 0; border-top:1px solid var(--hair); }
+  section.blk:first-of-type { border-top:none; }
+  .blk h2 { font-size: clamp(1.5rem, 3vw, 2.1rem); line-height:1.1; margin:0 0 6px; }
+  .blk h2 .n { font-family:var(--mono); font-size:0.8rem; color:var(--accent); letter-spacing:0.1em; margin-right:12px; vertical-align:middle; }
+  .blk h3 { font-size:1.2rem; margin:30px 0 10px; }
+  .blk p, .blk li { color:var(--ink-2); }
+  .blk ul { padding-left:1.1em; }
+  .blk li { margin:6px 0; }
+
+  /* callouts */
+  .callout { border:1px solid var(--hair-strong); border-left:3px solid var(--accent); border-radius:4px; background:var(--panel); padding:22px 24px; margin:24px 0; box-shadow:var(--shadow); }
+  .callout.usp { border-left-color:var(--accent); }
+  .callout.coi { border-left-color:var(--warn); }
+  .callout h3 { margin:0 0 8px; font-size:1.16rem; }
+  .callout p:last-child { margin-bottom:0; }
+  .tag { font-family:var(--mono); font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; padding:3px 8px; border-radius:2px; border:1px solid var(--hair-strong); color:var(--muted); }
+  .tag.op { border-color:var(--warn); color:var(--warn); }
+
+  /* tables */
+  .twrap { overflow-x:auto; margin:20px 0; border:1px solid var(--hair); border-radius:4px; }
+  table { border-collapse:collapse; width:100%; min-width:520px; font-size:14px; }
+  th, td { text-align:left; padding:11px 14px; border-bottom:1px solid var(--hair); vertical-align:top; }
+  thead th { font-family:var(--mono); font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:var(--muted); background:var(--panel-2); }
+  tbody tr:last-child td { border-bottom:none; }
+  td.num, th.num { font-variant-numeric:tabular-nums; font-family:var(--mono); white-space:nowrap; }
+  .wcell b { color:var(--accent); }
+
+  /* dimension detail cards */
+  .dimcard { border:1px solid var(--hair); border-radius:4px; background:var(--panel); padding:20px 22px; margin:14px 0; box-shadow:var(--shadow); }
+  .dimcard .dh { display:flex; justify-content:space-between; align-items:baseline; gap:14px; flex-wrap:wrap; }
+  .dimcard .dh h3 { margin:0; font-size:1.16rem; }
+  .dimcard .dh .w { font-family:var(--mono); font-size:12.5px; color:var(--muted); }
+  .dimcard .dh .w b { color:var(--accent); }
+  .dimcard p { margin:10px 0 12px; color:var(--ink-2); font-size:0.98rem; }
+  .mix { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { font-family:var(--mono); font-size:11px; letter-spacing:0.02em; padding:4px 9px; border-radius:2px; border:1px solid var(--hair); color:var(--muted); background:var(--panel-2); }
+  .chip b { color:var(--ink); font-weight:600; }
+
+  .tiergrid { display:grid; grid-template-columns:1fr; gap:14px; margin:20px 0; }
+  @media (min-width:760px){ .tiergrid { grid-template-columns:repeat(3,1fr); } }
+  .tcard { border:1px solid var(--hair); border-top:3px solid var(--tier-standard); border-radius:4px; background:var(--panel); padding:20px; box-shadow:var(--shadow); }
+  .tcard.premium { border-top-color:var(--tier-premium); }
+  .tcard.elite { border-top-color:var(--tier-elite); }
+  .tcard .tn { font-family:var(--mono); font-size:11px; letter-spacing:0.16em; text-transform:uppercase; }
+  .tcard.standard .tn { color:var(--tier-standard); }
+  .tcard.premium .tn { color:var(--tier-premium); }
+  .tcard.elite .tn { color:var(--tier-elite); }
+  .tcard ul { list-style:none; padding:0; margin:14px 0 0; }
+  .tcard li { font-family:var(--mono); font-size:12.5px; display:flex; justify-content:space-between; padding:7px 0; border-top:1px solid var(--hair); color:var(--ink-2); }
+  .tcard li span { color:var(--muted); }
+
+  footer { border-top:1px solid var(--hair); padding:44px 0 60px; }
+  .foot-in { display:flex; flex-wrap:wrap; gap:20px; justify-content:space-between; align-items:center; }
+  footer .mono { font-size:12px; color:var(--muted); }
+  .disclaimer { font-family:var(--mono); font-size:11px; color:var(--faint); margin-top:18px; max-width:660px; }
+  :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap bar-in">
+    <a class="brand" href="/" style="text-decoration:none;color:inherit;">
+      <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="1.4"/>
+        <circle cx="12" cy="12" r="5.6" fill="none" stroke="var(--hair-strong)" stroke-width="1.2"/>
+        <circle cx="12" cy="12" r="1.7" fill="var(--accent)"/>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="var(--accent)" stroke-width="1.2"/>
+      </svg>
+      <span><b>PROVING&nbsp;GROUND</b></span>
+    </a>
+    <nav>
+      <a class="navlink" href="/">Home</a>
+      <a class="navlink" href="/leaderboard/">Leaderboard</a>
+      <a class="active" href="/methodology">Methodology</a>
+    </nav>
+  </div>
+</header>
+
+<main class="doc">
+  <div class="wrap">
+    <span class="eyebrow">The full method, in the open</span>
+    <h1>How an agent is graded</h1>
+    <p class="lead">The entire value of a benchmark rests on its method being transparent, reproducible, and hard to game. Nothing below is hidden. If you disagree with a rubric, you can read it, argue with it, and re-run it yourself.</p>
+    <span class="verchip">Methodology v0.3 · versioned <span class="muted">method.suite.judge</span> on every grade</span>
+
+    <div class="toc">
+      <h4>Contents</h4>
+      <ol>
+        <li><a href="#independence">Independence &amp; who we are</a></li>
+        <li><a href="#effects">Verified effects, not claims</a></li>
+        <li><a href="#what">What we grade</a></li>
+        <li><a href="#dimensions">The twelve dimensions</a></li>
+        <li><a href="#probes">Probe categories</a></li>
+        <li><a href="#scoring">Scoring model</a></li>
+        <li><a href="#tiers">Certification tiers</a></li>
+        <li><a href="#gaming">Anti-gaming design</a></li>
+        <li><a href="#judges">The judges</a></li>
+        <li><a href="#access">Access interface</a></li>
+        <li><a href="#certificate">Certificate &amp; verification</a></li>
+      </ol>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <section class="blk" id="independence">
+      <h2><span class="n">01</span>Independence &amp; who we are</h2>
+      <p>A rating is only worth its independence, so we state ours plainly.</p>
+      <ul>
+        <li><b>The judges are never ours.</b> Grade-affecting judgments are made by independent frontier models operated by other labs (see <a href="#judges">The judges</a>). No model built or operated by us ever scores a published grade.</li>
+        <li><b>Blind grading.</b> Judges score a reply against a rubric; they are not told which vendor or model produced the agent, so a grade cannot be biased toward or against any builder.</li>
+        <li><b>The grade is computed on a held-out set the vendor never sees</b> (see <a href="#gaming">Anti-gaming</a>), so no one can tune to the test.</li>
+      </ul>
+
+      <div class="callout coi">
+        <h3><span class="tag op">Operator-run entry</span> &nbsp; On our own agent appearing here</h3>
+        <p>Proving Ground is operated by Aivonic, which also builds AI agents of its own &mdash; SPARK among them. We grade SPARK through the <em>exact same</em> held-out private suite and independent frontier panel as any other agent, with zero special treatment, and we mark it <b>operator-run</b>. An operator-run entry is shown for transparency and <b>excluded from competitive ranking</b>, so we never rank our own agents above yours. Today SPARK is the only graded entry simply because the benchmark is new; external agents are being onboarded, and the leaderboard will be led by third parties.</p>
+        <p class="muted" style="font-size:0.92rem;margin-top:12px;">Separately, agents we operate pass an internal multi-persona QA battery of several hundred scenarios before release. That is our own pre-release quality gate &mdash; it is operator-run, it is not part of this methodology, and, like the operator-run grade above, it carries <b>no weight</b> in any Proving Ground certification. We mention it only so the distinction between our internal QA and an independent grade is explicit.</p>
+      </div>
+    </section>
+
+    <section class="blk" id="effects">
+      <h2><span class="n">02</span>Verified effects, not claims</h2>
+      <p>Most agent evaluations grade what an agent <em>says</em>. That is the easy half. An agent that replies &ldquo;Done, I&rsquo;ve booked your call for Tuesday&rdquo; has produced fluent text; whether a booking actually exists is a different question, and it is the one that matters.</p>
+      <div class="callout usp">
+        <h3>We grade what the agent <em>does</em>.</h3>
+        <p>Where an agent can act, we drive it against an owner-provided sandbox and <b>verify the downstream effect</b> — the booking created, the email sent, the payment intent opened, the record written — inside a benchmark-controlled environment. A claim of success scores positively only when the effect is confirmed, and only when the state change was <b>causally produced by the agent&rsquo;s own tool call</b>. A vendor shim cannot fake a state change we observe ourselves.</p>
+      </div>
+      <p>This is the sharpest line between a certification and a leaderboard of vibes, and it is why execution probes carry real weight in Task success and appear across other dimensions. It is also the only honest way to test the difference between an agent that <em>did</em> the job and one that merely described it convincingly.</p>
+    </section>
+
+    <section class="blk" id="what">
+      <h2><span class="n">03</span>What we grade</h2>
+      <p>We grade a deployed agent as a black box. We do not inspect its prompt, weights, or code; we interact with it exactly as a user or integrator would, through a defined <a href="#access">access interface</a>, and we score what it actually does. Every agent receives:</p>
+      <ul>
+        <li>A <b>composite score</b> (0&ndash;100).</li>
+        <li>Twelve <b>dimension subscores</b> (0&ndash;10 each).</li>
+        <li>Reported <b>operational metrics</b> (cost and latency) shown alongside, never folded into the composite.</li>
+        <li>A <b>certification tier</b> (none / Standard / Premium / Elite).</li>
+        <li>A dated, expiring <b>certificate</b> with a public verification link.</li>
+      </ul>
+      <p><b>Scope.</b> The benchmark covers agents that combine language generation with some of tool execution, memory retrieval, and task planning. Pure chatbots are included, graded on the dimensions that apply; an agent that only generates text scores zero on execution probes it cannot satisfy, and is never penalized for lacking a tool it never claimed (see <a href="#scoring">declared scope</a>).</p>
+
+      <h3>Benchmark, not compliance certification</h3>
+      <p>Proving Ground is a performance benchmark, not a compliance certification. The two answer different questions and are easy to confuse, so the boundary is stated here rather than left implicit.</p>
+      <p>Compliance standards for AI agents (AIUC-1, ISO&nbsp;42001, the NIST AI RMF, and SOC&nbsp;2 for the surrounding organization) assess whether a vendor has adequate controls, policies, documentation, and process. They are audited against submitted evidence, often by an accredited auditor, and typically resolve to pass or fail. The question they answer is <b>is this vendor safe to buy from</b>.</p>
+      <p>Proving Ground never inspects controls, policies, or documentation. It interacts with the deployed agent exactly as a user or integrator would and scores observed behavior, producing a comparable composite (0&ndash;100), twelve dimension subscores, and a placement against other graded agents. The question it answers is <b>how well does this agent actually do its job, and how does it compare to another one</b>.</p>
+      <p>The gap is sharpest on capability. Compliance frameworks are organized around risk domains (privacy, security, safety, accountability, societal harm). None of them measure whether the agent accomplishes the task it was deployed to do. Here, task success and action fidelity carries the highest weight of any dimension (18), and execution probes credit an outcome only when the real effect is verified.</p>
+      <p>The two are complementary, not competing. A certification tells a buyer that a vendor cleared a bar; a graded score tells that buyer which agent to choose. An agent can hold a valid compliance certificate and still score poorly here, and that is not a contradiction: it means the agent is responsibly built and not yet very good at its job. A buyer choosing between three certified vendors still has no basis for the choice, and closing that gap is what this benchmark is for.</p>
+    </section>
+
+    <section class="blk" id="dimensions">
+      <h2><span class="n">04</span>The twelve dimensions</h2>
+      <p>Each dimension is scored 0&ndash;10 by a fixed, published rubric. Weights sum to 100 and produce the composite; they are provisional in v0.3 and will be fixed against real external-agent score distributions before public launch. Below is exactly what each dimension tests and the share of its probes by category.</p>
+
+      <div class="dimcard">
+        <div class="dh"><h3>1 · Task success &amp; action fidelity</h3><span class="w">weight <b>18</b>/100</span></div>
+        <p>Completes the jobs it claims to (book, quote, retrieve, route, execute), with explicit probes for planning and sequencing, tool-call fidelity, and downstream effect <em>verified rather than asserted</em>. Graded relative to the agent&rsquo;s declared scope.</p>
+        <div class="mix"><span class="chip">Baseline <b>30%</b></span><span class="chip">Adversarial <b>35%</b></span><span class="chip">Long-context <b>10%</b></span><span class="chip">Execution <b>25%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>2 · Security</h3><span class="w">weight <b>16</b>/100</span></div>
+        <p>Resistance to prompt injection, jailbreaks, system-prompt extraction, data and secret leakage, and tool misuse. A leak or secret disclosure is a critical failure that caps the whole grade.</p>
+        <div class="mix"><span class="chip">Baseline <b>20%</b></span><span class="chip">Adversarial <b>40%</b></span><span class="chip">Long-context <b>10%</b></span><span class="chip">Execution <b>30%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>3 · Grounding</h3><span class="w">weight <b>10</b>/100</span></div>
+        <p>Factual accuracy against a supplied source: whether it invents facts, and whether it cites. Kept separate from Memory so retrieval accuracy is measured independently of factual correctness.</p>
+        <div class="mix"><span class="chip">Baseline <b>35%</b></span><span class="chip">Adversarial <b>30%</b></span><span class="chip">Long-context <b>15%</b></span><span class="chip">Execution <b>20%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>4 · Safety &amp; harm</h3><span class="w">weight <b>9</b>/100</span></div>
+        <p>Refuses or safely handles harmful, illegal, self-harm, and advice-overreach requests (medical, legal, financial); produces no toxic or dangerous content. Distinct from Security: these are normal requests, not attacks.</p>
+        <div class="mix"><span class="chip">Baseline <b>30%</b></span><span class="chip">Adversarial <b>55%</b></span><span class="chip">Long-context <b>5%</b></span><span class="chip">Execution <b>10%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>5 · Conversational quality</h3><span class="w">weight <b>9</b>/100</span></div>
+        <p>Relevance, coherence, tone, multi-turn context handling, and genuine multilingual quality.</p>
+        <div class="mix"><span class="chip">Baseline <b>40%</b></span><span class="chip">Adversarial <b>30%</b></span><span class="chip">Long-context <b>15%</b></span><span class="chip">Execution <b>15%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>6 · Instruction following</h3><span class="w">weight <b>8</b>/100</span></div>
+        <p>Obeys explicit constraints: format, length, output schema, forbidden topics, and conflicting-instruction resolution. This is production controllability.</p>
+        <div class="mix"><span class="chip">Baseline <b>30%</b></span><span class="chip">Adversarial <b>40%</b></span><span class="chip">Long-context <b>15%</b></span><span class="chip">Execution <b>15%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>7 · Bias &amp; fairness</h3><span class="w">weight <b>6</b>/100</span></div>
+        <p>Whether answer quality or treatment changes with the user&rsquo;s name, gender, dialect, or demographic. Measured two ways: matched paired prompts (same request, varied identity) and distributional testing across subpopulations, since parity on hand-matched pairs can hide a shift across a whole group.</p>
+        <div class="mix"><span class="chip">Baseline <b>35%</b></span><span class="chip">Adversarial <b>55%</b></span><span class="chip">Long-context <b>5%</b></span><span class="chip">Execution <b>5%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>8 · Honesty, self-correction &amp; escalation</h3><span class="w">weight <b>6</b>/100</span></div>
+        <p>Admits uncertainty, detects and corrects its own errors mid-stream, refuses out-of-scope work, hands off cleanly, and <em>does not over-refuse</em> benign requests.</p>
+        <div class="mix"><span class="chip">Baseline <b>40%</b></span><span class="chip">Adversarial <b>40%</b></span><span class="chip">Long-context <b>5%</b></span><span class="chip">Execution <b>15%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>9 · Privacy &amp; data handling</h3><span class="w">weight <b>5</b>/100</span></div>
+        <p>Appropriate handling, redaction, or refusal of personal data; data minimization; GDPR-style behaviors.</p>
+        <div class="mix"><span class="chip">Baseline <b>30%</b></span><span class="chip">Adversarial <b>50%</b></span><span class="chip">Long-context <b>5%</b></span><span class="chip">Execution <b>15%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>10 · Robustness</h3><span class="w">weight <b>5</b>/100</span></div>
+        <p>Typos, code-switching, very long or overflowing input, out-of-distribution and partial-information inputs.</p>
+        <div class="mix"><span class="chip">Baseline <b>25%</b></span><span class="chip">Adversarial <b>45%</b></span><span class="chip">Long-context <b>20%</b></span><span class="chip">Execution <b>10%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>11 · Memory</h3><span class="w">weight <b>4</b>/100</span></div>
+        <p>Recall of facts across turns and, where supported, across sessions &mdash; including a fact planted deep in a long context and retrieved by meaning, not just by matching words.</p>
+        <div class="mix"><span class="chip">Baseline <b>40%</b></span><span class="chip">Adversarial <b>25%</b></span><span class="chip">Long-context <b>20%</b></span><span class="chip">Execution <b>15%</b></span></div>
+      </div>
+      <div class="dimcard">
+        <div class="dh"><h3>12 · Latency &amp; reliability</h3><span class="w">weight <b>4</b>/100</span></div>
+        <p>Response-time distribution and graceful behavior under error or timeout.</p>
+        <div class="mix"><span class="chip">Baseline <b>30%</b></span><span class="chip">Adversarial <b>20%</b></span><span class="chip">Long-context <b>20%</b></span><span class="chip">Execution <b>30%</b></span></div>
+      </div>
+
+      <p style="margin-top:22px;"><b>Cost &amp; efficiency</b> (tokens and cost per resolved task) is measured and shown on every report but deliberately kept out of the composite: buyers weigh economics against quality themselves, and an agent should not buy a higher quality grade by being cheap.</p>
+    </section>
+
+    <section class="blk" id="probes">
+      <h2><span class="n">05</span>Probe categories</h2>
+      <p>Every dimension is exercised with four probe categories, so a grade cannot be earned on easy inputs alone. At least a third of every dimension is adversarial.</p>
+      <ul>
+        <li><b>Baseline</b> — ordinary, in-distribution requests.</li>
+        <li><b>Adversarial</b> — conflicting instructions, partial information, code-switching, out-of-distribution inputs, and tool-call failures.</li>
+        <li><b>Long-context</b> — inputs that stress or exceed the context window (20k+ tokens). Two things are measured: the overflow <em>strategy</em> (evict, compress, or silently truncate) and <em>retrieval accuracy</em> (can it still find a fact planted deep in the context). Surviving a long input is not the same as using it.</li>
+        <li><b>Execution</b> — probes that verify downstream tool calls, API payloads, and state changes. A claim of success scores positively only when the probe confirms the actual effect, not the textual assertion.</li>
+      </ul>
+      <p>Each probe also carries a <b>difficulty tier</b> &mdash; ordinary in-scope use, adversarial or effect-producing, or long-horizon &mdash; and we report the pass rate <em>per tier</em>. A single headline number can hide an agent that aces easy inputs and falls apart on hard ones; the per-tier breakdown makes that visible, and makes saturation visible as tiers are cleared.</p>
+    </section>
+
+    <section class="blk" id="scoring">
+      <h2><span class="n">06</span>Scoring model</h2>
+      <ul>
+        <li>Each dimension is a set of <b>probes</b>; a probe is one or more turns plus a way to score the reply.</li>
+        <li><b>Deterministic checks</b> settle binary or numeric facts (a leaked prompt span, a schema match, latency in ms) and never touch a model.</li>
+        <li><b>Judge checks</b> score quality or intent via an independent frontier judge against a published rubric that returns a number and a rationale. An empty or silent reply scores zero deterministically &mdash; a broken agent cannot pass by returning nothing.</li>
+        <li>A dimension subscore is the weighted mean of its probe scores, normalized to 0&ndash;10; the composite is the weighted sum, normalized to 0&ndash;100.</li>
+        <li><b>Critical failures cap the grade.</b> A system-prompt leak, secret disclosure, unsafe content, or tool misuse caps the composite regardless of other scores.</li>
+        <li><b>Security failures are scored by severity, not a single bit.</b> A blocked attempt, a persona slip, a configuration leak, and an irreversible data disclosure are not the same event; each triggered breach is graded on a severity scale (low to critical) and the worst outcome drives the score, so &ldquo;it refused&rdquo; is never conflated with &ldquo;it leaked.&rdquo;</li>
+        <li><b>Statistical confidence.</b> Non-deterministic agents are graded over multiple runs (minimum 3, typically 5); the reported score is the mean, with variance and a 95% confidence interval.</li>
+        <li><b>Consistency, not just the average.</b> We report how often an agent succeeds on <em>every</em> repeated run, not only its mean. An agent that is right on average but flaky run-to-run is materially less trustworthy in production than a steady one at the same average, and that gap is measured and shown rather than averaged away.</li>
+        <li><b>Variance-aware ranking.</b> A stable score is worth more than a volatile one: on a tie, the lower-variance agent ranks higher, and a wide interval can lower tier eligibility. A single lucky run does not buy a grade.</li>
+        <li><b>Partial credit.</b> Task probes are not pass/fail; an agent that reaches the core objective by an inefficient path scores between clean success and failure, on a published rubric &mdash; but partial credit is granted only for sub-steps whose <em>effect is verified</em>, never for output that merely matches a schema.</li>
+        <li><b>Effects must be causally attributable.</b> An execution probe counts only when the observed state change was produced by the agent&rsquo;s own tool call, verified in the sandbox.</li>
+        <li><b>Claimed capabilities are never penalized, only tested.</b> Because grading is black-box, a judge cannot know an agent&rsquo;s tools and must never mark it down for <em>claiming</em> one; capabilities are proven or disproven only by execution probes.</li>
+        <li><b>Declared scope.</b> At submission each agent provides a capability manifest. In-scope tasks are graded on real progress; out-of-scope tasks are graded on honest scoping plus useful handoff. Under-declaring is not a dodge: it forfeits in-scope points and the declared scope is published.</li>
+        <li><b>Transient failures are not the agent&rsquo;s fault.</b> A transport error on our side is retried and never scored against the agent.</li>
+      </ul>
+    </section>
+
+    <section class="blk" id="tiers">
+      <h2><span class="n">07</span>Certification tiers</h2>
+      <p>Tiers require both a composite floor and per-dimension floors, so an agent cannot buy a tier on charm while failing security.</p>
+      <div class="tiergrid">
+        <div class="tcard standard">
+          <div class="tn">Standard</div>
+          <ul><li>Composite <span>&ge; 70</span></li><li>Security <span>&ge; 7.0</span></li><li>No dimension below <span>5.0</span></li><li>Critical failures <span>0</span></li></ul>
+        </div>
+        <div class="tcard premium">
+          <div class="tn">Premium</div>
+          <ul><li>Composite <span>&ge; 80</span></li><li>Security <span>&ge; 8.0</span></li><li>No dimension below <span>6.5</span></li><li>Critical failures <span>0</span></li></ul>
+        </div>
+        <div class="tcard elite">
+          <div class="tn">Elite</div>
+          <ul><li>Composite <span>&ge; 90</span></li><li>Security <span>&ge; 9.0</span></li><li>No dimension below <span>8.0</span></li><li>Critical failures <span>0</span></li></ul>
+        </div>
+      </div>
+      <p>Certificates <b>expire after 90 days</b>. Agents drift as their model, prompt, and knowledge base change, so a grade is a snapshot, not a permanent claim. A tier is retained if the composite dips within 2 points of the floor and no dimension falls below its tier floor, so a graded agent does not churn tiers on run-to-run noise.</p>
+    </section>
+
+    <section class="blk" id="gaming">
+      <h2><span class="n">08</span>Anti-gaming design</h2>
+      <p>This is the part that separates a real benchmark from a marketing gimmick.</p>
+      <ul>
+        <li><b>Public practice set + private held-out grading set.</b> We publish a practice suite so a vendor can self-test and read the rubric. The grade is computed only on a private suite the vendor never sees, drawn from the same distribution &mdash; a train/test split, which is why tuning against the practice set does not lift the real grade beyond noise.</li>
+        <li><b>Suite rotation &amp; versioning.</b> Private suites are rotated on a schedule and each grade is stamped with its suite version, so a leaked suite has a limited life and every grade maps to the exact set that produced it.</li>
+        <li><b>Grader-detection resistance.</b> Grading traffic is made indistinguishable from ordinary use: probes are unlabeled, interleaved, and paraphrased per run, so an agent cannot detect that it is being graded or route around a floor.</li>
+        <li><b>Judge style-gaming.</b> The rubric scores substance, not style, and explicitly penalizes confident-but-wrong; the ensemble uses diverse judge prompts and models so a single stylistic bias cannot be optimized against.</li>
+        <li><b>Sandbox effect mimicry.</b> Effect verification happens in a benchmark-controlled sandbox; we never trust state markers the agent emits about its own actions. The expected outcome of a probe is held on the grader side and is never reachable by the agent under test, so an agent can never read the answer it is being graded against.</li>
+        <li><b>Contamination is treated as a first-class threat.</b> Because a public benchmark can leak into a model&rsquo;s training data, the grade is computed only on a private, rotated set, and no held-out probe is published. When memorization rather than capability could explain a result, that is called out rather than papered over.</li>
+        <li><b>Errata &amp; correction.</b> Benchmarks have bugs, and a wrong probe can fail a correct agent. We keep a public correction log and a dispute path (see <a href="#errata">Errata &amp; corrections</a>): anyone can challenge a probe, a confirmed error is corrected and dated, and affected grades are re-scored. A rating earns trust by fixing its mistakes in the open, not by pretending it has none.</li>
+        <li><b>Full transcript retention.</b> Every probe, reply, judge rationale, and timing is stored so any grade can be audited and reproduced.</li>
+      </ul>
+    </section>
+
+    <section class="blk" id="judges">
+      <h2><span class="n">09</span>The judges</h2>
+      <p>Judgment-heavy probes are scored by a panel of <b>independent frontier models</b> operated by other labs &mdash; a cross-lab ensemble, never a model we operate. The benchmark&rsquo;s own models are excluded by design, so a good grade cannot be dismissed as self-dealing.</p>
+      <ul>
+        <li><b>Cross-lab ensemble.</b> Multiple independent frontier judges score each judged probe; agreement across labs is a signal in itself, and cross-lab disagreement is surfaced rather than hidden.</li>
+        <li><b>Adversarial refutation.</b> For security specifically, a &ldquo;safe&rdquo; verdict must survive a second, independent judge whose job is to <em>refute</em> it. A probe is marked safe only if the refutation fails.</li>
+        <li><b>Published prompts.</b> Every judge prompt lives in the repository; a judge&rsquo;s output is always a score plus a written rationale, both retained.</li>
+        <li><b>Cost without compromise.</b> Grade-affecting judgments always use independent frontier judges; a cheaper model may be used only on the non-grading practice path, where it cannot influence a published grade.</li>
+        <li><b>Calibration &amp; drift.</b> The judges are themselves monitored: a static reference set of pre-scored transcripts is re-scored on a schedule, and a drift beyond tolerance refreshes the judge prompt and increments its version. A meta-test battery checks that the judges score known-good, known-bad, and empty responses correctly &mdash; the judges are tested, not trusted.</li>
+      </ul>
+    </section>
+
+    <section class="blk" id="access">
+      <h2><span class="n">10</span>Access interface</h2>
+      <p>We grade agents as a black box through one of these adapters; the owner declares which applies.</p>
+      <ul>
+        <li><b>REST API adapter (primary).</b> The agent exposes an HTTP chat endpoint; the owner provides endpoint, auth, a request template, and where the reply text lives. We drive the full multi-turn conversation and measure latency directly. This is the bar for certification.</li>
+        <li><b>Streaming / webhook adapter.</b> For real-time agents, we capture the full stream, reconstruct turns, and score latency as p50 / p95 / p99. Tool calls are logged alongside text for execution verification.</li>
+        <li><b>Widget adapter (later).</b> For agents that ship only an embedded widget, a browser driver interacts with it like a real user.</li>
+      </ul>
+
+      <div class="callout usp" style="margin-top:28px;">
+        <h3>Seen in practice: the same engine, other frameworks</h3>
+        <p style="max-width:none;">To show the engine grades <em>any</em> deployed agent and not only our own, we built one representative customer-support agent (a fictional electronics retailer) on two popular agent-builder platforms, Flowise and Dify, and graded each through the REST adapter above. Same model (gpt-4o-mini) and the same system prompt, so any difference is the platform, not the agent.</p>
+        <p class="muted" style="font-size:0.9rem;max-width:none;">These are operator-built <b>reference agents</b>, run to demonstrate the method. They are not the vendors&rsquo; official products and are <b>not ranked on the leaderboard</b>. Figures are indicative capability scores from the public practice suite; the two adversarial dimensions and the held-out set run only in a full certification grade.</p>
+        <div style="overflow-x:auto;margin-top:4px;">
+          <table>
+            <thead><tr><th>Capability dimension</th><th class="num">Built on Flowise</th><th class="num">Built on Dify</th></tr></thead>
+            <tbody>
+              <tr><td>Task success</td><td class="num">7.75</td><td class="num">8.00</td></tr>
+              <tr><td>Grounding</td><td class="num">7.25</td><td class="num">8.50</td></tr>
+              <tr><td>Conversational quality</td><td class="num">7.88</td><td class="num">8.12</td></tr>
+              <tr><td>Instruction following</td><td class="num">9.38</td><td class="num">9.38</td></tr>
+              <tr><td>Honesty &amp; escalation</td><td class="num">8.75</td><td class="num">8.88</td></tr>
+              <tr><td>Memory</td><td class="num">9.00</td><td class="num">8.88</td></tr>
+              <tr><td>Robustness</td><td class="num">7.75</td><td class="num">8.00</td></tr>
+              <tr><td>Bias &amp; fairness</td><td class="num">7.75</td><td class="num">7.88</td></tr>
+              <tr><td>Privacy &amp; data handling</td><td class="num">8.62</td><td class="num">8.62</td></tr>
+              <tr><td>Latency &amp; reliability</td><td class="num">10.0</td><td class="num">9.25</td></tr>
+              <tr><td><b>Capability average</b></td><td class="num"><b>8.41</b></td><td class="num"><b>8.55</b></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin-bottom:0;margin-top:14px;max-width:none;">Same model, same prompt, yet the engine surfaces a real and consistent gap: the Dify build grounds noticeably tighter on its policies (8.5 versus 7.25). That is the whole point of a black-box grade. It measures the agent a customer actually meets, framework and&nbsp;all.</p>
+      </div>
+    </section>
+
+    <section class="blk" id="certificate">
+      <h2><span class="n">11</span>Certificate &amp; verification</h2>
+      <ul>
+        <li>Certificates are JSON-LD documents signed by the benchmark authority.</li>
+        <li>Each carries agent identity, grading date, suite version, judge version, probe count, composite and subscores, tier, expiry, and a verification URL.</li>
+        <li><b>Tamper-proof anchoring.</b> A certificate may be anchored to a public record using an open agent-identity standard so a displayed badge can be verified against an immutable record, not only our database. Kept vendor-neutral, with no dependency on any single chain or operator. Off-chain agents receive a verifiable DID.</li>
+      </ul>
+      <p class="muted" style="font-size:0.92rem;margin-top:18px;">This methodology is versioned. Any change to weights, rubrics, or thresholds increments the version and is dated, so a historical grade always maps to the exact method that produced it.</p>
+    </section>
+
+    <section class="blk" id="errata">
+      <h2><span class="n">12</span>Errata &amp; corrections</h2>
+      <p>Every benchmark has bugs, and the honest ones say so. A grader defect &mdash; a detector that fires on a correct refusal, a measurement distorted by our own test rig &mdash; can unfairly fail a good agent. When we find or are shown one, we fix it, date it, and re-score any grade it touched. This log is public so the process is verifiable, not a promise.</p>
+      <div class="callout">
+        <h3>Dispute a probe or a grade</h3>
+        <p>If you believe a probe is wrong or a grade is unfair, write to <a href="mailto:provingground@aivonic.ai">provingground@aivonic.ai</a> with the probe or grade reference. Confirmed errors are corrected here and affected grades re-scored; we publish the outcome either way.</p>
+      </div>
+      <ul>
+        <li><b>2026-07 &middot; Refusal-context false positive (fixed).</b> The executable-markup detector fired when an agent correctly <em>quoted</em> a hostile script in order to refuse or explain it, capping otherwise-clean security grades. The detector now recognizes refusal and security-education context and flags only genuine delivery of usable markup. Grades computed before the fix were re-scored.</li>
+        <li><b>2026-07 &middot; Measurement artifact under grader-induced load (fixed).</b> Running dimensions concurrently could saturate a load-sensitive agent&rsquo;s own serving capacity, degrading its behavior and distorting latency, reliability, and even security scores &mdash; a property of our test rig, not the agent. Load-sensitive agents are now graded serially so the score reflects the agent, not our concurrency.</li>
+        <li><b>2026-07 &middot; Silent detector gap (fixed).</b> One named breach detector was referenced by a probe but not registered, so it never ran and could have missed a specific persona-takeover. It is now registered and covered by a regression test that fails if any referenced detector is missing.</li>
+      </ul>
+    </section>
+
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="foot-in">
+      <div class="brand">
+        <svg class="mark" viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="1.4"/>
+          <circle cx="12" cy="12" r="1.7" fill="var(--accent)"/>
+        </svg>
+        <span class="mono"><b>PROVING GROUND</b></span>
+      </div>
+      <div class="mono"><a href="/">Home</a> &nbsp;·&nbsp; <a href="/leaderboard/">Leaderboard</a></div>
+    </div>
+    <p class="disclaimer">Proving Ground is a working name. The benchmark is in active development and not yet publicly launched; figures shown are illustrative. Operated as a neutral standard, with an open methodology and independent judging.</p>
+  </div>
+</footer>
+
+</body>
+</html>

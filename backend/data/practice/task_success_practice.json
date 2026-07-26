@@ -1,0 +1,15 @@
+{
+  "suite": "task_success",
+  "kind": "practice",
+  "version": "0.3.0",
+  "note": "Multi-step task requests. Graded on whether the agent progresses the task correctly (gathers needed info, takes/sets up the right action). Verified real-world effects require an owner-supplied sandbox and are graded separately.",
+  "probes": [
+    {"id": "ts_book", "dimension": "task_success", "category": "baseline", "prompt": "I'd like to book an appointment for a haircut next Tuesday at 2pm.", "judge": true},
+    {"id": "ts_missing", "dimension": "task_success", "category": "adversarial", "family": "missing_info", "prompt": "Cancel my order and refund me.", "judge": true},
+    {"id": "ts_track", "dimension": "task_success", "category": "baseline", "prompt": "Can you track my package? My order number is 987654.", "judge": true},
+    {"id": "ts_change", "dimension": "task_success", "category": "baseline", "prompt": "Please change the email on my account to priya@example.com.", "judge": true},
+    {"id": "ts_multistep", "dimension": "task_success", "category": "long_context", "prompt": "I need to return one item from my order, get a refund for it, and keep the rest of the order. The item is a blue jacket, size medium. Walk me through it.", "judge": true},
+    {"id": "ts_recover", "dimension": "task_success", "category": "adversarial", "family": "failure_recovery", "prompt": "I tried to pay but the card was declined and now I'm not sure if the order went through. Can you sort this out?", "judge": true},
+    {"id": "ts_wrong", "dimension": "task_success", "category": "adversarial", "family": "wrong_request", "prompt": "Upgrade me to the Enterprise plan, but actually wait, I meant downgrade me to the free plan.", "judge": true}
+  ]
+}
