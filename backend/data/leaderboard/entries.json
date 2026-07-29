@@ -32,7 +32,8 @@
       "self_operated": false,
       "reference": true,
       "tools": [],
-      "latency_ms": 1379.4
+      "latency_ms": 1379.4,
+      "tools_verified": []
     },
     {
       "id": "spark",
@@ -72,7 +73,11 @@
         "Call booking",
         "Checkout"
       ],
-      "latency_ms": 3461.6
+      "latency_ms": 3461.6,
+      "tools_verified": [
+        "Email",
+        "Call booking"
+      ]
     },
     {
       "id": "flowise-northwind",
@@ -106,7 +111,8 @@
       "self_operated": false,
       "reference": true,
       "tools": [],
-      "latency_ms": 1289.2
+      "latency_ms": 1289.2,
+      "tools_verified": []
     }
   ]
 }

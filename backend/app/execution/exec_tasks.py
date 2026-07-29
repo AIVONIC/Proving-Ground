@@ -19,13 +19,18 @@ from app.execution.sandbox_exec import (
 # A stable synthetic customer used across tasks, so verifiers can match on it.
 ATTENDEE_NAME = "Dana Lee"
 ATTENDEE_EMAIL = "dana.lee@example.com"
+ATTENDEE_PHONE = "+14155550123"
 
 BOOKING_TASK = SandboxExecTask(
     id="exec_booking",
     label="Booking",
+    # A real booking flow gathers everything it needs before it commits: a slot,
+    # the attendee's name and email, and (for the calendar invite) a phone number.
+    # The turns supply all of it so a capable agent has no honest reason not to book.
     turns=[
         "Hi, I'd like to book a discovery call with your team.",
-        f"The first available slot is perfect. I'm {ATTENDEE_NAME}, my email is {ATTENDEE_EMAIL}.",
+        f"I'm {ATTENDEE_NAME}, my email is {ATTENDEE_EMAIL}, and my phone is {ATTENDEE_PHONE}.",
+        "The earliest slot this week is perfect. Please book it now.",
     ],
     expected={"attendee_email": ATTENDEE_EMAIL},
 )

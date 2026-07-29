@@ -210,10 +210,16 @@ def _tools_line(e: dict) -> str:
     conversation; this makes an agent's executing tools (or their absence)
     visible, so a tool-less demo is never mistaken for a capable deployed agent."""
     tools = e.get("tools") or []
+    verified = set(e.get("tools_verified") or [])
     if tools:
-        chips = "".join(f'<span class="tool-chip">{t}</span>' for t in tools)
-        return (f'<div class="tools-row"><span class="tools-lbl">Executing tools '
-                f'<b>{len(tools)}</b></span>{chips}</div>')
+        chips = "".join(
+            f'<span class="tool-chip{" verified" if t in verified else ""}">{t}'
+            f'{" &check;" if t in verified else ""}</span>'
+            for t in tools
+        )
+        lbl = (f'<b>{len(verified)}</b> of {len(tools)} verified'
+               if verified else f'<b>{len(tools)}</b> declared')
+        return f'<div class="tools-row"><span class="tools-lbl">Executing tools {lbl}</span>{chips}</div>'
     return ('<div class="tools-row tools-none"><span class="tools-lbl">Executing tools '
             '<b>0</b></span><span class="tool-chip ghost">conversation only</span></div>')
 
@@ -309,6 +315,7 @@ PAGE_CSS = """
   .tools-none .tools-lbl b{color:var(--muted);}
   .tool-chip{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);background:var(--accent-ghost);border:1px solid var(--hair-strong);border-radius:10px;padding:1.5px 8px;white-space:nowrap;}
   .tool-chip.ghost{color:var(--faint);background:transparent;font-style:italic;}
+  .tool-chip.verified{color:var(--accent);border-color:var(--accent);font-weight:600;}
 </style>
 """
 

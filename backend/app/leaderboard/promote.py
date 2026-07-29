@@ -61,6 +61,7 @@ def entry_from_run(run: dict, meta: dict) -> dict:
         "self_operated": bool(meta.get("self_operated", False)),
         "reference": bool(meta.get("reference", False)),
         "tools": list(meta.get("tools") or []),
+        "tools_verified": list(meta.get("tools_verified") or []),
         **({"latency_ms": lat} if lat is not None else {}),
     }
 
@@ -77,6 +78,9 @@ def main() -> int:
     ap.add_argument("--tools", default="",
                     help="comma-separated executing tools the agent actually invokes (e.g. "
                          "'Email,Web search,Booking,Checkout'); empty means conversation-only")
+    ap.add_argument("--tools-verified", default="",
+                    help="comma-separated tools whose execution was verified in a sandbox "
+                         "(subset of --tools); shown as 'N of M verified' on the board")
     ap.add_argument("--self-operated", action="store_true",
                     help="mark an agent the operator runs itself (shown transparently)")
     ap.add_argument("--reference", action="store_true",
@@ -90,6 +94,7 @@ def main() -> int:
         "access": a.access, "graded_at": a.graded_at, "self_operated": a.self_operated,
         "reference": a.reference,
         "tools": [t.strip() for t in a.tools.split(",") if t.strip()],
+        "tools_verified": [t.strip() for t in a.tools_verified.split(",") if t.strip()],
     }
     board = upsert(entry_from_run(run, meta))
     g = run["grade"]

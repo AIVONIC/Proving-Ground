@@ -30,8 +30,10 @@ BACKEND = Path(__file__).resolve().parents[2]
 
 def _adapter(args):
     if args.socketio_agent_id:
-        return aivonic_socketio_adapter(args.agent, args.socketio_agent_id,
-                                        base_url=args.base_url or "https://agents.aivonic.ai")
+        kw = {"base_url": args.base_url or "https://agents.aivonic.ai"}
+        if args.socketio_path:  # e.g. "socket.io" for a direct container/tunnel connection
+            kw["socketio_path"] = args.socketio_path
+        return aivonic_socketio_adapter(args.agent, args.socketio_agent_id, **kw)
     if args.adapter_config:
         return RestApiAdapter(RestAdapterConfig(**json.loads(Path(args.adapter_config).read_text())))
     if args.base_url:
@@ -90,6 +92,9 @@ def main() -> int:
     ap.add_argument("--agent", required=True)
     ap.add_argument("--base-url")
     ap.add_argument("--socketio-agent-id")
+    ap.add_argument("--socketio-path", default="",
+                    help="socketio path; set to 'socket.io' for a direct container/tunnel connection "
+                         "(default is the per-agent nginx path)")
     ap.add_argument("--adapter-config")
     ap.add_argument("--tools", default="booking,email,checkout")
     ap.add_argument("--mock-base", default=os.environ.get("PG_MOCK_BASE", "http://127.0.0.1:8120"),
