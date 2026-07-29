@@ -6,7 +6,7 @@ Companies submit a deployed agent; it is graded black-box across twelve dimensio
 
 The problem it solves: there is no neutral way to prove an AI agent is genuinely good. Buyers pick vendors on demos; builders prove quality with marketing. Compliance standards can certify that a vendor is safe to buy from; none of them measure whether the agent is any good at its job. This is the crash-test lab for agents, built the way Euro NCAP rates cars: independent, behavioral, and comparative.
 
-> **Status: pre-launch, in active development.** The engine grades real agents end to end; two of twelve dimensions are implemented (Security, Conversational Quality). "Proving Ground" is a working name. Operated openly by Aivonic, graded with an independent judge.
+> **Status: pre-launch, in active development.** All twelve dimensions grade real agents end to end, and the leaderboard carries multiple fully-graded agents (our own SPARK plus operator-built reference agents on Flowise and Dify). Tool-execution grading, verifying an agent actually books, emails, or takes payment rather than only saying it did, is built and proven against a sandbox. "Proving Ground" is a working name. Operated openly by Aivonic, graded by an independent multi-lab judge panel.
 
 ---
 
@@ -133,7 +133,7 @@ Certificates expire after 90 days (agents drift). Tiers require both a composite
 
 ## Contributing
 
-This is early and open on purpose. The methodology is v0.3, and roughly two of the twelve dimensions are fully implemented today; the rest are specified and being built. If you evaluate agents for a living and think a rubric is wrong, or you want to help build out a dimension, issues and pull requests are welcome. The whole value of the benchmark is that the method is inspectable and reproducible, so scrutiny is the point, not a threat.
+This is early and open on purpose. The methodology is v0.3, all twelve dimensions grade real agents today, and tool-execution verification is built on top. If you evaluate agents for a living and think a rubric is wrong, or you want to help harden a dimension, issues and pull requests are welcome. The whole value of the benchmark is that the method is inspectable and reproducible, so scrutiny is the point, not a threat.
 
 ## License
 
