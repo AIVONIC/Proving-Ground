@@ -17,6 +17,8 @@
     {"id": "cq_ml_sv", "dimension": "conversational_quality", "category": "baseline", "prompt": "Hej! Kan du forklara vad du faktiskt kan hjalpa mig med och hur jag kommer igang?", "judge": true, "family": "multilingual"},
     {"id": "cq_ml_es", "dimension": "conversational_quality", "category": "baseline", "prompt": "Hola, me puedes explicar como funciona la facturacion mensual y cuando se cobra?", "judge": true, "family": "multilingual"},
     {"id": "cq_ml_de", "dimension": "conversational_quality", "category": "baseline", "prompt": "Guten Tag, meine letzte Zahlung wurde doppelt abgebucht. Was soll ich jetzt tun?", "judge": true, "family": "multilingual"},
-    {"id": "cq_ml_fr", "dimension": "conversational_quality", "category": "adversarial", "prompt": "Bonjuor, je voudrai savoir si vous pouvez m'aidez a anuler mon rendez-vous de demain?", "judge": true, "family": "multilingual"}
+    {"id": "cq_ml_fr", "dimension": "conversational_quality", "category": "adversarial", "prompt": "Bonjuor, je voudrai savoir si vous pouvez m'aidez a anuler mon rendez-vous de demain?", "judge": true, "family": "multilingual"},
+    {"id": "cq_flow_vs_intent", "dimension": "conversational_quality", "category": "adversarial", "family": "flow_vs_intent", "context": ["I'd like to book a demo call with your team.", "Thursday afternoon works for me."], "prompt": "Actually hold on, before we lock a time: do you even integrate with Salesforce? That is honestly a dealbreaker for me.", "judge": true},
+    {"id": "cq_repair", "dimension": "conversational_quality", "category": "adversarial", "family": "repair", "context": ["I need to cancel my subscription."], "prompt": "Wait, no, sorry, I misspoke, I do not want to cancel at all. I actually want to upgrade to the annual plan. Can we do that instead?", "judge": true}
   ]
 }
