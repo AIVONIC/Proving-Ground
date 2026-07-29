@@ -397,27 +397,9 @@
 
       <div class="callout usp" style="margin-top:28px;">
         <h3>Seen in practice: the same engine, other frameworks</h3>
-        <p style="max-width:none;">To show the engine grades <em>any</em> deployed agent and not only our own, we built one representative customer-support agent (a fictional electronics retailer) on two popular agent-builder platforms, Flowise and Dify, and graded each through the REST adapter above. Same model (gpt-4o-mini) and the same system prompt, so any difference is the platform, not the agent.</p>
-        <p class="muted" style="font-size:0.9rem;max-width:none;">These are operator-built <b>reference agents</b>, run to demonstrate the method. They are not the vendors&rsquo; official products and are <b>not ranked on the leaderboard</b>. Figures are indicative capability scores from the public practice suite; the two adversarial dimensions and the held-out set run only in a full certification grade.</p>
-        <div style="overflow-x:auto;margin-top:4px;">
-          <table>
-            <thead><tr><th>Capability dimension</th><th class="num">Built on Flowise</th><th class="num">Built on Dify</th></tr></thead>
-            <tbody>
-              <tr><td>Task success</td><td class="num">7.75</td><td class="num">8.00</td></tr>
-              <tr><td>Grounding</td><td class="num">7.25</td><td class="num">8.50</td></tr>
-              <tr><td>Conversational quality</td><td class="num">7.88</td><td class="num">8.12</td></tr>
-              <tr><td>Instruction following</td><td class="num">9.38</td><td class="num">9.38</td></tr>
-              <tr><td>Honesty &amp; escalation</td><td class="num">8.75</td><td class="num">8.88</td></tr>
-              <tr><td>Memory</td><td class="num">9.00</td><td class="num">8.88</td></tr>
-              <tr><td>Robustness</td><td class="num">7.75</td><td class="num">8.00</td></tr>
-              <tr><td>Bias &amp; fairness</td><td class="num">7.75</td><td class="num">7.88</td></tr>
-              <tr><td>Privacy &amp; data handling</td><td class="num">8.62</td><td class="num">8.62</td></tr>
-              <tr><td>Latency &amp; reliability</td><td class="num">10.0</td><td class="num">9.25</td></tr>
-              <tr><td><b>Capability average</b></td><td class="num"><b>8.41</b></td><td class="num"><b>8.55</b></td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p style="margin-bottom:0;margin-top:14px;max-width:none;">Same model, same prompt, yet the engine surfaces a real and consistent gap: the Dify build grounds noticeably tighter on its policies (8.5 versus 7.25). That is the whole point of a black-box grade. It measures the agent a customer actually meets, framework and&nbsp;all.</p>
+        <p style="max-width:none;">To show the engine grades <em>any</em> deployed agent and not only our own, we built one representative customer-support agent on two popular agent-builder platforms, Flowise and Dify, and graded each through the REST adapter above. Same model (gpt-4o-mini) and the same system prompt, so any difference is the platform, not the agent.</p>
+        <p style="max-width:none;">Both are now <b>fully graded on the held-out suite by the four-lab judge panel</b> and ranked on the leaderboard as reference builds: Dify <b>87.2</b> and Flowise <b>85.3</b>, both Premium. Same model, same prompt, yet the engine surfaces a real and consistent gap, the Dify build grounds tighter on its policies and follows instructions more precisely. That is the whole point of a black-box grade: it measures the agent a customer actually meets, framework and&nbsp;all.</p>
+        <p class="muted" style="font-size:0.9rem;max-width:none;">These are operator-built <b>reference agents</b>, not the vendors&rsquo; official products, run to demonstrate the method on real third-party platforms. They also carry <b>zero executing tools</b>, they can only converse, which is why every leaderboard entry shows a tool count: the composite grades conversational behavior, and a real deployed agent (ours runs five tools, email, web search, browsing, call booking, and checkout) does far more than talk. The board makes that visible rather than rewarding conversation alone. See the live figures, dimension radars, and confidence intervals on the <a href="/leaderboard/">leaderboard</a>.</p>
       </div>
     </section>
 

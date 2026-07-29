@@ -1,35 +1,112 @@
 {
   "entries": [
     {
+      "id": "dify-northwind",
+      "name": "Northwind (Dify)",
+      "vendor": "Built on Dify",
+      "category": "Customer support",
+      "access": "REST",
+      "composite": 87.2,
+      "tier": "Premium",
+      "subscores": {
+        "security": 9.44,
+        "conversational_quality": 8.68,
+        "grounding": 9.1,
+        "safety_and_harm": 8.44,
+        "honesty_and_escalation": 7.38,
+        "bias_and_fairness": 8.22,
+        "robustness": 8.46,
+        "task_success": 8.54,
+        "instruction_following": 8.85,
+        "privacy_and_data_handling": 8.25,
+        "memory": 8.79,
+        "latency_and_reliability": 9.76
+      },
+      "critical_failures": 0,
+      "runs": 3,
+      "ci95": [
+        86.61,
+        87.95
+      ],
+      "graded_at": "2026-07-29",
+      "self_operated": false,
+      "reference": true,
+      "tools": [],
+      "latency_ms": 1379.4
+    },
+    {
       "id": "spark",
       "name": "SPARK",
       "vendor": "Aivonic AB",
       "category": "Sales & Support",
       "access": "Socket.IO",
-      "composite": 84.71,
-      "tier": "Standard",
+      "composite": 87.09,
+      "tier": "Premium",
       "subscores": {
-        "security": 9.89,
-        "conversational_quality": 8.65,
-        "grounding": 7.81,
-        "safety_and_harm": 8.48,
-        "honesty_and_escalation": 8.69,
-        "bias_and_fairness": 8.2,
-        "robustness": 7.43,
-        "task_success": 8.82,
-        "instruction_following": 8.06,
-        "privacy_and_data_handling": 8.72,
-        "memory": 5.5,
-        "latency_and_reliability": 7.31
+        "security": 9.7,
+        "conversational_quality": 8.37,
+        "grounding": 8.72,
+        "safety_and_harm": 8.33,
+        "honesty_and_escalation": 8.18,
+        "bias_and_fairness": 8.08,
+        "robustness": 7.6,
+        "task_success": 9.1,
+        "instruction_following": 7.92,
+        "privacy_and_data_handling": 9.07,
+        "memory": 8.94,
+        "latency_and_reliability": 8.58
       },
       "critical_failures": 0,
       "runs": 3,
       "ci95": [
-        84.47,
-        84.94
+        86.34,
+        87.3
       ],
-      "graded_at": "2026-07-15",
-      "self_operated": true
+      "graded_at": "2026-07-29",
+      "self_operated": true,
+      "reference": false,
+      "tools": [
+        "Email",
+        "Web search",
+        "Browser",
+        "Call booking",
+        "Checkout"
+      ],
+      "latency_ms": 3461.6
+    },
+    {
+      "id": "flowise-northwind",
+      "name": "Northwind (Flowise)",
+      "vendor": "Built on Flowise",
+      "category": "Customer support",
+      "access": "REST",
+      "composite": 85.3,
+      "tier": "Premium",
+      "subscores": {
+        "security": 9.51,
+        "conversational_quality": 8.61,
+        "grounding": 8.68,
+        "safety_and_harm": 8.31,
+        "honesty_and_escalation": 6.92,
+        "bias_and_fairness": 8.14,
+        "robustness": 8.49,
+        "task_success": 8.46,
+        "instruction_following": 7.81,
+        "privacy_and_data_handling": 8.07,
+        "memory": 8.62,
+        "latency_and_reliability": 9.84
+      },
+      "critical_failures": 0,
+      "runs": 3,
+      "ci95": [
+        85.21,
+        85.33
+      ],
+      "graded_at": "2026-07-29",
+      "self_operated": false,
+      "reference": true,
+      "tools": [],
+      "latency_ms": 1289.2
     }
   ]
 }

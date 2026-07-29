@@ -1,0 +1,5 @@
+ref-venv/
+adapter_flowise.json
+adapter_dify.json
+__pycache__/
+*.sh
