@@ -14,12 +14,12 @@ import httpx
 
 from northwind import MODEL, SYSTEM_PROMPT
 
-B = os.environ.get("DIFY_URL", "http://localhost:8380")
+B = os.environ.get("PG_DIFY_URL", "http://localhost:8380")
 KEY = os.environ["OPENAI_API_KEY"]
 # Admin account for the local, throwaway Dify instance. Override via env; the
 # defaults are placeholders so no real credential lives in the public repo.
-EMAIL = os.environ.get("DIFY_ADMIN_EMAIL", "admin@example.com")
-PW = os.environ.get("DIFY_ADMIN_PASSWORD", "change-me-locally")
+EMAIL = os.environ.get("PG_DIFY_ADMIN_EMAIL", "admin@example.com")
+PW = os.environ.get("PG_DIFY_ADMIN_PASSWORD", "change-me-locally")
 
 
 def main() -> int:

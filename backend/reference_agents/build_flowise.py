@@ -15,7 +15,7 @@ import httpx
 
 from northwind import MODEL, SYSTEM_PROMPT
 
-B = os.environ.get("FLOWISE_URL", "http://localhost:3300")
+B = os.environ.get("PG_FLOWISE_URL", "http://localhost:3300")
 KEY = os.environ["OPENAI_API_KEY"]
 
 

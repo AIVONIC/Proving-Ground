@@ -1,12 +1,12 @@
 """A controlled tool-calling agent for proving the execution grader end to end.
 
 gpt-4o-mini with three real tools (book_call, send_email, create_checkout) whose
-handlers POST to the combined sandbox (calcom_mock via MOCK_BASE). It genuinely
+handlers POST to the combined sandbox (calcom_mock via PG_MOCK_BASE). It genuinely
 invokes its tools, so the sandbox verifiers confirm real effects, exactly the
 sandbox-execution tier a real agent (SPARK pointed at test endpoints) would use.
 
 Contract: POST /chat {"message","session_id"} -> {"reply","session_id"}.
-    MOCK_BASE=http://127.0.0.1:8120 OPENAI_API_KEY=sk-... \
+    PG_MOCK_BASE=http://127.0.0.1:8120 OPENAI_API_KEY=sk-... \
         uvicorn exec_target:app --port 8410
 """
 import json
@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from openai import OpenAI
 
 MODEL = "gpt-4o-mini"
-MOCK = os.environ.get("MOCK_BASE", "http://127.0.0.1:8120").rstrip("/")
+MOCK = os.environ.get("PG_MOCK_BASE", "http://127.0.0.1:8120").rstrip("/")
 _client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 _http = httpx.Client(timeout=20)
 

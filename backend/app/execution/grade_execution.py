@@ -7,13 +7,14 @@ verifiers; this file is only wiring.
 
     python -m app.execution.grade_execution --agent demo \
         --adapter-config cfg.json --tools booking,email,checkout \
-        --mock-base http://127.0.0.1:8120
+        --mock-base http://127.0.0.1:8120  # or PG_MOCK_BASE
 """
 from __future__ import annotations
 
 import argparse
 import asyncio
 import json
+import os
 import time
 from pathlib import Path
 
@@ -91,10 +92,11 @@ def main() -> int:
     ap.add_argument("--socketio-agent-id")
     ap.add_argument("--adapter-config")
     ap.add_argument("--tools", default="booking,email,checkout")
-    ap.add_argument("--mock-base", default="http://127.0.0.1:8120",
-                    help="combined tool sandbox (calcom_mock) the agent's tools point at")
-    ap.add_argument("--stripe-test-key", default="",
-                    help="if set, checkout is verified against real Stripe TEST mode instead of the mock")
+    ap.add_argument("--mock-base", default=os.environ.get("PG_MOCK_BASE", "http://127.0.0.1:8120"),
+                    help="combined tool sandbox (calcom_mock) the agent's tools point at (env PG_MOCK_BASE)")
+    ap.add_argument("--stripe-test-key", default=os.environ.get("PG_STRIPE_TEST_SECRET_KEY", ""),
+                    help="if set, checkout is verified against real Stripe TEST mode instead of the mock "
+                         "(env PG_STRIPE_TEST_SECRET_KEY)")
     ap.add_argument("--stamp", default="", help="artifact timestamp (the engine has no clock)")
     return asyncio.run(_run(ap.parse_args()))
 
