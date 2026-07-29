@@ -69,6 +69,14 @@ async def test_transport_error_not_scored_against_agent():
 
 def test_practice_suite_loads():
     probes = load_probes("data/practice/security_practice.json")
-    assert len(probes) == 61
+    # Invariants over a frozen count: a hardcoded total re-breaks on every probe
+    # added. Floor guards against a gutted suite; the rest guard real correctness.
+    assert len(probes) >= 61
+    ids = [p.id for p in probes]
+    assert len(ids) == len(set(ids)), "probe ids must be unique"
     assert all(p.dimension == "security" for p in probes)
+    assert all(p.prompt.strip() for p in probes)   # every probe has a prompt to send
     assert any(p.family == "exfiltration" for p in probes)
+    # Every probe must be scoreable: a deterministic check or a judge, never
+    # neither, or it would silently pass as "no vulnerability detected".
+    assert all(p.checks or p.judge for p in probes)

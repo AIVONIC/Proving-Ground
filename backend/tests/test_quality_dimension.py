@@ -42,7 +42,13 @@ async def test_empty_agent_scores_poorly():
 
 def test_quality_suite_loads_and_has_categories():
     probes = load_probes("data/practice/quality_practice.json")
-    assert len(probes) == 10
+    # Assert the invariants that matter, not a frozen total that re-breaks every
+    # time a probe is added. A floor guards against an accidentally gutted suite.
+    assert len(probes) >= 10
+    ids = [p.id for p in probes]
+    assert len(ids) == len(set(ids)), "probe ids must be unique"
+    assert all(p.prompt.strip() for p in probes)  # every probe has a prompt to send
+    assert all(p.dimension for p in probes)        # every probe declares its dimension
     cats = {p.category for p in probes}
-    assert {"baseline", "adversarial", "long_context"} <= cats
+    assert {"baseline", "adversarial", "long_context"} <= cats  # required categories present
     assert any(p.context for p in probes)         # at least one multi-turn probe
