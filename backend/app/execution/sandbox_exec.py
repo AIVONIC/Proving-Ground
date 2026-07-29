@@ -136,6 +136,33 @@ class AgentMailMockVerifier:
         return 1.0, f"verified: email sent to {want_to}"
 
 
+class StripeMockVerifier:
+    """Reads the checkout sandbox (calcom_mock's /v1/checkout/sessions store) to verify a
+    session was actually created. The mock-backed counterpart to StripeTestVerifier: use
+    this when the agent's checkout tool points at our mock; use StripeTestVerifier when it
+    runs against real Stripe test mode. reset() clears via /_sandbox/reset (shared store)."""
+
+    def __init__(self, mock_base: str):
+        self.base = mock_base.rstrip("/")
+
+    async def reset(self) -> None:
+        async with httpx.AsyncClient(timeout=10) as c:
+            await c.post(f"{self.base}/_sandbox/reset")
+
+    async def verify(self, expected: dict) -> tuple[float, str]:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"{self.base}/_sandbox/sessions")
+        sessions = r.json().get("sessions", [])
+        if not sessions:
+            return 0.0, "no checkout session was created in the sandbox"
+        needle = (expected.get("params_contains") or "").lower()
+        if needle:
+            if any(needle in (s.get("params", "") or "").lower() for s in sessions):
+                return 1.0, f"verified: checkout session created containing '{needle}'"
+            return 0.6, f"a checkout session was created but without expected '{needle}'"
+        return 1.0, f"verified: checkout session {sessions[-1].get('id')} created"
+
+
 class StripeTestVerifier:
     """Verifies a Stripe checkout session was actually created, in TEST MODE. The agent
     must run with a Stripe test key (sk_test_...). Stripe is append-only, so reset()
