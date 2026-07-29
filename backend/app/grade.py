@@ -15,6 +15,7 @@ import argparse
 import asyncio
 import dataclasses
 import json
+import os
 import time
 from pathlib import Path
 
@@ -187,7 +188,14 @@ def main() -> int:
                     help="ensemble = multi-vendor frontier panel (Claude+OpenAI); the grade-affecting default")
     ap.add_argument("--profile", help="path to the agent's declared capability manifest JSON "
                                        "(default: data/profiles/<agent>.json if present)")
+    ap.add_argument("--concurrency", type=int, default=1,
+                    help="grade this many dimensions in parallel (1 = sequential, gentlest on a live agent)")
+    ap.add_argument("--probe-delay-ms", type=int, default=0,
+                    help="sleep this long between probes; throttles load when grading a live production agent")
     args = ap.parse_args()
+
+    if args.probe_delay_ms:
+        os.environ["PROVING_GROUND_PROBE_DELAY_MS"] = str(args.probe_delay_ms)
 
     dim_ids = [d.strip() for d in args.dimensions.split(",") if d.strip()]
     unknown = [d for d in dim_ids if d not in REGISTRY]
@@ -207,7 +215,7 @@ def main() -> int:
         print(f"[capability-relative grading: declared scope loaded for {args.agent}]")
     factory = _build_factory(args)
 
-    grade, all_dim_results = asyncio.run(grade_agent(factory, dim_ids, judge, args.runs, args.suite))
+    grade, all_dim_results = asyncio.run(grade_agent(factory, dim_ids, judge, args.runs, args.suite, concurrency=args.concurrency))
     print(_format_report(args.agent, grade))
     print(format_reliability(all_dim_results))
     path = _write_run(args.agent, grade, all_dim_results)

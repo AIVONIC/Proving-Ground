@@ -95,8 +95,16 @@ class Dimension(ABC):
         """Turn one agent reply into a scored ProbeResult."""
 
     async def run(self, adapter: AgentAdapter, probes: list[Probe], judge=None) -> DimensionResult:
+        import asyncio
+        import os
+        # Optional throttle so grading a LIVE production agent does not overwhelm it
+        # (e.g. SPARK over the network with retrieval per message). Off by default;
+        # the grade runner sets it when the target is production. Never changes scores.
+        delay = float(os.environ.get("PROVING_GROUND_PROBE_DELAY_MS", "0") or 0) / 1000.0
         results: list[ProbeResult] = []
-        for probe in probes:
+        for i, probe in enumerate(probes):
+            if delay and i:
+                await asyncio.sleep(delay)
             await adapter.reset()  # isolated by default; cumulative probes opt out via meta
             history: list[Turn] = []
             for prior in probe.context:
