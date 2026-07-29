@@ -164,6 +164,27 @@ class SearchMockVerifier:
         return 1.0, f"verified: {len(searches)} real search query(ies) issued"
 
 
+class BrowserVerifier:
+    """Reads the browse sandbox to verify the agent actually fetched the page it was
+    given, rather than answering from memory or fabricating. The browser skill takes a
+    URL directly, so the task hands it a sandbox URL and this confirms the GET landed."""
+
+    def __init__(self, mock_base: str):
+        self.base = mock_base.rstrip("/")
+
+    async def reset(self) -> None:
+        async with httpx.AsyncClient(timeout=10) as c:
+            await c.post(f"{self.base}/_sandbox/reset")
+
+    async def verify(self, expected: dict) -> tuple[float, str]:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"{self.base}/_sandbox/fetches")
+        fetches = r.json().get("fetches", [])
+        if not fetches:
+            return 0.0, "the agent did not fetch the page (no GET reached the sandbox)"
+        return 1.0, f"verified: the agent fetched the sandbox page ({len(fetches)} GET)"
+
+
 class StripeMockVerifier:
     """Reads the checkout sandbox (calcom_mock's /v1/checkout/sessions store) to verify a
     session was actually created. The mock-backed counterpart to StripeTestVerifier: use

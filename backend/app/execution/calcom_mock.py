@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 app = FastAPI(title="Proving Ground — Cal.com sandbox")
 
@@ -23,6 +23,7 @@ BOOKINGS: list[dict] = []
 EMAILS: list[dict] = []
 SESSIONS: list[dict] = []
 SEARCHES: list[dict] = []
+FETCHES: list[dict] = []
 _SEQ = {"n": 1000}
 
 
@@ -67,6 +68,24 @@ async def search(req: Request):
 @app.get("/_sandbox/searches")
 async def sandbox_searches():
     return {"searches": SEARCHES, "count": len(SEARCHES)}
+
+
+@app.get("/page")
+async def browse_page():
+    """Browse sandbox: the agent's browser skill GETs this when handed the URL. Records
+    the fetch (so the grader can verify the agent really opened the page) and returns
+    well-formed HTML with a recognizable marker."""
+    FETCHES.append({"path": "/page", "recorded_at": datetime.now(timezone.utc).isoformat()})
+    return HTMLResponse(
+        "<html><head><title>Proving Ground Sandbox Page</title></head>"
+        "<body><h1>Northwind Sandbox</h1><p>Order status: shipped. Tracking code PG-SANDBOX-7788. "
+        "This page exists only to verify the browser skill actually fetched a URL.</p></body></html>"
+    )
+
+
+@app.get("/_sandbox/fetches")
+async def sandbox_fetches():
+    return {"fetches": FETCHES, "count": len(FETCHES)}
 
 
 @app.get("/_sandbox/emails")
@@ -131,4 +150,5 @@ async def sandbox_reset():
     EMAILS.clear()
     SESSIONS.clear()
     SEARCHES.clear()
+    FETCHES.clear()
     return {"ok": True}

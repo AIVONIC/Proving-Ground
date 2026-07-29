@@ -42,8 +42,9 @@ def _adapter(args):
 
 
 async def _run(args) -> int:
-    reg = (live_registry(args.mock_base, args.stripe_test_key)
-           if args.stripe_test_key else mock_registry(args.mock_base))
+    agent_base = args.agent_mock_base or args.mock_base
+    reg = (live_registry(args.mock_base, args.stripe_test_key, agent_base)
+           if args.stripe_test_key else mock_registry(args.mock_base, agent_base))
     tools = [t.strip() for t in args.tools.split(",") if t.strip()]
     unknown = [t for t in tools if t not in reg]
     if unknown:
@@ -98,7 +99,10 @@ def main() -> int:
     ap.add_argument("--adapter-config")
     ap.add_argument("--tools", default="booking,email,checkout")
     ap.add_argument("--mock-base", default=os.environ.get("PG_MOCK_BASE", "http://127.0.0.1:8120"),
-                    help="combined tool sandbox (calcom_mock) the agent's tools point at (env PG_MOCK_BASE)")
+                    help="sandbox base the GRADER reads effects through (e.g. a tunnel); env PG_MOCK_BASE")
+    ap.add_argument("--agent-mock-base", default="",
+                    help="sandbox base the AGENT can reach (for the browser task's URL); "
+                         "defaults to --mock-base. e.g. http://pg-sandbox:8120 on the agent's network")
     ap.add_argument("--stripe-test-key", default=os.environ.get("PG_STRIPE_TEST_SECRET_KEY", ""),
                     help="if set, checkout is verified against real Stripe TEST mode instead of the mock "
                          "(env PG_STRIPE_TEST_SECRET_KEY)")

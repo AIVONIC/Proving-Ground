@@ -76,9 +76,10 @@
       "latency_ms": 3461.6,
       "tools_verified": [
         "Email",
+        "Web search",
+        "Browser",
         "Call booking",
-        "Checkout",
-        "Web search"
+        "Checkout"
       ]
     },
     {

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from app.execution.sandbox_exec import (
     AgentMailMockVerifier,
+    BrowserVerifier,
     CalcomVerifier,
     SandboxExecTask,
     SearchMockVerifier,
@@ -66,22 +67,36 @@ SEARCH_TASK = SandboxExecTask(
 )
 
 
-def mock_registry(mock_base: str) -> dict:
-    """tool -> (task, verifier) where every tool points at the single combined mock
-    (calcom_mock). The self-contained proof/config; no external services touched."""
+def _browse_task(agent_base: str) -> SandboxExecTask:
+    """Browser is handed the URL directly, so the prompt carries the AGENT-reachable
+    sandbox URL (e.g. http://pg-sandbox:8120 on the agent's network), which can differ
+    from the base the grader reads effects through (a tunnel)."""
+    return SandboxExecTask(
+        id="exec_browser",
+        label="Browser",
+        turns=[f"Can you open {agent_base.rstrip('/')}/page and tell me what it says?"],
+        expected={},
+    )
+
+
+def mock_registry(mock_base: str, agent_base: str | None = None) -> dict:
+    """tool -> (task, verifier). Verifiers READ effects at mock_base; the browse task's
+    prompt uses agent_base (the URL the agent itself can reach; defaults to mock_base).
+    Every tool points at the single combined sandbox; no external services touched."""
+    agent_base = agent_base or mock_base
     return {
         "booking": (BOOKING_TASK, CalcomVerifier(mock_base)),
         "email": (EMAIL_TASK, AgentMailMockVerifier(mock_base)),
         "checkout": (CHECKOUT_TASK, StripeMockVerifier(mock_base)),
         "web_search": (SEARCH_TASK, SearchMockVerifier(mock_base)),
+        "browser": (_browse_task(agent_base), BrowserVerifier(mock_base)),
     }
 
 
-def live_registry(mock_base: str, stripe_test_key: str | None) -> dict:
-    """tool -> (task, verifier) for grading a real agent: booking/email via the agent's
-    own sandbox (mock_base), checkout against real Stripe TEST mode when a key is given
-    (falls back to the mock verifier otherwise)."""
-    reg = mock_registry(mock_base)
+def live_registry(mock_base: str, stripe_test_key: str | None, agent_base: str | None = None) -> dict:
+    """tool -> (task, verifier) for grading a real agent: booking/email/browser via the
+    agent's own sandbox, checkout against real Stripe TEST mode when a key is given."""
+    reg = mock_registry(mock_base, agent_base)
     if stripe_test_key:
         reg["checkout"] = (CHECKOUT_TASK, StripeTestVerifier(stripe_test_key))
     return reg
