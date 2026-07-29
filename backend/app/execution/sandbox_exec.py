@@ -197,9 +197,12 @@ class StripeTestVerifier:
         want_mode = expected.get("mode")
         min_amt = expected.get("min_amount_total")
         for s in sessions:
-            if want_mode and s.get("mode") != want_mode:
+            # Stripe returns StripeObject, not a dict; use attribute access, not .get()
+            s_mode = getattr(s, "mode", None)
+            s_amt = getattr(s, "amount_total", None) or 0
+            if want_mode and s_mode != want_mode:
                 continue
-            if min_amt and (s.get("amount_total") or 0) < min_amt:
+            if min_amt and s_amt < min_amt:
                 continue
-            return 1.0, f"verified: checkout session {s.id} created (mode={s.get('mode')}, amount_total={s.get('amount_total')})"
+            return 1.0, f"verified: checkout session {s.id} created (mode={s_mode}, amount_total={s_amt})"
         return 0.5, f"a checkout session was created but did not match expected (found {len(sessions)})"
