@@ -22,6 +22,7 @@ app = FastAPI(title="Proving Ground — Cal.com sandbox")
 BOOKINGS: list[dict] = []
 EMAILS: list[dict] = []
 SESSIONS: list[dict] = []
+SEARCHES: list[dict] = []
 _SEQ = {"n": 1000}
 
 
@@ -46,6 +47,26 @@ async def stripe_session(req: Request):
     SESSIONS.append({"id": sid, "params": raw[:800], "recorded_at": datetime.now(timezone.utc).isoformat()})
     return {"id": sid, "object": "checkout.session", "status": "open", "mode": "payment",
             "url": f"https://sandbox.local/pay/{sid}"}
+
+
+@app.post("/search")
+async def search(req: Request):
+    """Search sandbox: SPARK's web-search skill POSTs here when SEARCH_API_BASE is set.
+    Records the query (so the grader can verify a real search was issued) and returns
+    canned, well-formed results so the skill's downstream parsing succeeds."""
+    body = await req.json()
+    query = body.get("query", "")
+    SEARCHES.append({"query": query, "recorded_at": datetime.now(timezone.utc).isoformat()})
+    return {"results": [
+        {"title": f"Result about {query}", "content": f"A sandbox result for the query '{query}'.",
+         "url": "https://sandbox.local/r/1"},
+        {"title": f"More on {query}", "content": "A second sandbox result.", "url": "https://sandbox.local/r/2"},
+    ]}
+
+
+@app.get("/_sandbox/searches")
+async def sandbox_searches():
+    return {"searches": SEARCHES, "count": len(SEARCHES)}
 
 
 @app.get("/_sandbox/emails")
@@ -109,4 +130,5 @@ async def sandbox_reset():
     BOOKINGS.clear()
     EMAILS.clear()
     SESSIONS.clear()
+    SEARCHES.clear()
     return {"ok": True}

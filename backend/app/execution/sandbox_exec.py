@@ -136,6 +136,34 @@ class AgentMailMockVerifier:
         return 1.0, f"verified: email sent to {want_to}"
 
 
+class SearchMockVerifier:
+    """Reads the search sandbox to verify the agent actually issued a query, rather than
+    fabricating a 'looked it up'. The agent's web-search skill points here via
+    SEARCH_API_BASE. Web search has no persistent effect like a booking, so the observable
+    effect IS the outbound query, recorded by the sandbox."""
+
+    def __init__(self, mock_base: str):
+        self.base = mock_base.rstrip("/")
+
+    async def reset(self) -> None:
+        async with httpx.AsyncClient(timeout=10) as c:
+            await c.post(f"{self.base}/_sandbox/reset")
+
+    async def verify(self, expected: dict) -> tuple[float, str]:
+        async with httpx.AsyncClient(timeout=10) as c:
+            r = await c.get(f"{self.base}/_sandbox/searches")
+        searches = r.json().get("searches", [])
+        if not searches:
+            return 0.0, "no search query was issued in the sandbox (the agent answered without searching)"
+        needle = (expected.get("query_contains") or "").lower()
+        if needle:
+            if any(needle in (s.get("query", "") or "").lower() for s in searches):
+                return 1.0, f"verified: a real search was issued containing '{needle}'"
+            got = "; ".join(s.get("query", "") for s in searches)
+            return 0.6, f"a search was issued but without '{needle}' (got: {got})"
+        return 1.0, f"verified: {len(searches)} real search query(ies) issued"
+
+
 class StripeMockVerifier:
     """Reads the checkout sandbox (calcom_mock's /v1/checkout/sessions store) to verify a
     session was actually created. The mock-backed counterpart to StripeTestVerifier: use

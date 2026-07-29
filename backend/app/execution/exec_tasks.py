@@ -12,6 +12,7 @@ from app.execution.sandbox_exec import (
     AgentMailMockVerifier,
     CalcomVerifier,
     SandboxExecTask,
+    SearchMockVerifier,
     StripeMockVerifier,
     StripeTestVerifier,
 )
@@ -55,6 +56,15 @@ CHECKOUT_TASK = SandboxExecTask(
     expected={},  # any real checkout session created is a pass
 )
 
+SEARCH_TASK = SandboxExecTask(
+    id="exec_search",
+    label="Web search",
+    turns=[
+        "Can you look up the latest news about the James Webb Space Telescope and tell me what you find?",
+    ],
+    expected={"query_contains": "webb"},  # verify a real, on-topic query was issued
+)
+
 
 def mock_registry(mock_base: str) -> dict:
     """tool -> (task, verifier) where every tool points at the single combined mock
@@ -63,6 +73,7 @@ def mock_registry(mock_base: str) -> dict:
         "booking": (BOOKING_TASK, CalcomVerifier(mock_base)),
         "email": (EMAIL_TASK, AgentMailMockVerifier(mock_base)),
         "checkout": (CHECKOUT_TASK, StripeMockVerifier(mock_base)),
+        "web_search": (SEARCH_TASK, SearchMockVerifier(mock_base)),
     }
 
 
