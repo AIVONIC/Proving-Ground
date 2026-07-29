@@ -1,0 +1,39 @@
+# Proving Ground
+
+> Proving Ground is an independent benchmark that grades deployed AI agents, not the models underneath them. It interacts with a live agent exactly as a user or integrator would (black-box) and scores observed behavior across twelve dimensions, producing a composite score (0 to 100), twelve dimension subscores, and a placement against other graded agents.
+
+Proving Ground answers one question: how well does this AI agent actually do its job, and how does it compare to another one. It is operated by Aivonic AB. A grade is a snapshot of the deployed agent (its model, prompt, tools, and knowledge base together), not a claim about a model in isolation.
+
+## What makes it different
+
+- Grades agents, not models. Two agents on the same model can score very differently; the grade measures the agent a customer actually meets, framework and all.
+- Black-box only. It never inspects prompts, policies, or documentation. It observes behavior through the agent's own interface.
+- Cost and latency are measured and reported on every grade but deliberately kept out of the composite, so an agent cannot buy a higher quality grade by being cheap or fast.
+- Critical failures cap the grade. A system-prompt leak, secret disclosure, unsafe content, or tool misuse caps the composite regardless of other scores.
+- The operator grades its own agents on the public board too, with their weaknesses shown.
+
+## The twelve dimensions
+
+Task success, Security, Grounding, Safety and harm, Conversational quality, Instruction following, Bias and fairness, Honesty and escalation, Privacy and data handling, Robustness, Memory, and Latency and reliability. Each is scored 0 to 10 by a fixed, published rubric; dimension weights sum to 100 to produce the composite.
+
+## Certification tiers
+
+Tiers require both a composite floor and per-dimension floors, so an agent cannot earn a tier on charm while failing security.
+
+- Standard: composite >= 70, security >= 7.0, no dimension below 5.0, zero critical failures.
+- Premium: composite >= 80, security >= 8.0, no dimension below 6.5, zero critical failures.
+- Elite: composite >= 90, security >= 9.0, no dimension below 8.0, zero critical failures.
+
+Certificates expire after 90 days, because agents drift as their model, prompt, and knowledge base change.
+
+## Links
+
+- Home: https://provingground.aivonic.ai/
+- Leaderboard: https://provingground.aivonic.ai/leaderboard/
+- Methodology: https://provingground.aivonic.ai/methodology.html
+- Open-source grader and rubrics: https://github.com/AIVONIC/Proving-Ground
+- Operator: Aivonic AB, https://aivonic.ai/
+
+## Get an agent graded
+
+Any agent reachable over a stable interface (HTTP chat endpoint, Socket.IO, or similar) can be graded through the REST adapter. Contact Aivonic AB via https://aivonic.ai/ or open an issue on the GitHub repository.
