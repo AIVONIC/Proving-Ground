@@ -15,6 +15,7 @@ import asyncio
 import json
 import os
 import re
+import sys
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -279,7 +280,9 @@ class EnsembleJudge(Judge):
         self._names = [getattr(j, "name", type(j).__name__) for j in judges]
 
     @staticmethod
-    def _aggregate(names: list[str], judgments: list[Judgment]) -> Judgment:
+    def _aggregate(names: list[str], judgments: list[Judgment],
+                   panel: list[str] | None = None) -> Judgment:
+        panel = list(panel) if panel is not None else list(names)
         scores = [j.score for j in judgments]
         mean = sum(scores) / len(scores)
         spread = max(scores) - min(scores) if len(scores) > 1 else 0.0
@@ -288,7 +291,15 @@ class EnsembleJudge(Judge):
         summary = (f"ensemble(n={len(scores)}) mean={mean:.2f} spread={spread:.2f}: "
                    + "; ".join(f"{n} {j.score:.2f}" for n, j in zip(names, judgments)))
         return Judgment(round(mean, 4), summary,
-                        meta={"per_judge": per, "agreement": round(1.0 - spread, 3), "spread": round(spread, 3)})
+                        meta={"per_judge": per, "agreement": round(1.0 - spread, 3),
+                              "spread": round(spread, 3),
+                              # Configured panel vs who actually returned. A grade
+                              # produced by three vendors must not be mistakable
+                              # for one produced by four, months later, from the
+                              # stored record alone.
+                              "panel": list(panel), "panel_size": len(panel),
+                              "graded_by": list(names), "judges_missing": [
+                                  n for n in panel if n not in set(names)]})
 
     async def _panel(self, method: str, *args, **kwargs) -> Judgment:
         async def call(j):
@@ -301,7 +312,7 @@ class EnsembleJudge(Judge):
         if not good:
             return Judgment(0.5, "all ensemble judges failed", meta={"error": True})
         names, judgments = zip(*good)
-        return self._aggregate(list(names), list(judgments))
+        return self._aggregate(list(names), list(judgments), panel=self._names)
 
     async def score_refusal(self, prompt, response, family="", refute=False) -> Judgment:
         return await self._panel("score_refusal", prompt, response, family, refute=refute)
@@ -313,12 +324,85 @@ class EnsembleJudge(Judge):
         return await self._panel("score_criteria", prompt, response, rubric, context=context)
 
 
-def build_ensemble(agent_profile: str = "") -> Judge:
+# Every vendor the full panel is meant to contain, as (name, key env var).
+# Anthropic is listed here too, though it is constructed separately below,
+# because this table is what "the whole panel" means for the require-check.
+ALL_VENDOR_KEYS: list[tuple[str, str]] = (
+    [("anthropic", "ANTHROPIC_API_KEY")]
+    + [(name, key_env) for name, key_env, _, _, _ in _VENDORS]
+)
+
+
+class MissingJudgeError(RuntimeError):
+    """A vendor the caller required is absent, so the panel would be short.
+
+    Distinct from "no keys at all": this fires when SOME judges are available,
+    which is the dangerous case. A short panel grades happily and looks
+    identical to a full one, so without this the only symptom is a quietly
+    weaker grade.
+    """
+
+
+def missing_vendors() -> list[str]:
+    """Vendors from the full panel whose key is not in the environment."""
+    return [name for name, key_env in ALL_VENDOR_KEYS if not os.environ.get(key_env)]
+
+
+def _required_vendors() -> list[str] | None:
+    """Vendors the caller insists on, from PROVING_GROUND_REQUIRE_JUDGES.
+
+    Accepts "all" for the whole panel, or a comma-separated subset
+    ("anthropic,openai"). Unset means opportunistic, the historical default:
+    grade with whatever keys exist. Any run whose grades are published should
+    set this, because otherwise a missing key silently shrinks the panel.
+    """
+    raw = (os.environ.get("PROVING_GROUND_REQUIRE_JUDGES") or "").strip()
+    if not raw:
+        return None
+    if raw.lower() == "all":
+        return [name for name, _ in ALL_VENDOR_KEYS]
+    return [v.strip().lower() for v in raw.split(",") if v.strip()]
+
+
+def build_ensemble(agent_profile: str = "", require: list[str] | str | None = None) -> Judge:
     """Assemble the frontier panel from whatever vendor keys are present: Anthropic
     (Claude), OpenAI (GPT), xAI (Grok), Google (Gemini). Each joins the vote only
     when its key exists, so the panel grows to the full set of frontier labs as keys
     are added, that is the 'Graded by Frontier Models' property. Never includes our
-    own our in-house models, which would not be independent."""
+    own our in-house models, which would not be independent.
+
+    `require` (or PROVING_GROUND_REQUIRE_JUDGES) makes that opportunism explicit
+    rather than silent: name the vendors the run must have, or "all", and a
+    missing key raises MissingJudgeError instead of quietly grading with a
+    shorter panel. On 2026-07-29 an XAI_API_KEY removed from the sourced .env
+    took Grok out of a live 4-lab regrade with no error and no visible
+    difference in the output; this is the guard for that.
+    """
+    if isinstance(require, str):
+        require = [v.strip().lower() for v in require.split(",") if v.strip()] \
+            if require.strip().lower() != "all" else [n for n, _ in ALL_VENDOR_KEYS]
+    required = require if require is not None else _required_vendors()
+
+    if required:
+        known = {n for n, _ in ALL_VENDOR_KEYS}
+        unknown = [v for v in required if v not in known]
+        if unknown:
+            raise ValueError(
+                f"unknown judge vendor(s) required: {', '.join(sorted(unknown))}. "
+                f"Known: {', '.join(sorted(known))}"
+            )
+        absent = [v for v in required if v in set(missing_vendors())]
+        if absent:
+            env_for = dict(ALL_VENDOR_KEYS)
+            raise MissingJudgeError(
+                "required judge vendor(s) unavailable: "
+                + ", ".join(f"{v} (set {env_for[v]})" for v in sorted(absent))
+                + ". The panel would grade with "
+                + f"{len(ALL_VENDOR_KEYS) - len(missing_vendors())} of "
+                + f"{len(ALL_VENDOR_KEYS)} vendors. Refusing, because a short "
+                  "panel produces a weaker grade that looks identical to a full one."
+            )
+
     judges: list[Judge] = []
     if os.environ.get("ANTHROPIC_API_KEY"):
         judges.append(ClaudeJudge(agent_profile=agent_profile))
@@ -331,4 +415,15 @@ def build_ensemble(agent_profile: str = "") -> Judge:
     if not judges:
         raise RuntimeError("no frontier judge API key available "
                            "(need one of ANTHROPIC_API_KEY, OPENAI_API_KEY, XAI_API_KEY, GOOGLE_API_KEY)")
+
+    absent_now = missing_vendors()
+    if absent_now:
+        # Visible even when not required, so a short panel is never a silent
+        # fact discovered later from a billing statement.
+        print(
+            f"[judge] WARNING: panel is {len(judges)} of {len(ALL_VENDOR_KEYS)} vendors; "
+            f"missing: {', '.join(absent_now)}. "
+            "Set PROVING_GROUND_REQUIRE_JUDGES=all to make this an error.",
+            file=sys.stderr,
+        )
     return EnsembleJudge(judges) if len(judges) > 1 else judges[0]
