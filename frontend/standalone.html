@@ -275,15 +275,15 @@
 
       <div class="card scorecard reveal" id="scorecard">
         <div class="sc-head">
-          <span class="sc-tag">Agent scorecard</span>
+          <span class="sc-tag">SPARK &middot; Aivonic AB</span>
           <span class="sc-badge">Premium</span>
         </div>
-        <svg class="sc-figure" id="radar" viewBox="0 0 460 362" role="img" aria-label="Radar chart of twelve dimension scores"></svg>
+        <svg class="sc-figure" id="radar" viewBox="0 0 460 362" role="img" aria-label="Radar chart of SPARK's twelve dimension scores, composite 87.09 out of 100"></svg>
         <div class="sc-foot">
-          <div class="sc-composite">82<small> / 100</small></div>
+          <div class="sc-composite">87<small> / 100</small></div>
           <div style="text-align:right">
-            <div class="mono" style="font-size:12px;color:var(--muted)">12 dimensions graded</div>
-            <div class="sc-note">Illustrative example</div>
+            <div class="mono" style="font-size:12px;color:var(--muted)">3-run avg &middot; CI 86&ndash;87</div>
+            <div class="sc-note">A real grade, self-operated, graded 2026-07-29</div>
           </div>
         </div>
       </div>
@@ -322,10 +322,10 @@
       <div class="sec-head reveal">
         <span class="eyebrow">What we measure</span>
         <h2>Twelve dimensions, weighted by what matters.</h2>
-        <p>A fluent chatbot is easy. An agent you can trust in production is not. The set is deliberately broader than any one builder's strengths, including the dimensions that are hardest to fake.</p>
+        <p>A fluent chatbot is easy. An agent you can trust in production is not. The set is deliberately broader than any one builder's strengths, including the dimensions that are hardest to fake. The number on each card is that dimension's <strong>weight in the composite, not a score</strong> &mdash; the twelve weights sum to 100.</p>
       </div>
       <div class="dims" id="dims"></div>
-      <p class="disclaimer">Weights are provisional and shown out of 100. Cost and efficiency (hatched) is measured and reported next to every grade but kept out of the composite, so an agent cannot buy a higher quality score by being cheap.</p>
+      <p class="disclaimer">Weights are provisional. Cost and efficiency (hatched) is measured and reported next to every grade but kept out of the composite, so an agent cannot buy a higher quality score by being cheap.</p>
     </div>
   </section>
 
@@ -427,7 +427,7 @@
       </div>
       <div class="mono">An independent benchmark and certification for AI agents.</div>
     </div>
-    <p class="disclaimer">Proving Ground is a working name. The benchmark is in active development and not yet publicly launched; figures shown are illustrative. Operated as a neutral standard, with an open methodology and independent judging.</p>
+    <p class="disclaimer">Proving Ground is a working name. The benchmark is in active development; figures shown are real grades computed on the held-out private suite. Operated as a neutral standard, with an open methodology and independent judging.</p>
   </div>
 </footer>
 
@@ -458,14 +458,16 @@
     var reported = d[1] === "reported";
     var el = document.createElement("div");
     el.className = "dim" + (reported ? " reported" : "");
-    var wlabel = reported ? '<span class="w">reported</span>' : '<span class="w"><b>' + d[1] + '</b>/100</span>';
+    var wlabel = reported ? '<span class="w">reported</span>' : '<span class="w">weight <b>' + d[1] + '</b>/100</span>';
     var bar = reported ? "" : '<div class="bar"><i data-w="' + d[1] + '"></i></div>';
     el.innerHTML = '<div class="dim-top"><h3>' + d[0] + '</h3>' + wlabel + '</div><p>' + d[2] + '</p>' + bar;
     dimsEl.appendChild(el);
   });
 
   // ---- Radar ----
-  var SCORES = [8.4, 9.1, 7.6, 8.8, 8.0, 7.2, 8.3, 7.5, 8.1, 6.9, 7.8, 8.6];
+  // SPARK, graded 2026-07-29, 3-run avg on the held-out private suite. Order matches SHORT below
+  // and DIMS above. Source of truth: backend/data/leaderboard/entries.json (id "spark").
+  var SCORES = [9.1, 9.7, 8.72, 8.33, 8.37, 7.92, 8.08, 8.18, 9.07, 7.6, 8.94, 8.58];
   var SHORT = ["Task", "Security", "Ground", "Safety", "Convo", "Instr", "Bias", "Honest", "Privacy", "Robust", "Memory", "Latency"];
   var svg = document.getElementById("radar");
   var NS = "http://www.w3.org/2000/svg";
