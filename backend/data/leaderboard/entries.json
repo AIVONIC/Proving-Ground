@@ -38,7 +38,7 @@
     {
       "id": "spark",
       "name": "SPARK",
-      "vendor": "Aivonic AB",
+      "vendor": "Aivonic Labs AB",
       "category": "Sales & Support",
       "access": "Socket.IO",
       "composite": 87.09,
