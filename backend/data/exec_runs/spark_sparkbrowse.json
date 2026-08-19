@@ -1,0 +1,15 @@
+{
+  "agent": "spark",
+  "verified": 1,
+  "attempted": 1,
+  "execution_subscore": 10.0,
+  "tasks": [
+    {
+      "tool": "browser",
+      "label": "Browser",
+      "completion": 1.0,
+      "score": 1.0,
+      "detail": "verified: the agent fetched the sandbox page (1 GET)"
+    }
+  ]
+}

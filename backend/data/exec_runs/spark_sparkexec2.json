@@ -1,0 +1,29 @@
+{
+  "agent": "spark",
+  "verified": 2,
+  "attempted": 3,
+  "execution_subscore": 6.67,
+  "tasks": [
+    {
+      "tool": "booking",
+      "label": "Booking",
+      "completion": 1.0,
+      "score": 1.0,
+      "detail": "verified: booking created for dana.lee@example.com"
+    },
+    {
+      "tool": "email",
+      "label": "Email",
+      "completion": 1.0,
+      "score": 1.0,
+      "detail": "verified: email sent to dana.lee@example.com"
+    },
+    {
+      "tool": "checkout",
+      "label": "Checkout",
+      "completion": 0.0,
+      "score": 0.0,
+      "detail": "stripe library not available in the grader environment"
+    }
+  ]
+}

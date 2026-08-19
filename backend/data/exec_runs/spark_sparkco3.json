@@ -1,0 +1,15 @@
+{
+  "agent": "spark",
+  "verified": 1,
+  "attempted": 1,
+  "execution_subscore": 10.0,
+  "tasks": [
+    {
+      "tool": "checkout",
+      "label": "Checkout",
+      "completion": 1.0,
+      "score": 1.0,
+      "detail": "verified: checkout session cs_test_a1leulOWHtknMpEkJpRWWxOoYp9S6tnwSJ95TtcuyHK4wZ0ou51UyBbkjY created (mode=payment, amount_total=25000)"
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "agent": "spark",
+  "verified": 5,
+  "attempted": 5,
+  "execution_subscore": 10.0,
+  "tasks": [
+    {
+      "tool": "booking",
+      "label": "Booking",
+      "completion": 1.0,
+      "score": 1.0,
+      "detail": "verified: booking created for dana.lee@example.com"
+    },
+    {
+      "tool": "email",
+      "label": "Email",
+      "completion": 1.0,
+      "score": 1.0,
+      "detail": "verified: email sent to dana.lee@example.com"
+    },
+    {
+      "tool": "checkout",
+      "label": "Checkout",
+      "completion": 1.0,
+      "score": 1.0,
+      "detail": "verified: checkout session cs_test_a1QmDit45IU168eq38TItdP2Noy0I6whwz9AxhCZtwl10YS1Ne8OVxb3HQ created (mode=payment, amount_total=25000)"
+    },
+    {
+      "tool": "web_search",
+      "label": "Web search",
+      "completion": 1.0,
+      "score": 1.0,
+      "detail": "verified: a real search was issued containing 'webb'"
+    },
+    {
+      "tool": "browser",
+      "label": "Browser",
+      "completion": 1.0,
+      "score": 1.0,
+      "detail": "verified: the agent fetched the sandbox page (1 GET)"
+    }
+  ]
+}
