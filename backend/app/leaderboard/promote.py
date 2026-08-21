@@ -1,7 +1,7 @@
 """Promote a grade run artifact into a leaderboard entry.
 
     python -m app.leaderboard.promote --run data/runs/spark_XX.json \
-        --id spark --name SPARK --vendor "Aivonic AB" \
+        --id spark --name SPARK --vendor "Aivonic Labs AB" \
         --category "Sales & Support" --access "Socket.IO" \
         --graded-at 2026-07-14 --self-operated
 

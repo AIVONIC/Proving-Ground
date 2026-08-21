@@ -339,7 +339,7 @@ def render(lander_html: str, entries: list[dict]) -> str:
          "name": "Proving Ground AI Agent Benchmark",
          "description": "An independent black-box benchmark that grades deployed AI agents across twelve dimensions.",
          "url": f"{base}/leaderboard/",
-         "creator": {"@type": "Organization", "name": "Aivonic AB", "url": "https://aivonic.ai/"},
+         "creator": {"@type": "Organization", "name": "Aivonic Labs AB", "url": "https://aivonic.ai/"},
          "license": "https://www.apache.org/licenses/LICENSE-2.0", "isAccessibleForFree": True},
         {"@context": "https://schema.org", "@type": "ItemList",
          "name": "Proving Ground Agent Leaderboard",
