@@ -28,7 +28,7 @@ import json
 import statistics
 from pathlib import Path
 
-from app.leaderboard.render import DIMS, PAGE_CSS, PREMIUM_FLOOR, radar_svg
+from app.leaderboard.render import DIMS, PAGE_CSS, PREMIUM_FLOOR, radar_svg, site_bar
 from app.leaderboard.store import load
 
 DIM_KEYS = {k: full for _short, k, full in DIMS}
@@ -217,12 +217,7 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
         '<link rel="icon" href="/favicon.ico" sizes="any">'
         f'{style}{PAGE_CSS}{REPORT_CSS}</head><body>'
     )
-    bar = ('<header class="bar"><div class="wrap bar-in">'
-           '<a class="brand" href="/" style="text-decoration:none">'
-           '<span><b>PROVING&nbsp;GROUND</b></span></a>'
-           '<nav><a class="navlink" href="/methodology">Method</a>'
-           '<a class="navlink" href="/leaderboard/">Leaderboard</a></nav>'
-           '</div></header>')
+    bar = site_bar()
 
     body = f"""<main class="rp-wrap">
 <section class="rp-head">
@@ -321,10 +316,7 @@ def index_html(lander_html: str, rows: list[tuple[dict, str]], missing: list[dic
         '<link rel="icon" href="/favicon.ico" sizes="any">'
         f'{style}{PAGE_CSS}{REPORT_CSS}{INDEX_CSS}</head><body>'
     )
-    bar = ('<header class="bar"><div class="wrap bar-in">'
-           '<a class="brand" href="/" style="text-decoration:none"><span><b>PROVING&nbsp;GROUND</b></span></a>'
-           '<nav><a class="navlink" href="/methodology">Method</a>'
-           '<a class="navlink" href="/leaderboard/">Leaderboard</a></nav></div></header>')
+    bar = site_bar()
     body = f"""<main class="rp-wrap">
 <section class="rp-head">
   <span class="eyebrow">Scorecards</span>

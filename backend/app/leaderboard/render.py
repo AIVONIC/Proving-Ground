@@ -328,6 +328,36 @@ PAGE_CSS = """
 """
 
 
+
+def site_bar() -> str:
+    """The site header, defined once and identical on every generated page.
+
+    Copied verbatim from the homepage, including the logo mark and the full nav, so
+    a scorecard looks like part of the site rather than a page that happens to share
+    its colours. It takes no parameters on purpose: the moment the nav becomes a
+    per-page argument, pages start disagreeing about what the site's navigation is.
+
+    The homepage can write `#dimensions` because it IS the page those anchors live
+    on. Every other page needs `/#dimensions`, or the link silently does nothing.
+    """
+    return (
+        '<header class="bar"><div class="wrap bar-in">'
+        '<a class="brand" href="/" style="text-decoration:none;color:inherit;">'
+        '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true">'
+        '<circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="1.4"/>'
+        '<circle cx="12" cy="12" r="5.6" fill="none" stroke="var(--hair-strong)" stroke-width="1.2"/>'
+        '<circle cx="12" cy="12" r="1.7" fill="var(--accent)"/>'
+        '<path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="var(--accent)" stroke-width="1.2"/></svg>'
+        '<span><b>PROVING&nbsp;GROUND</b></span></a>'
+        '<nav>'
+        '<a class="navlink" href="/">Home</a>'
+        '<a class="navlink" href="/#dimensions">Dimensions</a>'
+        '<a class="navlink" href="/methodology">Methodology</a>'
+        '<a class="navlink" href="/leaderboard/">Leaderboard</a>'
+        '<a class="btn" href="/#certify">Certify your agent</a>'
+        '</nav></div></header>'
+    )
+
 def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None = None) -> str:
     style = re.search(r"<style>.*?</style>", lander_html, re.DOTALL).group(0)
     cards = "".join(card(i + 1, e, (slugs or {}).get(e["id"])) for i, e in enumerate(entries)) or \
@@ -375,20 +405,7 @@ def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None =
         '<link rel="apple-touch-icon" href="/favicons/apple-touch-icon.png">'
         f'{style}{PAGE_CSS}</head><body>'
     )
-    bar = (
-        '<header class="bar"><div class="wrap bar-in">'
-        '<a class="brand" href="/" style="text-decoration:none">'
-        '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true">'
-        '<circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="1.4"/>'
-        '<circle cx="12" cy="12" r="5.6" fill="none" stroke="var(--hair-strong)" stroke-width="1.2"/>'
-        '<circle cx="12" cy="12" r="1.7" fill="var(--accent)"/>'
-        '<path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="var(--accent)" stroke-width="1.2"/></svg>'
-        '<span><b>PROVING&nbsp;GROUND</b></span></a>'
-        '<nav><a class="navlink" href="/#method">Method</a>'
-        '<a class="navlink" href="/#dimensions">Dimensions</a>'
-        '<a class="btn" href="/#certify">Certify your agent</a></nav>'
-        '</div></header>'
-    )
+    bar = site_bar()
     hero = (
         '<main><section class="hero lb-hero"><div class="lb-wrap">'
         '<span class="eyebrow">The leaderboard</span>'
