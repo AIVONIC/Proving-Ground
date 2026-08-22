@@ -47,3 +47,7 @@ OUTREACH.md
 backend/pg_*.py
 backend/grade_*_direct.py
 backend/scratch/
+
+# Generated per-agent scorecards. These contain a vendor's own transcripts and are
+# sent privately, never published. The generator (app/leaderboard/report.py) IS public.
+frontend/report/
