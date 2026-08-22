@@ -36,12 +36,20 @@ MAX_PROBES_PER_DIM = 6   # worst-first; the rest are counted, never silently dro
 RESPONSE_CLIP = 900
 
 
-def token_for(entry: dict, run_path: str) -> str:
-    """Stable, non-enumerable id. Derived from the grade, so regenerating the same
-    report reproduces the same URL and a vendor's link never rots. No clock and no
-    randomness on purpose: the engine has neither."""
+def slug_for(entry: dict, run_path: str) -> str:
+    """`<agent-id>-<token>`. The name is there so a pasted link is self-evidently
+    about THIS agent; the token is there so the URL cannot be guessed.
+
+    Both halves earn their place. A bare `/report/spark` would be enumerable, and a
+    report carries a vendor's own transcripts and the fact that we graded them at
+    all, neither of which is ours to expose by letting anyone try names until one
+    answers 200. A bare token is unguessable but tells the recipient nothing.
+
+    Derived from the grade, with no clock and no randomness, so regenerating the
+    same grade reproduces the same URL and a link already sent never rots."""
     seed = f'{entry["id"]}|{entry.get("graded_at", "")}|{entry["composite"]}|{Path(run_path).name}'
-    return hashlib.sha256(seed.encode()).hexdigest()[:16]
+    token = hashlib.sha256(seed.encode()).hexdigest()[:12]
+    return f'{entry["id"]}-{token}'
 
 
 def probe_rollup(runs: list[dict], dim_key: str) -> list[dict]:
@@ -169,7 +177,7 @@ REPORT_CSS = """<style>
 </style>"""
 
 
-def render_report(lander_html: str, entry: dict, data: dict, token: str) -> str:
+def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
     import re
     style = re.search(r"<style>.*?</style>", lander_html, re.DOTALL).group(0)
     runs = data.get("runs") or []
@@ -189,6 +197,17 @@ def render_report(lander_html: str, entry: dict, data: dict, token: str) -> str:
     )
     dims_html = "".join(dimension_html(entry, runs, k, DIM_KEYS[k]) for k, _v in ranked)
     crit = grade.get("critical_failures", 0)
+    # A reference build is an agent WE built on someone's platform. Saying so on the
+    # page is the difference between "we graded your product" (false, and the kind of
+    # claim that ends a conversation) and "we built an agent on your platform and
+    # graded that" (true, and the whole point of the comparison).
+    provenance = (
+        f'<b>{name} is a reference build, not {vendor.replace("Built on ", "") or "the vendor"}\u2019s '
+        'own product.</b> We built it ourselves to the same specification on each platform, same model '
+        'and same prompt, so the only variable is the platform. It is not a grade of anything you ship.'
+        if entry.get("reference") else
+        f'Nothing about {name} is published unless you say so.'
+    )
 
     head = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
@@ -219,7 +238,7 @@ def render_report(lander_html: str, entry: dict, data: dict, token: str) -> str:
 </section>
 
 <div class="rp-note"><b>This page is unlisted and is not on the leaderboard.</b> It exists so you can
-check the grade rather than take it on trust. Nothing about {name} is published unless you say so.
+check the grade rather than take it on trust. {provenance}
 The probe prompts are withheld because the suite is held out and rotated, so tuning to it is not
 possible; what you see is your agent's own reply and the judge's reasoning for every probe that
 lost a point. Method and rubrics are public at
@@ -242,7 +261,7 @@ one time in three is the one worth reading.</p>
 {dims_html}
 
 <p class="rp-foot">Judge agreement {conf.get('judge_agreement',{}).get('overall','n/a')} &middot;
-cross-run variance {conf.get('variance','n/a')} &middot; scorecard {token}.
+cross-run variance {conf.get('variance','n/a')} &middot; scorecard {slug}.
 Grades expire after 90 days because agents drift.</p>
 </main>"""
     return head + bar + body + "</body></html>"
@@ -260,12 +279,12 @@ def main() -> int:
     if entry is None:
         raise SystemExit(f"no promoted entry with id {a.id!r}; promote the run first")
     data = json.loads(Path(a.run).read_text())
-    token = token_for(entry, a.run)
-    out = Path(a.out_dir) / f"{token}.html"
+    slug = slug_for(entry, a.run)
+    out = Path(a.out_dir) / f"{slug}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(render_report(Path(a.lander).read_text(), entry, data, token))
+    out.write_text(render_report(Path(a.lander).read_text(), entry, data, slug))
     print(f"scorecard {entry['name']} -> {out} ({out.stat().st_size} bytes)")
-    print(f"URL when deployed: https://provingground.aivonic.ai/report/{token}")
+    print(f"URL when deployed: https://provingground.aivonic.ai/report/{slug}")
     return 0
 
 
