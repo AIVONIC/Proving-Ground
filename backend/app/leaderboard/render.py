@@ -224,7 +224,7 @@ def _tools_line(e: dict) -> str:
             '<b>0</b></span><span class="tool-chip ghost">conversation only</span></div>')
 
 
-def card(rank: int, e: dict) -> str:
+def card(rank: int, e: dict, report_slug: str | None = None) -> str:
     tier = (e.get("tier") or "none").lower()
     badge = (f'<span class="sc-badge tier-{tier}">{e["tier"]}</span>'
              if tier in ("standard", "premium", "elite")
@@ -262,7 +262,10 @@ def card(rank: int, e: dict) -> str:
         '<div style="text-align:right">'
         f'<div class="mono" style="font-size:11px;color:var(--muted)">{_conf_line(e)}</div>'
         f'{self_tag}</div></div>'
-        f'{breakdown}</div>'
+        f'{breakdown}'
+        + (f'<a class="sc-link" href="/report/{report_slug}">Open the full scorecard &rarr;</a>'
+           if report_slug else '')
+        + '</div>'
     )
 
 
@@ -316,13 +319,18 @@ PAGE_CSS = """
   .tool-chip{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);background:var(--accent-ghost);border:1px solid var(--hair-strong);border-radius:10px;padding:1.5px 8px;white-space:nowrap;}
   .tool-chip.ghost{color:var(--faint);background:transparent;font-style:italic;}
   .tool-chip.verified{color:var(--accent);border-color:var(--accent);font-weight:600;}
+  /* Route into the per-agent scorecard. A ranked list you cannot click into is a
+     dead end: the composite is the claim, the scorecard is the evidence for it. */
+  .sc-link{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:11.5px;
+    letter-spacing:0.04em;color:var(--accent);text-decoration:none;border-bottom:1px solid var(--hair-strong);padding-bottom:2px;}
+  .sc-link:hover{border-color:var(--accent);}
 </style>
 """
 
 
-def render(lander_html: str, entries: list[dict]) -> str:
+def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None = None) -> str:
     style = re.search(r"<style>.*?</style>", lander_html, re.DOTALL).group(0)
-    cards = "".join(card(i + 1, e) for i, e in enumerate(entries)) or \
+    cards = "".join(card(i + 1, e, (slugs or {}).get(e["id"])) for i, e in enumerate(entries)) or \
         '<div class="lb-empty">No agents graded yet.</div>'
     import json as _json
     base = "https://provingground.aivonic.ai"
@@ -404,9 +412,17 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Render the leaderboard page.")
     ap.add_argument("--lander", required=True, help="path to the lander HTML (for the shared style block)")
     ap.add_argument("--out", required=True, help="output HTML path")
+    ap.add_argument("--report-dir", help="directory of generated scorecards; when given, each row "
+                                         "links to its agent's card")
     a = ap.parse_args()
     entries = load()
-    html = render(Path(a.lander).read_text(), entries)
+    slugs = {}
+    if a.report_dir:
+        for e in entries:
+            found = sorted(Path(a.report_dir).glob(f'{e["id"]}-*.html'))
+            if found:
+                slugs[e["id"]] = found[-1].stem
+    html = render(Path(a.lander).read_text(), entries, slugs)
     Path(a.out).write_text(html)
     print(f"rendered {len(entries)} entries -> {a.out} ({len(html)} bytes)")
     return 0

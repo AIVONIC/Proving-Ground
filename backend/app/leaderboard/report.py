@@ -267,13 +267,117 @@ Grades expire after 90 days because agents drift.</p>
     return head + bar + body + "</body></html>"
 
 
+
+INDEX_CSS = """<style>
+.ix-row{display:flex;align-items:center;gap:14px;padding:15px 18px;border:1px solid var(--hair);
+  border-radius:12px;background:var(--panel);margin:9px 0;text-decoration:none;color:inherit}
+.ix-row:hover{border-color:var(--accent);text-decoration:none}
+.ix-rank{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:22px}
+.ix-main{flex:1;min-width:0}
+.ix-name{font-weight:600}
+.ix-meta{color:var(--muted);font-size:12.5px}
+.ix-weak{font-family:var(--mono);font-size:11.5px;color:var(--muted);text-align:right;min-width:190px}
+@media(max-width:700px){.ix-weak{display:none}}
+.ix-score{font-family:var(--mono);font-variant-numeric:tabular-nums;font-weight:600;font-size:1.15rem;min-width:60px;text-align:right}
+.ix-missing{color:var(--muted);font-size:13px;border-top:1px solid var(--hair);margin-top:20px;padding-top:14px}
+</style>"""
+
+
+def index_html(lander_html: str, rows: list[tuple[dict, str]], missing: list[dict]) -> str:
+    """The published index. Listing is DERIVED from the leaderboard, never from a flag:
+    a card is listed here if and only if its agent has a promoted entry, because being
+    on the board is what makes a grade public. A card generated for a vendor who has not
+    agreed to be listed has no entry, so it cannot appear here even by mistake. That is
+    deliberately not a rule someone has to remember."""
+    import re
+    style = re.search(r"<style>.*?</style>", lander_html, re.DOTALL).group(0)
+    items = []
+    for e, slug in rows:
+        subs = e.get("subscores", {})
+        weakest = sorted(((DIM_KEYS[k], float(v)) for k, v in subs.items() if k in DIM_KEYS),
+                         key=lambda x: x[1])[:2]
+        weak = " &middot; ".join(f"{n} {v:.1f}" for n, v in weakest)
+        tag = ("reference build" if e.get("reference")
+               else "self-operated" if e.get("self_operated") else "")
+        meta = " &middot; ".join(x for x in (e.get("vendor"), tag) if x)
+        items.append(
+            f'<a class="ix-row" href="/report/{slug}">'
+            f'<span class="ix-rank">{len(items)+1}</span>'
+            f'<span class="ix-main"><span class="ix-name">{html.escape(e["name"])}</span><br>'
+            f'<span class="ix-meta">{meta}</span></span>'
+            f'<span class="ix-weak">weakest: {weak}</span>'
+            f'<span class="ix-score">{e["composite"]:.1f}</span></a>'
+        )
+    miss = ""
+    if missing:
+        names = ", ".join(html.escape(e["name"]) for e in missing)
+        miss = (f'<p class="ix-missing">On the board but with no scorecard generated yet: {names}. '
+                'Run <code>app.leaderboard.report</code> for each.</p>')
+    head = (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<meta name="robots" content="noindex,nofollow">'
+        '<title>Agent scorecards — Proving Ground</title>'
+        '<link rel="icon" href="/favicon.ico" sizes="any">'
+        f'{style}{PAGE_CSS}{REPORT_CSS}{INDEX_CSS}</head><body>'
+    )
+    bar = ('<header class="bar"><div class="wrap bar-in">'
+           '<a class="brand" href="/" style="text-decoration:none"><span><b>PROVING&nbsp;GROUND</b></span></a>'
+           '<nav><a class="navlink" href="/methodology">Method</a>'
+           '<a class="navlink" href="/leaderboard/">Leaderboard</a></nav></div></header>')
+    body = f"""<main class="rp-wrap">
+<section class="rp-head">
+  <span class="eyebrow">Scorecards</span>
+  <h1 class="rp-title">Every grade, opened up</h1>
+  <p class="rp-sub">The leaderboard says how agents rank. A scorecard says why: all twelve
+  dimensions worst-first, every probe that lost points, the judge's reasoning, and the agent's
+  own reply. One per graded agent.</p>
+</section>
+
+<div class="rp-note"><b>What is here and what is not.</b> Every agent on the public leaderboard
+has a scorecard, and it is linked below. Agents we have graded privately do NOT appear here:
+their card exists at its own address and is shared with them alone, because a grade nobody has
+agreed to publish is theirs to release, not ours. That is enforced by how this page is built
+rather than by a setting, since a card is listed here only when its agent has a leaderboard
+entry. Probe prompts are withheld from every card, published or not, because the suite is
+held out and rotated.</div>
+
+{"".join(items) if items else '<p class="rp-sub">No scorecards generated yet.</p>'}
+{miss}
+
+<p class="rp-foot">Method and rubrics are public at
+<a href="https://github.com/AIVONIC/proving-ground">github.com/AIVONIC/proving-ground</a>.
+Grades expire after 90 days because agents drift.</p>
+</main>"""
+    return head + bar + body + "</body></html>"
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Render a private per-agent scorecard.")
-    ap.add_argument("--run", required=True, help="path to the grade run artifact JSON")
-    ap.add_argument("--id", required=True, help="promoted leaderboard entry id")
+    ap.add_argument("--run", help="path to the grade run artifact JSON")
+    ap.add_argument("--id", help="promoted leaderboard entry id")
     ap.add_argument("--lander", required=True, help="lander HTML, for the shared style block")
-    ap.add_argument("--out-dir", required=True, help="directory to write <token>.html into")
+    ap.add_argument("--out-dir", required=True, help="directory to write <slug>.html into")
+    ap.add_argument("--index", action="store_true",
+                    help="(re)build index.html listing the cards of every promoted agent")
     a = ap.parse_args()
+
+    if a.index:
+        out_dir = Path(a.out_dir)
+        rows, missing = [], []
+        for e in load():
+            found = sorted(out_dir.glob(f'{e["id"]}-*.html'))
+            if found:
+                rows.append((e, found[-1].stem))
+            else:
+                missing.append(e)
+        out = out_dir / "index.html"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(index_html(Path(a.lander).read_text(), rows, missing))
+        print(f"index: {len(rows)} card(s) listed, {len(missing)} promoted agent(s) without one -> {out}")
+        return 0
+
+    if not a.run or not a.id:
+        raise SystemExit("--run and --id are required unless --index is given")
 
     entry = next((e for e in load() if e["id"] == a.id), None)
     if entry is None:
