@@ -17,7 +17,7 @@ Deliberately UNLISTED, not part of the public board:
 Nothing is published by generating one. Sending the link is a separate, human act.
 
     python -m app.leaderboard.report --run ../backend/data/runs/spark_x.json \
-        --id spark --lander ../frontend/standalone.html --out-dir ../frontend/report
+        --id spark --lander ../frontend/standalone.html --out-dir ../frontend/scorecards
 """
 from __future__ import annotations
 
@@ -40,7 +40,7 @@ def slug_for(entry: dict, run_path: str) -> str:
     """`<agent-id>-<token>`. The name is there so a pasted link is self-evidently
     about THIS agent; the token is there so the URL cannot be guessed.
 
-    Both halves earn their place. A bare `/report/spark` would be enumerable, and a
+    Both halves earn their place. A bare `/scorecards/spark` would be enumerable, and a
     report carries a vendor's own transcripts and the fact that we graded them at
     all, neither of which is ours to expose by letting anyone try names until one
     answers 200. A bare token is unguessable but tells the recipient nothing.
@@ -301,7 +301,7 @@ def index_html(lander_html: str, rows: list[tuple[dict, str]], missing: list[dic
                else "self-operated" if e.get("self_operated") else "")
         meta = " &middot; ".join(x for x in (e.get("vendor"), tag) if x)
         items.append(
-            f'<a class="ix-row" href="/report/{slug}">'
+            f'<a class="ix-row" href="/scorecards/{slug}">'
             f'<span class="ix-rank">{len(items)+1}</span>'
             f'<span class="ix-main"><span class="ix-name">{html.escape(e["name"])}</span><br>'
             f'<span class="ix-meta">{meta}</span></span>'
@@ -388,7 +388,7 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_report(Path(a.lander).read_text(), entry, data, slug))
     print(f"scorecard {entry['name']} -> {out} ({out.stat().st_size} bytes)")
-    print(f"URL when deployed: https://provingground.aivonic.ai/report/{slug}")
+    print(f"URL when deployed: https://provingground.aivonic.ai/scorecards/{slug}")
     return 0
 
 

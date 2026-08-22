@@ -263,7 +263,7 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
         f'<div class="mono" style="font-size:11px;color:var(--muted)">{_conf_line(e)}</div>'
         f'{self_tag}</div></div>'
         f'{breakdown}'
-        + (f'<a class="sc-link" href="/report/{report_slug}">Open the full scorecard &rarr;</a>'
+        + (f'<a class="sc-link" href="/scorecards/{report_slug}">Open the full scorecard &rarr;</a>'
            if report_slug else '')
         + '</div>'
     )

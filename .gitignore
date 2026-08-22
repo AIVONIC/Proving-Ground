@@ -50,4 +50,4 @@ backend/scratch/
 
 # Generated per-agent scorecards. These contain a vendor's own transcripts and are
 # sent privately, never published. The generator (app/leaderboard/report.py) IS public.
-frontend/report/
+frontend/scorecards/
