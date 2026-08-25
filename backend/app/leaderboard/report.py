@@ -29,6 +29,7 @@ import statistics
 from pathlib import Path
 
 from app.leaderboard.render import DIMS, PAGE_CSS, PREMIUM_FLOOR, radar_svg, site_bar
+from app.judges.coverage import panel_phrase
 from app.leaderboard.store import load
 
 DIM_KEYS = {k: full for _short, k, full in DIMS}
@@ -201,6 +202,9 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
     # cohort comparison across platforms is only meaningful against pinned versions.
     plat = (" &middot; " + html.escape(entry["platform_version"])
             if entry.get("platform_version") else "")
+    # Stated from what the run artifact shows, never assumed. See
+    # app/judges/coverage.py for why this stopped being a constant.
+    panel = html.escape(panel_phrase(entry.get("judge_labs") or []))
     # A reference build is an agent WE built on someone's platform. Saying so on the
     # page is the difference between "we graded your product" (false, and the kind of
     # claim that ends a conversation) and "we built an agent on your platform and
@@ -227,7 +231,7 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
 <section class="rp-head">
   <span class="eyebrow">Private scorecard &middot; not published</span>
   <h1 class="rp-title">{name}</h1>
-  <p class="rp-sub">{vendor}{plat} &middot; graded {html.escape(entry.get('graded_at',''))} on the held-out private suite by the four-lab judge panel.</p>
+  <p class="rp-sub">{vendor}{plat} &middot; graded {html.escape(entry.get('graded_at',''))} on the held-out private suite by the {panel}.</p>
   <div class="rp-kpis">
     <div class="rp-kpi"><b>{entry['composite']:.2f}</b><span>Composite / 100</span></div>
     <div class="rp-kpi"><b>{html.escape(entry.get('tier','') or 'Unrated')}</b><span>Tier</span></div>

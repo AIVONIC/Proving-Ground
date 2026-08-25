@@ -24,6 +24,7 @@ from app.adapters import RestApiAdapter
 from app.adapters.config import RestAdapterConfig
 from app.adapters.socketio_adapter import aivonic_socketio_adapter
 from app.dimensions.catalog import REGISTRY
+from app.judges.coverage import judge_coverage, shortfall
 from app.judges.judge import ClaudeJudge, OpenAIJudge, StubJudge, build_ensemble
 from app.scoring.reliability import (
     difficulty_breakdown,
@@ -219,6 +220,29 @@ def main() -> int:
     print(_format_report(args.agent, grade))
     print(format_reliability(all_dim_results))
     path = _write_run(args.agent, grade, all_dim_results)
+
+    # Panel completeness, checked on the RESULT and not only at construction.
+    # PROVING_GROUND_REQUIRE_JUDGES refuses to start when a vendor's key is
+    # missing. It cannot see the failure that a key which is present but whose
+    # calls fail: the ensemble drops that judge per probe, correctly, so one
+    # vendor outage cannot sink an hour of grading -- and the run then reports a
+    # full panel it did not have. Gemini's free tier is daily-quota-capped and
+    # did exactly this on 2026-08-25, covering 0 of 441 judgments on one grade
+    # that was published as four-lab.
+    import json as _json
+    cov = judge_coverage(_json.loads(path.read_text()))
+    if cov:
+        print("\nJudge panel coverage: "
+              + ", ".join(f"{k} {v:.0%}" for k, v in sorted(cov.items())))
+        required = [v.strip().lower()
+                    for v in (os.environ.get("PROVING_GROUND_REQUIRE_JUDGES") or "").split(",")
+                    if v.strip() and v.strip().lower() != "all"] or list(cov)
+        short = shortfall(_json.loads(path.read_text()), required)
+        if short:
+            print("WARNING: the panel this run required did not hold. Short: "
+                  + ", ".join(f"{k} {v:.0%} of judgments" for k, v in short.items())
+                  + ".\n         The grade stands -- the remaining labs judged every probe -- but it "
+                  "must NOT be published as though those labs took part.")
     print(f"\nRun artifact: {path}")
     if args.judge == "stub":
         print("NOTE: stub judge used (offline heuristic). Scores are for plumbing validation, not a real grade.")

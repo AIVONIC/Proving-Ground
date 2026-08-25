@@ -13,6 +13,7 @@ import math
 import re
 from pathlib import Path
 
+from app.judges.coverage import ORDER, panel_phrase
 from app.leaderboard.store import load
 
 # Radar order: (short axis label, subscore key, full label). Short drives the radar,
@@ -224,6 +225,18 @@ def _tools_line(e: dict) -> str:
             '<b>0</b></span><span class="tool-chip ghost">conversation only</span></div>')
 
 
+def board_panel(entries: list[dict]) -> str:
+    """The panel phrase for the board as a whole: the labs that judged EVERY
+    listed entry. If two entries were judged by different panels, the board can
+    only honestly claim their intersection -- and if an entry predates panel
+    recording, it claims nothing at all rather than the old hardcoded four."""
+    per_entry = [set(e.get("judge_labs") or []) for e in entries]
+    if not per_entry or any(not s for s in per_entry):
+        return "judge panel"
+    common = set.intersection(*per_entry)
+    return panel_phrase([lab for lab in ORDER if lab in common])
+
+
 def card(rank: int, e: dict, report_slug: str | None = None) -> str:
     tier = (e.get("tier") or "none").lower()
     badge = (f'<span class="sc-badge tier-{tier}">{e["tier"]}</span>'
@@ -415,8 +428,8 @@ def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None =
         '<p class="lead">Every agent is graded black-box across the same twelve dimensions and ranked by composite. '
         'We grade our own agents on this board too, with their weaknesses shown, because a benchmark that hides its '
         'operator&rsquo;s results is worth nothing.</p>'
-        f'<p class="lb-note">Ranked by composite score, computed on the held-out private suite by the four-lab judge '
-        'panel. &ldquo;Self-operated&rdquo; marks an agent we run ourselves; &ldquo;reference build&rdquo; marks an '
+        f'<p class="lb-note">Ranked by composite score, computed on the held-out private suite by the {board_panel(entries)}. '
+        '&ldquo;Self-operated&rdquo; marks an agent we run ourselves; &ldquo;reference build&rdquo; marks an '
         'operator-built agent on a third-party platform, shown to demonstrate the method. Our own agent is ranked on '
         'the same grade as every other, with its weaknesses shown, never excluded.</p>'
         '</div></section>'

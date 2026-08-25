@@ -33,6 +33,11 @@
       "reference": true,
       "platform_version": "Dify 0.15.3",
       "run_artifact": "dify-northwind_20260729_160604.json",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok"
+      ],
       "tools": [],
       "tools_verified": [],
       "latency_ms": 1379.4
@@ -68,6 +73,12 @@
       "graded_at": "2026-07-29",
       "self_operated": true,
       "reference": false,
+      "run_artifact": "spark_20260729_204738.json",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok"
+      ],
       "tools": [
         "Email",
         "Web search",
@@ -75,14 +86,14 @@
         "Call booking",
         "Checkout"
       ],
-      "latency_ms": 3461.6,
       "tools_verified": [
         "Email",
         "Web search",
         "Browser",
         "Call booking",
         "Checkout"
-      ]
+      ],
+      "latency_ms": 3461.6
     },
     {
       "id": "flowise-northwind",
@@ -117,6 +128,11 @@
       "reference": true,
       "platform_version": "Flowise 1.8.2",
       "run_artifact": "flowise-northwind_20260729_150957.json",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok"
+      ],
       "tools": [],
       "tools_verified": [],
       "latency_ms": 1289.2
@@ -154,6 +170,11 @@
       "reference": true,
       "platform_version": "Typebot 3.18.0",
       "run_artifact": "typebot-northwind_20260825_223500.json",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok"
+      ],
       "tools": [],
       "tools_verified": [],
       "latency_ms": 1150.6

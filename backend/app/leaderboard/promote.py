@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 
 from app.dimensions.catalog import REGISTRY
+from app.judges.coverage import judge_coverage, panel_labs
 from app.leaderboard.store import upsert
 
 
@@ -71,6 +72,10 @@ def entry_from_run(run: dict, meta: dict) -> dict:
         # it, and a cross-platform comparison nobody can re-derive is an
         # assertion rather than a result.
         **({"run_artifact": meta["run_artifact"]} if meta.get("run_artifact") else {}),
+        # The labs that actually judged this run, MEASURED from the artifact.
+        # Never a constant: the pages used to say "four-lab judge panel" for every
+        # entry while Gemini had covered 0 of 441 judgments on one of them.
+        **({"judge_labs": meta["judge_labs"]} if meta.get("judge_labs") else {}),
         "tools": list(meta.get("tools") or []),
         "tools_verified": list(meta.get("tools_verified") or []),
         **({"latency_ms": lat} if lat is not None else {}),
@@ -104,11 +109,20 @@ def main() -> int:
     a = ap.parse_args()
 
     run = json.loads(Path(a.run).read_text())
+    labs = panel_labs(run)
+    cov = judge_coverage(run)
+    partial = {k: v for k, v in cov.items() if k not in labs}
+    if partial:
+        # Loud, because a thinner panel is invisible in the scores themselves.
+        print("NOTE: judged by " + ", ".join(labs) + ". Partial coverage, excluded "
+              "from the stated panel: "
+              + ", ".join(f"{k} {v:.0%}" for k, v in partial.items()))
     meta = {
         "id": a.id, "name": a.name, "vendor": a.vendor, "category": a.category,
         "access": a.access, "graded_at": a.graded_at, "self_operated": a.self_operated,
         "platform_version": a.platform_version.strip(),
         "run_artifact": Path(a.run).name,
+        "judge_labs": labs,
         "reference": a.reference,
         "tools": [t.strip() for t in a.tools.split(",") if t.strip()],
         "tools_verified": [t.strip() for t in a.tools_verified.split(",") if t.strip()],
