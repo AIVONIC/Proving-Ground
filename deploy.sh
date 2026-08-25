@@ -48,6 +48,19 @@ MANIFEST=(
 )
 # NOT published, on purpose:
 #   standalone.html  - single-file noindex variant, for sending to people directly
+#
+# CARRIED ACROSS THE SWAP, not published from here: scorecards/
+#
+# Per-agent scorecards are generated into frontend/scorecards/, which is
+# gitignored because a card carries a vendor's own transcripts, and they are put
+# on the server by hand when one is sent to someone. They are therefore NOT in
+# the manifest -- and until 2026-08-25 that meant the next --apply silently
+# deleted every one of them, including the three cards whose links are already
+# out in outreach threads. Excluding them from the rsync is not enough on its
+# own: step 6 swaps the WHOLE docroot, so a tree missing from $DOCROOT.new is a
+# tree that disappears. They are copied across explicitly below, and step 7
+# proves a known card still resolves afterwards.
+SCORECARDS="scorecards"
 
 APPLY=0
 [[ "${1:-}" == "--apply" ]] && APPLY=1
@@ -96,6 +109,7 @@ say "3. Diff against the live server"
 # not happen -- which is how the ownership change that took the site down slipped
 # past a dry run that had honestly displayed it.
 PLAN="$(rsync -ai --checksum --no-times --omit-dir-times --delete --dry-run --no-owner --no-group --chmod=D755,F644 \
+        --exclude "/$SCORECARDS/" \
         -e "ssh -o ConnectTimeout=10" "$STAGE/" "$HOST:$DOCROOT/")"
 if [[ -z "$PLAN" ]]; then
   echo "   live site already matches the repo, nothing to do"; exit 0
@@ -137,7 +151,21 @@ ssh -o ConnectTimeout=10 "$HOST" "set -e
 say "5. Upload beside the live site"
 
 rsync -a --checksum --no-times --omit-dir-times --delete --no-owner --no-group --chmod=D755,F644 \
+      --exclude "/$SCORECARDS/" \
       -e "ssh -o ConnectTimeout=10" "$STAGE/" "$HOST:$DOCROOT.new/" || fail "rsync failed"
+
+# Carry the hand-published scorecards into the tree that is about to become live.
+# Counted on both sides, because "copied it" is not the same claim as "it is there".
+ssh -o ConnectTimeout=10 "$HOST" "set -e
+  if [ -d '$DOCROOT/$SCORECARDS' ]; then
+    cp -a '$DOCROOT/$SCORECARDS' '$DOCROOT.new/$SCORECARDS'
+    before=\$(find '$DOCROOT/$SCORECARDS' -type f | wc -l)
+    after=\$(find '$DOCROOT.new/$SCORECARDS' -type f | wc -l)
+    [ \"\$before\" = \"\$after\" ] || { echo \"scorecards not carried: \$before -> \$after\"; exit 1; }
+    echo \"   scorecards carried across: \$after file(s)\"
+  else
+    echo '   no scorecards directory on the server, nothing to carry'
+  fi" || fail "could not carry scorecards across; live site untouched"
 
 ssh -o ConnectTimeout=10 "$HOST" "set -e
   for f in index.html methodology.html leaderboard/index.html; do
@@ -149,6 +177,11 @@ ssh -o ConnectTimeout=10 "$HOST" "set -e
   find '$DOCROOT.new' -type f -exec chmod 644 {} +" \
   || fail "staged tree failed its checks; live site untouched"
 echo "   staged tree verified, ownership and modes pinned"
+
+# One real card path, captured before the swap so step 7 can prove it survived.
+# A card is unlisted by design, so nothing else on the site would notice its loss.
+SAMPLE_CARD="$(ssh -o ConnectTimeout=10 "$HOST" \
+  "ls '$DOCROOT.new/$SCORECARDS'/*.html 2>/dev/null | grep -v '/index.html$' | head -1 | xargs -r basename" || true)"
 
 say "6. Swap"
 
@@ -194,6 +227,15 @@ check "$BASE/methodology"  200 "weight"
 check "$BASE/leaderboard/" 200 "lb-rank"
 check "$BASE/robots.txt"   200
 check "$BASE/llms.txt"     200
+# The scorecards carried across the swap really are being served. Their links are
+# already out in outreach threads, so a card that 404s is a broken promise to a
+# vendor, and nothing else on the site would have shown it.
+if [[ -n "$SAMPLE_CARD" ]]; then
+  check "$BASE/$SCORECARDS/${SAMPLE_CARD%.html}" 200 "rp-title"
+  check "$BASE/$SCORECARDS/"                     200 "Scorecards"
+else
+  printf '   --   %-46s no cards on the server to check\n' "/$SCORECARDS/"
+fi
 
 # Nothing outside the manifest may be served. A stale backup left in the docroot
 # is exactly what this script exists to prevent, so prove it is gone.
