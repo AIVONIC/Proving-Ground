@@ -67,6 +67,22 @@ def main() -> int:
     # 2. The controlled model, as an Onyx LLM provider. Re-runnable: an existing
     #    provider is updated in place rather than a second one being minted, so a
     #    rebuild after a failure does not leave the instance with two.
+    # PROVE THE CREDENTIAL BEFORE DELETING THE WORKING ONE.
+    # This script used to delete every openai provider and then create a new one.
+    # That is delete-then-create on a live agent, and on 2026-08-25 it did exactly
+    # what that shape always does: a run with a bad key removed the working
+    # provider, installed the bad one, and Onyx answered every turn with
+    # "Authentication failed" -- an agent that is up, responding, and worthless.
+    # Onyx's own /admin/llm/test validates a credential without storing it, so the
+    # replacement is proven first and a bad key now changes nothing at all.
+    r = c.post("/admin/llm/test", json={
+        "provider": "openai", "model": MODEL, "api_key": OPENAI_KEY,
+        "api_key_changed": True, "custom_config_changed": False,
+    })
+    if r.status_code >= 400:
+        die(f"the OPENAI_API_KEY does not work against {MODEL}; nothing was changed", r)
+    print(f"credential: verified against {MODEL} before touching the live provider")
+
     existing = c.get("/admin/llm/provider")
     if existing.status_code < 400:
         payload = existing.json()
