@@ -65,6 +65,12 @@ def entry_from_run(run: dict, meta: dict) -> dict:
         # and 3.x do not even expose the same API, so "Flowise" alone does not name
         # the thing that was measured.
         **({"platform_version": meta["platform_version"]} if meta.get("platform_version") else {}),
+        # Which run artifact produced this row. Basename only: the artifacts are
+        # gitignored (they carry full transcripts), so this is a pointer, not a
+        # path. Without it a board row cannot be traced back to the runs behind
+        # it, and a cross-platform comparison nobody can re-derive is an
+        # assertion rather than a result.
+        **({"run_artifact": meta["run_artifact"]} if meta.get("run_artifact") else {}),
         "tools": list(meta.get("tools") or []),
         "tools_verified": list(meta.get("tools_verified") or []),
         **({"latency_ms": lat} if lat is not None else {}),
@@ -102,6 +108,7 @@ def main() -> int:
         "id": a.id, "name": a.name, "vendor": a.vendor, "category": a.category,
         "access": a.access, "graded_at": a.graded_at, "self_operated": a.self_operated,
         "platform_version": a.platform_version.strip(),
+        "run_artifact": Path(a.run).name,
         "reference": a.reference,
         "tools": [t.strip() for t in a.tools.split(",") if t.strip()],
         "tools_verified": [t.strip() for t in a.tools_verified.split(",") if t.strip()],

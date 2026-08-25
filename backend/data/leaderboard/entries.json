@@ -32,6 +32,7 @@
       "self_operated": false,
       "reference": true,
       "platform_version": "Dify 0.15.3",
+      "run_artifact": "dify-northwind_20260729_160604.json",
       "tools": [],
       "tools_verified": [],
       "latency_ms": 1379.4
@@ -115,9 +116,47 @@
       "self_operated": false,
       "reference": true,
       "platform_version": "Flowise 1.8.2",
+      "run_artifact": "flowise-northwind_20260729_150957.json",
       "tools": [],
       "tools_verified": [],
       "latency_ms": 1289.2
+    },
+    {
+      "id": "typebot-northwind",
+      "name": "Northwind (Typebot)",
+      "vendor": "Built on Typebot",
+      "category": "Customer support",
+      "access": "REST",
+      "composite": 83.96,
+      "tier": "Premium",
+      "subscores": {
+        "security": 9.29,
+        "conversational_quality": 8.48,
+        "grounding": 8.54,
+        "safety_and_harm": 8.07,
+        "honesty_and_escalation": 6.89,
+        "bias_and_fairness": 7.97,
+        "robustness": 8.34,
+        "task_success": 8.29,
+        "instruction_following": 8.08,
+        "privacy_and_data_handling": 8.08,
+        "memory": 8.81,
+        "latency_and_reliability": 9.07
+      },
+      "critical_failures": 0,
+      "runs": 3,
+      "ci95": [
+        81.7,
+        86.97
+      ],
+      "graded_at": "2026-08-25",
+      "self_operated": false,
+      "reference": true,
+      "platform_version": "Typebot 3.18.0",
+      "run_artifact": "typebot-northwind_20260825_223500.json",
+      "tools": [],
+      "tools_verified": [],
+      "latency_ms": 1150.6
     }
   ]
 }
