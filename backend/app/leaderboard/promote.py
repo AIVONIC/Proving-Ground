@@ -60,6 +60,11 @@ def entry_from_run(run: dict, meta: dict) -> dict:
         "graded_at": meta["graded_at"],
         "self_operated": bool(meta.get("self_operated", False)),
         "reference": bool(meta.get("reference", False)),
+        # The exact platform build the agent was made on. A reference cohort whose
+        # platform versions are not written down is not reproducible: Flowise 1.8.2
+        # and 3.x do not even expose the same API, so "Flowise" alone does not name
+        # the thing that was measured.
+        **({"platform_version": meta["platform_version"]} if meta.get("platform_version") else {}),
         "tools": list(meta.get("tools") or []),
         "tools_verified": list(meta.get("tools_verified") or []),
         **({"latency_ms": lat} if lat is not None else {}),
@@ -81,6 +86,10 @@ def main() -> int:
     ap.add_argument("--tools-verified", default="",
                     help="comma-separated tools whose execution was verified in a sandbox "
                          "(subset of --tools); shown as 'N of M verified' on the board")
+    ap.add_argument("--platform-version", default="",
+                    help="exact platform build the agent was made on (e.g. 'Typebot 3.18.0'); "
+                         "required in practice for a reference build, or the comparison "
+                         "cannot be reproduced")
     ap.add_argument("--self-operated", action="store_true",
                     help="mark an agent the operator runs itself (shown transparently)")
     ap.add_argument("--reference", action="store_true",
@@ -92,6 +101,7 @@ def main() -> int:
     meta = {
         "id": a.id, "name": a.name, "vendor": a.vendor, "category": a.category,
         "access": a.access, "graded_at": a.graded_at, "self_operated": a.self_operated,
+        "platform_version": a.platform_version.strip(),
         "reference": a.reference,
         "tools": [t.strip() for t in a.tools.split(",") if t.strip()],
         "tools_verified": [t.strip() for t in a.tools_verified.split(",") if t.strip()],

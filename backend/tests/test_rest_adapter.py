@@ -86,3 +86,132 @@ async def test_http_error_is_captured_as_reliability_signal():
     r = await adapter.send([], "hi")
     assert not r.ok and r.error == "http_503"
     assert r.latency_ms >= 0
+
+
+def make_resource_style_client() -> httpx.AsyncClient:
+    """A vendor that models a conversation as a RESOURCE: one URL starts it, a
+    per-conversation URL continues it, and the reply comes back as a sequence of
+    bubbles rather than one string. Typebot is shaped exactly like this, and so is
+    anything else that returns content blocks."""
+    seen: dict[str, list[str]] = {"urls": []}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["urls"].append(str(request.url))
+        body = __import__("json").loads(request.content)
+        msg = body["message"]
+        bubbles = [
+            {"id": "b1", "type": "text", "content": {"type": "markdown", "markdown": f"part1:{msg}"}},
+            {"id": "b2", "type": "text", "content": {"type": "markdown", "markdown": "part2"}},
+        ]
+        if str(request.url).endswith("/startChat"):
+            assert "session" not in body, "no session id before one is minted"
+            return httpx.Response(200, json={"sessionId": "sess-9", "messages": bubbles})
+        assert str(request.url) == "https://vendor.example/api/sessions/sess-9/continueChat"
+        return httpx.Response(200, json={"messages": bubbles})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+    client._pg_seen = seen  # type: ignore[attr-defined]
+    return client
+
+
+def resource_style_config() -> RestAdapterConfig:
+    return RestAdapterConfig(
+        name="mock-resource-vendor",
+        endpoint="https://vendor.example/api/bots/northwind/startChat",
+        session_endpoint="https://vendor.example/api/sessions/{{session_id}}/continueChat",
+        body_template={"message": "{{message}}"},
+        history=HistoryConfig(mode="server_session"),
+        session=SessionConfig(capture_path="sessionId", send_in="url"),
+        response_text_path="messages.*.content.markdown",
+    )
+
+
+@pytest.mark.asyncio
+async def test_session_endpoint_and_multipart_reply():
+    client = make_resource_style_client()
+    adapter = RestApiAdapter(resource_style_config(), client=client)
+
+    r1 = await adapter.send([], "hello")
+    assert r1.ok, r1.error
+    # Both bubbles, in order. Taking only the first would silently truncate the
+    # answer and still look like a real one.
+    assert r1.response_text == "part1:hello\n\npart2"
+
+    r2 = await adapter.send([Turn("user", "hello"), Turn("agent", r1.response_text)], "again")
+    assert r2.ok and r2.response_text == "part1:again\n\npart2"
+
+    urls = client._pg_seen["urls"]  # type: ignore[attr-defined]
+    assert urls[0].endswith("/bots/northwind/startChat")
+    assert urls[1] == "https://vendor.example/api/sessions/sess-9/continueChat"
+
+    # reset() drops the session, so the next turn starts a new conversation at the
+    # START url. Without this a "fresh session" probe would keep talking to the old one.
+    await adapter.reset()
+    await adapter.send([], "third")
+    assert urls[2].endswith("/bots/northwind/startChat")
+
+
+@pytest.mark.asyncio
+async def test_empty_multipart_reply_is_an_error_not_silence():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"sessionId": "s", "messages": []})
+
+    cfg = resource_style_config()
+    adapter = RestApiAdapter(cfg, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    r = await adapter.send([], "hello")
+    assert not r.ok
+    assert r.error and r.error.startswith("no_text_at_path:")
+
+
+def test_dig_wildcard_shapes():
+    from app.adapters.rest import dig
+
+    # Fan out over a list, skipping parts that do not carry the field.
+    doc = {"messages": [{"c": {"t": "a"}}, {"c": {}}, {"c": {"t": "b"}}]}
+    assert dig(doc, "messages.*.c.t") == ["a", "b"]
+    # Nested wildcards flatten rather than nesting.
+    doc2 = {"m": [{"p": [{"t": "a"}, {"t": "b"}]}, {"p": [{"t": "c"}]}]}
+    assert dig(doc2, "m.*.p.*.t") == ["a", "b", "c"]
+    # A wildcard over a non-container is a miss, not a crash.
+    assert dig({"m": "scalar"}, "m.*.t") is None
+    # Numeric indexing still works exactly as before.
+    assert dig(doc, "messages.0.c.t") == "a"
+
+
+@pytest.mark.asyncio
+async def test_first_turn_body_is_sent_once_and_then_dropped():
+    """An API that takes conversation-creation fields on the opening request and
+    rejects them once a session exists (Onyx is exactly this). Getting it wrong
+    in the other direction is the dangerous one: no first-turn fields at all
+    still returns fluent answers, from the vendor's DEFAULT assistant rather than
+    the one under test, and nothing in the transcript says so."""
+    bodies: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = __import__("json").loads(request.content)
+        bodies.append(body)
+        if "session" in body:
+            # The TEMPLATE's own nested key stays; only the first-turn field goes.
+            assert body["setup"] == {"keep": True}, \
+                f"creation fields must not be resent with a session: {body['setup']}"
+            return httpx.Response(200, json={"answer": "later", "session": "s1"})
+        assert body["setup"]["persona_id"] == 7, "opening turn must carry the assistant id"
+        assert body["setup"]["keep"] is True, "nested template keys must survive the merge"
+        return httpx.Response(200, json={"answer": "first", "session": "s1"})
+
+    cfg = RestAdapterConfig(
+        name="mock-creation-vendor",
+        endpoint="https://vendor.example/chat",
+        body_template={"message": "{{message}}", "setup": {"keep": True}},
+        first_turn_body={"setup": {"persona_id": 7}},
+        history=HistoryConfig(mode="server_session"),
+        session=SessionConfig(capture_path="session", send_in="body", send_key="session"),
+        response_text_path="answer",
+    )
+    adapter = RestApiAdapter(cfg, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    assert (await adapter.send([], "one")).response_text == "first"
+    assert (await adapter.send([], "two")).response_text == "later"
+    # A reset starts a new conversation, so the creation fields must come back.
+    await adapter.reset()
+    assert (await adapter.send([], "three")).response_text == "first"
+    assert [("setup" in b and "persona_id" in b["setup"]) for b in bodies] == [True, False, True]

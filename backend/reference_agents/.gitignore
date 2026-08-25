@@ -3,3 +3,12 @@ adapter_flowise.json
 adapter_dify.json
 __pycache__/
 *.sh
+stacks/*/.env
+stacks/*/*.local
+adapter_typebot.json
+adapter_onyx.json
+adapter_crewai.json
+stacks/onyx/docker-compose.yml
+stacks/onyx/docker-compose.onyx-lite.yml
+stacks/crewai/venv/
+stacks/crewai/install.log

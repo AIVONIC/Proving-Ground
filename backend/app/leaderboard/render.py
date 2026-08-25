@@ -234,7 +234,9 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
         if e.get("reference")
         else '<div class="sc-note">Self-operated</div>' if e.get("self_operated") else ""
     )
-    meta = " &middot; ".join([x for x in (e.get("vendor"), e.get("category")) if x])
+    meta = " &middot; ".join(
+        [x for x in (e.get("vendor"), e.get("platform_version"), e.get("category")) if x]
+    )
     comp = e["composite"]
     subs = e.get("subscores", {})
     rows = []

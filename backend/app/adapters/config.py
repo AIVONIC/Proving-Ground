@@ -54,7 +54,9 @@ class SessionConfig(BaseModel):
     """
 
     capture_path: str  # dot-path into the JSON response, e.g. "session_id" or "data.conversation.id"
-    send_in: Literal["body", "header", "query"] = "body"
+    # ``url`` means the id is threaded only by substituting it into
+    # ``RestAdapterConfig.session_endpoint``; nothing is added to body/header/query.
+    send_in: Literal["body", "header", "query", "url"] = "body"
     send_key: str = "session_id"
 
 
@@ -63,6 +65,14 @@ class RestAdapterConfig(BaseModel):
 
     name: str
     endpoint: str
+    # Optional second URL, used from the turn a session id has been captured
+    # onward, with "{{session_id}}" substituted. Some chat APIs model a
+    # conversation as a resource: one URL starts it and a per-conversation URL
+    # continues it (Typebot's /startChat then /sessions/{id}/continueChat, and
+    # anything else shaped that way). Without this the adapter would re-POST to
+    # the start URL every turn, which grades a brand-new conversation each time
+    # and shows up as a memory failure rather than as a broken contract.
+    session_endpoint: str | None = None
     method: Literal["POST", "GET"] = "POST"
     headers: dict[str, str] = Field(default_factory=dict)
     auth: AuthConfig = Field(default_factory=AuthConfig)
@@ -71,6 +81,16 @@ class RestAdapterConfig(BaseModel):
     # "{{session_id}}", and any key from ``static_vars``. Example:
     #   {"message": "{{message}}", "stream": false}
     body_template: dict[str, Any] = Field(default_factory=dict)
+    # Body fields sent ONLY on the opening turn of a conversation, deep-merged
+    # into ``body_template`` before substitution. Some APIs take
+    # conversation-creation parameters on the first request (which assistant,
+    # which model, which project) and REJECT them afterwards: Onyx fails
+    # validation if a request carries both a session id and session-creation
+    # info. Folding them into body_template would therefore break every turn
+    # after the first, and folding them nowhere would grade the vendor's default
+    # assistant instead of the one under test -- a silent substitution that the
+    # transcript would not reveal.
+    first_turn_body: dict[str, Any] = Field(default_factory=dict)
     # Extra constant substitution values (e.g. an agent_id the API requires).
     static_vars: dict[str, str] = Field(default_factory=dict)
 
@@ -79,7 +99,14 @@ class RestAdapterConfig(BaseModel):
 
     # Dot-path into the JSON response holding the reply text, e.g. "response",
     # "data.reply", or "choices.0.message.content". List indices are numeric keys.
+    # A "*" segment means "every element/value here": the remaining path is
+    # applied to each and the leaves are joined with ``response_text_join``. That
+    # is for APIs that return a reply as a sequence of parts rather than one
+    # string (chat bubbles, content blocks). Taking element 0 of such a reply is
+    # worse than an error, because a truncated answer still reads like an answer
+    # and would be graded as one.
     response_text_path: str = "response"
+    response_text_join: str = "\n\n"
     # Optional dot-path to a token count, if the API reports one.
     response_tokens_path: str | None = None
 

@@ -1,0 +1,29 @@
+# Proving Ground overlay on Onyx's OWN compose files, both taken verbatim from
+# the v4.6.2 tag (docker-compose.yml + docker-compose.onyx-lite.yml). Nothing in
+# the platform's configuration is changed here beyond making it safe to run on a
+# shared workstation:
+#
+#   - every published port is bound to 127.0.0.1 and moved off the common ranges
+#     (Onyx's dev overlay wants 5432 and 8080, both already taken here)
+#   - nginx, the web UI and the code interpreter are pushed behind profiles so
+#     they never start. nginx binds host :80 and :3000 in Onyx's own file, which
+#     on a workstation is not a port to take. The graded surface is the REST API,
+#     so the UI is not needed for the build or the grade.
+#
+# ONYX LITE IS THE FAITHFUL BUILD HERE, not a corner cut: the reference spec is
+# a model and a system prompt with NO knowledge base, on every platform. Lite is
+# Onyx's own documented no-vector-DB mode, so the agent being graded is the same
+# agent as everywhere else in the cohort.
+name: onyx
+
+services:
+  api_server:
+    ports: ["127.0.0.1:8390:8080"]
+  relational_db:
+    ports: ["127.0.0.1:5437:5432"]
+  web_server:
+    profiles: ["ui"]
+  nginx:
+    profiles: ["ui"]
+  code-interpreter:
+    profiles: ["code-interpreter"]

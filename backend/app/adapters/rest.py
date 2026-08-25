@@ -19,14 +19,34 @@ from .config import RestAdapterConfig
 def dig(obj: Any, path: str) -> Any:
     """Follow a dot-path through nested dicts/lists.
 
-    Numeric segments index lists ("choices.0.message.content"). Returns None if
-    any segment is missing rather than raising, so a malformed reply degrades to
-    an empty extraction instead of crashing a grading run.
+    Numeric segments index lists ("choices.0.message.content"). A "*" segment
+    fans out over every element of a list (or every value of a dict), applies the
+    rest of the path to each, and returns the leaves as a flat list with misses
+    dropped. Returns None if any segment is missing rather than raising, so a
+    malformed reply degrades to an empty extraction instead of crashing a run.
     """
     cur = obj
-    for seg in path.split("."):
+    segs = path.split(".")
+    for i, seg in enumerate(segs):
         if cur is None:
             return None
+        if seg == "*":
+            rest = ".".join(segs[i + 1:])
+            if isinstance(cur, dict):
+                items = list(cur.values())
+            elif isinstance(cur, list):
+                items = cur
+            else:
+                return None
+            out: list[Any] = []
+            for item in items:
+                got = dig(item, rest) if rest else item
+                if got is None:
+                    continue
+                # A nested "*" already returned a list; flatten so the caller
+                # always sees leaves, never a ragged tree.
+                out.extend(got) if isinstance(got, list) else out.append(got)
+            return out
         if isinstance(cur, list):
             try:
                 cur = cur[int(seg)]
@@ -46,6 +66,16 @@ def set_at(obj: dict, path: str, value: Any) -> None:
     for seg in segs[:-1]:
         cur = cur.setdefault(seg, {})
     cur[segs[-1]] = value
+
+
+def _deep_merge(base: dict, extra: dict) -> None:
+    """Merge ``extra`` into ``base`` in place, recursing into nested dicts so a
+    first-turn field does not blow away a whole sub-object of the template."""
+    for k, v in extra.items():
+        if isinstance(v, dict) and isinstance(base.get(k), dict):
+            _deep_merge(base[k], v)
+        else:
+            base[k] = v
 
 
 def substitute(node: Any, variables: dict[str, str]) -> Any:
@@ -89,14 +119,17 @@ class RestApiAdapter(AgentAdapter):
             for t in history
         ]
 
-    def _build_request(self, history: list[Turn], message: str) -> tuple[dict, dict, dict]:
-        """Return (json_body, headers, query_params) for one call."""
+    def _build_request(self, history: list[Turn], message: str) -> tuple[str, dict, dict, dict]:
+        """Return (url, json_body, headers, query_params) for one call."""
         cfg = self.config
         variables = {"message": message, **cfg.static_vars}
         if self._session_id is not None:
             variables["session_id"] = self._session_id
 
-        body = substitute(copy.deepcopy(cfg.body_template), variables)
+        template = copy.deepcopy(cfg.body_template)
+        if self._session_id is None and cfg.first_turn_body:
+            _deep_merge(template, copy.deepcopy(cfg.first_turn_body))
+        body = substitute(template, variables)
 
         if cfg.history.mode == "client_history" and cfg.history.inject_at:
             # Render prior turns AND the current user message: a stateless agent must
@@ -118,29 +151,35 @@ class RestApiAdapter(AgentAdapter):
         elif a.type == "query" and a.token:
             params[a.key] = a.token
 
-        # Thread an established session id.
+        # Thread an established session id. Once one exists, a configured
+        # session_endpoint takes over as the URL for every remaining turn.
+        url = cfg.endpoint
         if cfg.session and self._session_id is not None:
+            if cfg.session_endpoint:
+                url = substitute(cfg.session_endpoint, variables)
             where = cfg.session.send_in
             key = cfg.session.send_key
             if where == "body":
                 set_at(body, key, self._session_id)
             elif where == "header":
                 headers[key] = self._session_id
-            else:
+            elif where == "query":
                 params[key] = self._session_id
+            # "url": already threaded by the substitution above and deliberately
+            # nowhere else, so an API that rejects unknown body keys still works.
 
-        return body, headers, params
+        return url, body, headers, params
 
     async def send(self, history: list[Turn], message: str) -> AgentReply:
         cfg = self.config
-        body, headers, params = self._build_request(history, message)
+        url, body, headers, params = self._build_request(history, message)
 
         start = time.perf_counter()
         try:
             if cfg.method == "GET":
-                resp = await self._client.get(cfg.endpoint, headers=headers, params={**params, **body})
+                resp = await self._client.get(url, headers=headers, params={**params, **body})
             else:
-                resp = await self._client.post(cfg.endpoint, headers=headers, params=params, json=body)
+                resp = await self._client.post(url, headers=headers, params=params, json=body)
             latency_ms = (time.perf_counter() - start) * 1000.0
             resp.raise_for_status()
             data = resp.json()
@@ -159,6 +198,13 @@ class RestApiAdapter(AgentAdapter):
 
         text = dig(data, cfg.response_text_path)
         tokens = dig(data, cfg.response_tokens_path) if cfg.response_tokens_path else None
+        if isinstance(text, list):
+            # A "*" path fans out to every part of a multi-part reply. Join them
+            # into the one string every dimension downstream reads. An empty list
+            # is a miss, not an empty answer, so it falls through to the error
+            # below rather than being graded as silence.
+            parts = [str(t) for t in text if t is not None and str(t) != ""]
+            text = cfg.response_text_join.join(parts) if parts else None
         if text is None:
             return AgentReply(
                 "", latency_ms,
