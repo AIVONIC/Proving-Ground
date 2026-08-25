@@ -38,6 +38,7 @@ MANIFEST=(
   "methodology.html:methodology.html"
   "404.html:404.html"    # nginx error_page target; try_files no longer falls back to /
   "leaderboard.html:leaderboard/index.html"   # served at /leaderboard/
+  "cohort.html:cohort.html"                  # /cohort - the reference-cohort finding
   "llms.txt:llms.txt"
   "robots.txt:robots.txt"
   "sitemap.xml:sitemap.xml"
@@ -168,7 +169,7 @@ ssh -o ConnectTimeout=10 "$HOST" "set -e
   fi" || fail "could not carry scorecards across; live site untouched"
 
 ssh -o ConnectTimeout=10 "$HOST" "set -e
-  for f in index.html methodology.html leaderboard/index.html; do
+  for f in index.html methodology.html leaderboard/index.html cohort.html; do
     test -s '$DOCROOT.new/'\$f || { echo \"staged \$f missing or empty\"; exit 1; }
   done
   grep -q 'sc-composite' '$DOCROOT.new/index.html'
@@ -225,6 +226,7 @@ print(f\"{pick(load(), None)['composite']:.0f}\")")"
 check "$BASE/"             200 "sc-composite\">$COMP"
 check "$BASE/methodology"  200 "weight"
 check "$BASE/leaderboard/" 200 "lb-rank"
+check "$BASE/cohort"       200 "co-title"
 check "$BASE/robots.txt"   200
 check "$BASE/llms.txt"     200
 # The scorecards carried across the swap really are being served. Their links are

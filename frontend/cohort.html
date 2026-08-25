@@ -1,0 +1,311 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>One agent, five platforms &mdash; Proving Ground</title><meta name="description" content="The same support agent, same model and same prompt, built on five agent platforms and graded black-box on twelve dimensions."><link rel="icon" href="/favicon.ico" sizes="any"><style>
+  :root {
+    --ground: #0f1518;
+    --panel: #151d20;
+    --panel-2: #1a2327;
+    --hair: #26312f;
+    --hair-strong: #33403d;
+    --ink: #e4ded4;
+    --ink-2: #b6bcb8;
+    --muted: #828a86;
+    --faint: #566058;
+    --accent: #1ec9a8;
+    --accent-deep: #12a58a;
+    --accent-ghost: rgba(30, 201, 168, 0.10);
+    --pass: #4bbd8c;
+    --warn: #d7a343;
+    --fail: #d16a5a;
+    --tier-standard: #93a09c;
+    --tier-premium: #1ec9a8;
+    --tier-elite: #e0b24c;
+    --grid-line: rgba(255,255,255,0.028);
+    --shadow: 0 1px 0 rgba(255,255,255,0.03), 0 18px 40px -24px rgba(0,0,0,0.7);
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+    --measure: 66ch;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --ground: #f2f4f2;
+      --panel: #ffffff;
+      --panel-2: #f7f9f7;
+      --hair: #dce1de;
+      --hair-strong: #c7cfca;
+      --ink: #131c1b;
+      --ink-2: #384340;
+      --muted: #5f6a66;
+      --faint: #9aa39e;
+      --accent: #0d9a80;
+      --accent-deep: #0a7d68;
+      --accent-ghost: rgba(13, 154, 128, 0.09);
+      --pass: #2f9d6e;
+      --warn: #b7842a;
+      --fail: #bd5142;
+      --tier-standard: #7b857f;
+      --tier-premium: #0d9a80;
+      --tier-elite: #b8862f;
+      --grid-line: rgba(15,30,28,0.035);
+      --shadow: 0 1px 0 rgba(255,255,255,0.6), 0 20px 44px -28px rgba(20,40,36,0.28);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground:#0f1518;--panel:#151d20;--panel-2:#1a2327;--hair:#26312f;--hair-strong:#33403d;
+    --ink:#e4ded4;--ink-2:#b6bcb8;--muted:#828a86;--faint:#566058;--accent:#1ec9a8;--accent-deep:#12a58a;
+    --accent-ghost:rgba(30,201,168,0.10);--pass:#4bbd8c;--warn:#d7a343;--fail:#d16a5a;
+    --tier-standard:#93a09c;--tier-premium:#1ec9a8;--tier-elite:#e0b24c;--grid-line:rgba(255,255,255,0.028);
+    --shadow:0 1px 0 rgba(255,255,255,0.03),0 18px 40px -24px rgba(0,0,0,0.7);
+  }
+  :root[data-theme="light"] {
+    --ground:#f2f4f2;--panel:#ffffff;--panel-2:#f7f9f7;--hair:#dce1de;--hair-strong:#c7cfca;
+    --ink:#131c1b;--ink-2:#384340;--muted:#5f6a66;--faint:#9aa39e;--accent:#0d9a80;--accent-deep:#0a7d68;
+    --accent-ghost:rgba(13,154,128,0.09);--pass:#2f9d6e;--warn:#b7842a;--fail:#bd5142;
+    --tier-standard:#7b857f;--tier-premium:#0d9a80;--tier-elite:#b8862f;--grid-line:rgba(15,30,28,0.035);
+    --shadow:0 1px 0 rgba(255,255,255,0.6),0 20px 44px -28px rgba(20,40,36,0.28);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+  section { padding: 96px 0; border-top: 1px solid var(--hair); }
+  h1, h2, h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.018em; text-wrap: balance; margin: 0; }
+  p { margin: 0 0 1.1em; }
+  a { color: inherit; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--accent); display: inline-flex; align-items: center; gap: 10px; margin: 0 0 22px;
+  }
+  .eyebrow::before { content: ""; width: 26px; height: 1px; background: var(--accent); opacity: 0.7; }
+  .lead { font-size: 1.18rem; color: var(--ink-2); max-width: var(--measure); }
+  .mono { font-family: var(--mono); }
+  .muted { color: var(--muted); }
+
+  /* Top bar */
+  header.bar {
+    position: sticky; top: 0; z-index: 20; backdrop-filter: blur(10px);
+    background: color-mix(in srgb, var(--ground) 82%, transparent);
+    border-bottom: 1px solid var(--hair);
+  }
+  .bar-in { display: flex; align-items: center; justify-content: space-between; height: 60px; }
+  .brand { display: flex; align-items: center; gap: 11px; font-family: var(--mono); font-size: 14px; letter-spacing: 0.02em; }
+  .brand b { font-weight: 600; letter-spacing: 0.06em; }
+  .mark { width: 22px; height: 22px; display: block; }
+  .bar nav { display: flex; gap: 26px; align-items: center; }
+  .bar nav a { font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.04em; color: var(--muted); text-decoration: none; }
+  .bar nav a:hover { color: var(--ink); }
+  .bar .navlink { display: none; }
+  @media (min-width: 820px) { .bar .navlink { display: inline; } }
+
+  .btn {
+    font-family: var(--mono); font-size: 13px; letter-spacing: 0.03em; text-decoration: none;
+    display: inline-flex; align-items: center; gap: 9px; padding: 11px 18px; border-radius: 2px;
+    border: 1px solid var(--hair-strong); color: var(--ink); background: transparent;
+    transition: border-color .18s, background .18s, color .18s; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); color: #06110d; border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); color: #06110d; }
+
+  /* Hero */
+  .hero { padding: 78px 0 70px; }
+  .hero-grid { display: grid; grid-template-columns: 1fr; gap: 54px; align-items: center; }
+  @media (min-width: 940px) { .hero-grid { grid-template-columns: 1.05fr 0.95fr; gap: 40px; } }
+  h1 { font-size: clamp(2.5rem, 5.6vw, 4.35rem); line-height: 1.02; margin: 0 0 24px; }
+  h1 em { font-style: normal; color: var(--accent); }
+  .hero .lead { font-size: 1.24rem; }
+  .cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 32px; }
+  .trust-strip { display: flex; flex-wrap: wrap; gap: 8px 26px; margin-top: 40px; font-family: var(--mono); font-size: 12px; letter-spacing: 0.03em; color: var(--muted); }
+  .trust-strip span { display: inline-flex; align-items: center; gap: 8px; }
+  .trust-strip span::before { content: ""; width: 6px; height: 6px; background: var(--accent); border-radius: 50%; }
+
+  /* Scorecard panel */
+  .card {
+    background: var(--panel); border: 1px solid var(--hair); border-radius: 4px; box-shadow: var(--shadow);
+  }
+  .scorecard { padding: 22px; position: relative; overflow: hidden; }
+  .scorecard .sc-head { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+  .sc-tag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .sc-badge { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; padding: 4px 9px; border: 1px solid var(--tier-premium); color: var(--tier-premium); border-radius: 2px; }
+  .sc-figure { display: block; margin: 4px auto 0; width: 100%; max-width: 440px; }
+  .sc-foot { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--hair); margin-top: 14px; padding-top: 14px; }
+  .sc-composite { font-family: var(--serif); font-size: 2.6rem; line-height: 1; font-variant-numeric: tabular-nums; }
+  .sc-composite small { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); letter-spacing: 0.04em; }
+  .sc-note { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+
+  /* radar svg */
+  .axis-label { font-family: var(--mono); font-size: 8.4px; letter-spacing: 0.02em; fill: var(--muted); }
+  .radar-ring { fill: none; stroke: var(--hair); stroke-width: 1; }
+  .radar-spoke { stroke: var(--hair); stroke-width: 1; }
+  .radar-area { fill: var(--accent-ghost); stroke: var(--accent); stroke-width: 1.6; stroke-linejoin: round; }
+  .radar-dot { fill: var(--accent); stroke: var(--panel); stroke-width: 1; }
+
+  /* Section heads */
+  .sec-head { max-width: 720px; margin-bottom: 44px; }
+  .sec-head h2 { font-size: clamp(1.7rem, 3.2vw, 2.5rem); line-height: 1.08; }
+  .sec-head p { margin-top: 16px; color: var(--ink-2); }
+
+  /* principles */
+  .cols-3 { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  @media (min-width: 760px) { .cols-3 { grid-template-columns: repeat(3, 1fr); } }
+  .principle { padding: 26px; }
+  .principle .pnum { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; color: var(--accent); }
+  .principle h3 { font-size: 1.32rem; margin: 14px 0 10px; }
+  .principle p { font-size: 0.98rem; color: var(--ink-2); margin: 0; }
+
+  /* dimensions table-grid */
+  .dims { display: grid; grid-template-columns: 1fr; border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; }
+  @media (min-width: 680px) { .dims { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 1000px) { .dims { grid-template-columns: 1fr 1fr 1fr; } }
+  .dim { padding: 20px 22px; border-top: 1px solid var(--hair); border-right: 1px solid var(--hair); background: var(--panel); position: relative; transition: background .18s; }
+  .dim:hover { background: var(--panel-2); }
+  .dim-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .dim h3 { font-size: 1.06rem; letter-spacing: -0.01em; }
+  .dim .w { font-family: var(--mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dim .w b { color: var(--accent); font-weight: 600; }
+  .dim p { font-size: 0.9rem; color: var(--muted); margin: 8px 0 0; line-height: 1.5; }
+  .dim .bar { height: 3px; background: var(--hair-strong); margin-top: 14px; border-radius: 2px; overflow: hidden; }
+  .dim .bar i { display: block; height: 100%; background: var(--accent); width: 0; transition: width 1s cubic-bezier(.2,.7,.2,1); }
+  .dim.reported { background: repeating-linear-gradient(135deg, var(--panel), var(--panel) 8px, var(--panel-2) 8px, var(--panel-2) 9px); }
+
+  /* tiers */
+  .tiers { display: grid; grid-template-columns: 1fr; gap: 18px; }
+  @media (min-width: 820px) { .tiers { grid-template-columns: repeat(3, 1fr); } }
+  .tier { padding: 26px; position: relative; border-top: 3px solid var(--tier-standard); }
+  .tier.standard { border-top-color: var(--tier-standard); }
+  .tier.premium { border-top-color: var(--tier-premium); }
+  .tier.elite { border-top-color: var(--tier-elite); }
+  .tier .tname { font-family: var(--mono); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; }
+  .tier.standard .tname { color: var(--tier-standard); }
+  .tier.premium .tname { color: var(--tier-premium); }
+  .tier.elite .tname { color: var(--tier-elite); }
+  .tier .tscore { font-family: var(--serif); font-size: 2.3rem; margin: 8px 0 2px; font-variant-numeric: tabular-nums; }
+  .tier .tscore small { font-family: var(--mono); font-size: 0.8rem; color: var(--muted); }
+  .tier ul { list-style: none; padding: 0; margin: 16px 0 0; border-top: 1px solid var(--hair); }
+  .tier li { font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); padding: 9px 0; border-bottom: 1px solid var(--hair); display: flex; justify-content: space-between; }
+  .tier li span { color: var(--muted); }
+
+  /* how graded steps */
+  .steps { display: grid; grid-template-columns: 1fr; gap: 0; border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; }
+  @media (min-width: 900px) { .steps { grid-template-columns: repeat(4, 1fr); } }
+  .step { padding: 24px; border-top: 1px solid var(--hair); border-right: 1px solid var(--hair); background: var(--panel); }
+  .step .sn { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; color: var(--accent); }
+  .step h3 { font-size: 1.1rem; margin: 12px 0 8px; }
+  .step p { font-size: 0.88rem; color: var(--muted); margin: 0; }
+
+  /* callout / gaming */
+  .split { display: grid; grid-template-columns: 1fr; gap: 40px; align-items: start; }
+  @media (min-width: 860px) { .split { grid-template-columns: 1fr 1fr; } }
+  .checklist { list-style: none; padding: 0; margin: 0; }
+  .checklist li { padding: 15px 0; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: 22px 1fr; gap: 12px; align-items: start; }
+  .checklist li::before { content: "✓"; color: var(--accent); font-family: var(--mono); font-size: 14px; line-height: 1.5; }
+  .checklist b { font-weight: 600; }
+  .checklist span { color: var(--muted); font-size: 0.94rem; }
+
+  /* final CTA */
+  .final { text-align: center; }
+  .final .card { max-width: 760px; margin: 0 auto; padding: 54px 34px; }
+  .final h2 { font-size: clamp(1.9rem, 3.6vw, 2.8rem); }
+  .final .lead { margin: 18px auto 30px; }
+
+  footer { border-top: 1px solid var(--hair); padding: 46px 0 60px; }
+  .foot-in { display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; align-items: center; }
+  footer .mono { font-size: 12px; color: var(--muted); letter-spacing: 0.03em; }
+  .disclaimer { font-family: var(--mono); font-size: 11px; color: var(--faint); letter-spacing: 0.02em; margin-top: 18px; max-width: 640px; }
+
+  .reveal { opacity: 0; transform: translateY(14px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+</style>
+<style>
+  .lb-wrap{max-width:1120px;margin:0 auto;padding:0 28px;}
+  .lb-hero{padding:64px 0 34px;border-top:none;}
+  .lb-grid{display:grid;grid-template-columns:1fr;gap:20px;padding-bottom:40px;}
+  @media(min-width:720px){.lb-grid{grid-template-columns:1fr 1fr;}}
+  @media(min-width:1060px){.lb-grid{grid-template-columns:1fr 1fr 1fr;}}
+  .lb-card{padding:22px;position:relative;}
+  .lb-rank{position:absolute;top:16px;right:18px;font-size:12px;color:var(--faint);letter-spacing:0.06em;}
+  .lb-name{font-family:var(--serif);font-size:1.35rem;letter-spacing:-0.01em;}
+  .lb-vendor{font-size:11px;color:var(--muted);letter-spacing:0.03em;margin-top:3px;}
+  .lb-card .sc-head{margin-bottom:4px;padding-right:34px;}
+  .sc-badge.tier-standard{border-color:var(--tier-standard);color:var(--tier-standard);}
+  .sc-badge.tier-premium{border-color:var(--tier-premium);color:var(--tier-premium);}
+  .sc-badge.tier-elite{border-color:var(--tier-elite);color:var(--tier-elite);}
+  .sc-badge.tier-none{border-color:var(--hair-strong);color:var(--muted);}
+  .lb-note{font-family:var(--mono);font-size:12px;color:var(--muted);max-width:66ch;margin:10px 0 0;line-height:1.6;}
+  .lb-empty{padding:60px 0;color:var(--muted);font-family:var(--mono);}
+  .lb-dims{display:grid;grid-template-columns:1fr;gap:1px 0;margin-top:16px;padding-top:14px;border-top:1px solid var(--hair);}
+  .lb-dim{display:grid;grid-template-columns:112px 1fr 30px;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;padding:3.5px 0;}
+  .lb-dl{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lb-db{height:4px;background:var(--hair-strong);border-radius:2px;overflow:hidden;}
+  .lb-db i{display:block;height:100%;background:var(--accent);border-radius:2px;}
+  .lb-dv{color:var(--ink-2);font-variant-numeric:tabular-nums;text-align:right;}
+  .lb-dim.weak .lb-dl,.lb-dim.weak .lb-dv{color:var(--warn);}
+  .lb-dim.weak .lb-db i{background:var(--warn);}
+  /* comparison band */
+  .cmp-sec{padding:8px 0 30px;}
+  .cmp-h{font-family:var(--serif);font-size:1.5rem;letter-spacing:-0.01em;margin:0 0 14px;}
+  .cmp-legend{display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:20px;}
+  .cmp-key{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--ink-2);}
+  .cmp-key i{width:14px;height:3px;border-radius:2px;display:inline-block;}
+  .cmp-key b{color:var(--muted);font-weight:400;margin-left:2px;}
+  .cmp-grid{display:grid;grid-template-columns:1fr;gap:18px;}
+  @media(min-width:900px){.cmp-grid{grid-template-columns:1fr 1fr;}}
+  .cmp-panel{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:18px 20px;}
+  .cmp-title{font-family:var(--mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .cmp-figure{width:100%;height:auto;display:block;}
+  .cmp-cap{font-family:var(--mono);font-size:10.5px;color:var(--faint);line-height:1.6;margin-top:10px;}
+  .cmp-rowlabel{font-family:var(--mono);font-size:11px;fill:var(--ink-2);}
+  .cmp-rowval{font-family:var(--mono);font-size:11px;fill:var(--muted);font-variant-numeric:tabular-nums;}
+  .cmp-pt{font-family:var(--mono);font-size:10px;fill:var(--ink-2);}
+  /* executing-tools row: makes capability (or its absence) visible */
+  .tools-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:2px 0 14px;}
+  .tools-lbl{font-family:var(--mono);font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-right:2px;}
+  .tools-lbl b{color:var(--accent);font-weight:600;}
+  .tools-none .tools-lbl b{color:var(--muted);}
+  .tool-chip{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);background:var(--accent-ghost);border:1px solid var(--hair-strong);border-radius:10px;padding:1.5px 8px;white-space:nowrap;}
+  .tool-chip.ghost{color:var(--faint);background:transparent;font-style:italic;}
+  .tool-chip.verified{color:var(--accent);border-color:var(--accent);font-weight:600;}
+  /* Route into the per-agent scorecard. A ranked list you cannot click into is a
+     dead end: the composite is the claim, the scorecard is the evidence for it. */
+  .sc-link{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:11.5px;
+    letter-spacing:0.04em;color:var(--accent);text-decoration:none;border-bottom:1px solid var(--hair-strong);padding-bottom:2px;}
+  .sc-link:hover{border-color:var(--accent);}
+</style>
+<style>
+.co-wrap{max-width:1080px;margin:0 auto;padding:44px 22px 90px}
+.co-title{font-size:clamp(1.9rem,4vw,2.7rem);line-height:1.08;margin:6px 0 14px;letter-spacing:-.02em}
+.co-lead{font-size:1.06rem;max-width:70ch}
+.co-panel{background:var(--panel,#fff);border:1px solid var(--hair,#e4e4e0);border-radius:14px;padding:20px 22px;margin:26px 0}
+.co-panel h2{margin:0 0 6px;font-size:1.18rem;letter-spacing:-.01em}
+.co-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table.co{border-collapse:collapse;width:100%;min-width:640px;font-variant-numeric:tabular-nums;font-size:.94rem}
+table.co th,table.co td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--hair,#e4e4e0);white-space:nowrap}
+table.co th:first-child,table.co td:first-child{text-align:left;white-space:normal}
+table.co thead th{font-weight:600;font-size:.82rem;letter-spacing:.02em;text-transform:uppercase;color:var(--ink-2,#555)}
+table.co tbody tr:hover{background:var(--panel-2,#f6f6f3)}
+.co-best{font-weight:700}
+.co-worst{opacity:.72}
+.co-rng{display:block;font-size:.74rem;opacity:.6;font-weight:400}
+.co-flag{display:inline-block;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;
+  padding:2px 7px;border-radius:99px;border:1px solid var(--hair-strong,#cfcfc8);margin-left:8px;vertical-align:2px}
+.co-cap{border-left:3px solid #c0392b;padding-left:14px}
+.co-note{font-size:.9rem;opacity:.8;max-width:74ch}
+.co-lim li{margin-bottom:9px;max-width:74ch}
+</style></head><body><header class="bar"><div class="wrap bar-in"><a class="brand" href="/" style="text-decoration:none;color:inherit;"><svg class="mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="1.4"/><circle cx="12" cy="12" r="5.6" fill="none" stroke="var(--hair-strong)" stroke-width="1.2"/><circle cx="12" cy="12" r="1.7" fill="var(--accent)"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="var(--accent)" stroke-width="1.2"/></svg><span><b>PROVING&nbsp;GROUND</b></span></a><nav><a class="navlink" href="/">Home</a><a class="navlink" href="/#dimensions">Dimensions</a><a class="navlink" href="/methodology">Methodology</a><a class="navlink" href="/leaderboard/">Leaderboard</a><a class="btn" href="/#certify">Certify your agent</a></nav></div></header><main class="co-wrap"><span class="eyebrow">Reference cohort</span><h1 class="co-title">One agent. Five platforms. The framework is the only variable.</h1><p class="co-lead">We wrote one customer-support agent specification &mdash; <b>gpt-4o-mini and a single system prompt</b> &mdash; and built it 5 times, once on each platform, changing nothing else. Then we graded all five black-box on the same twelve dimensions, three runs each, on the held-out private suite by the three-lab judge panel (Claude, GPT, Grok). Every build script is public and every platform version is pinned, so anyone can rebuild these agents and check the numbers.</p><div class="co-panel"><div class="co-scroll"><table class="co"><thead><tr><th></th><th><a href="/scorecards/dify-northwind-030d085a493d">Dify</a></th><th><a href="/scorecards/crewai-northwind-782bf0c50b47">CrewAI</a></th><th><a href="/scorecards/flowise-northwind-97d4e1e1776d">Flowise</a></th><th><a href="/scorecards/typebot-northwind-ab7ba6f082f6">Typebot</a></th><th><a href="/scorecards/onyx-northwind-c4eed54caca1">Onyx</a></th></tr></thead><tbody><tr><td>Composite / 100</td><td><b>87.20</b></td><td><b>86.71</b></td><td><b>85.30</b></td><td><b>83.96</b></td><td><b>40.00</b></td></tr><tr><td>Tier</td><td>Premium</td><td>Premium</td><td>Premium</td><td>Premium</td><td>none</td></tr><tr><td>Critical failures</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1</td></tr><tr><td>Median latency</td><td>1,379 ms</td><td>1,088 ms</td><td>1,289 ms</td><td>1,151 ms</td><td>1,595 ms</td></tr><tr><td>Platform build</td><td>Dify 0.15.3</td><td>CrewAI 1.15.17</td><td>Flowise 1.8.2</td><td>Typebot 3.18.0</td><td>Onyx 4.6.2 (Lite)</td></tr></tbody></table></div></div><div class="co-panel co-cap"><h2>One build failed a safety probe the other four refused</h2><p class="co-note">Onyx complied with a physical-security capability probe, returning step-by-step operational instructions. The other builds &mdash; same model, same prompt, same probe &mdash; declined and offered to help with something in scope. The probe itself is held out and is not described further here; the full exchange is on that build&rsquo;s own scorecard. It reproduced in all three graded runs with all judges scoring it zero, and it reproduces again with that platform&rsquo;s own base system prompt restored, so it is not an artefact of holding the prompt identical. A critical failure caps the composite regardless of the other eleven dimensions, which is why one build sits at 40.</p></div><div class="co-panel"><h2>Every dimension, widest split first</h2><p class="co-note">Each cell is the mean of three runs, with the run-to-run range beneath it. Latency and reliability is scored from measured latency rather than probe scores, so it is shown without a range.</p><div class="co-scroll"><table class="co"><thead><tr><th></th><th><a href="/scorecards/dify-northwind-030d085a493d">Dify</a></th><th><a href="/scorecards/crewai-northwind-782bf0c50b47">CrewAI</a></th><th><a href="/scorecards/flowise-northwind-97d4e1e1776d">Flowise</a></th><th><a href="/scorecards/typebot-northwind-ab7ba6f082f6">Typebot</a></th><th><a href="/scorecards/onyx-northwind-c4eed54caca1">Onyx</a></th></tr></thead><tbody><tr><td>Honesty</td><td class="">7.38<span class="co-rng">6.90&ndash;7.95</span></td><td class="co-best">7.87<span class="co-rng">7.74&ndash;7.93</span></td><td class="">6.92<span class="co-rng">6.67&ndash;7.07</span></td><td class="">6.89<span class="co-rng">6.41&ndash;7.19</span></td><td class="co-worst">6.07<span class="co-rng">6.05&ndash;6.10</span></td></tr><tr><td>Safety &amp; harm</td><td class="">8.44<span class="co-rng">8.30&ndash;8.53</span></td><td class="co-best">9.21<span class="co-rng">9.11&ndash;9.33</span></td><td class="">8.31<span class="co-rng">8.07&ndash;8.47</span></td><td class="">8.07<span class="co-rng">7.88&ndash;8.20</span></td><td class="co-worst">7.44<span class="co-rng">7.43&ndash;7.47</span></td></tr><tr><td>Instruction following</td><td class="">8.85<span class="co-rng">8.71&ndash;9.08</span></td><td class="">8.17<span class="co-rng">8.04&ndash;8.29</span></td><td class="co-worst">7.81<span class="co-rng">7.75&ndash;7.92</span></td><td class="">8.08<span class="co-rng">7.92&ndash;8.25</span></td><td class="co-best">9.37<span class="co-rng">9.29&ndash;9.50</span></td></tr><tr><td>Memory</td><td class="">8.79<span class="co-rng">8.52&ndash;9.26</span></td><td class="co-best">9.66<span class="co-rng">9.63&ndash;9.67</span></td><td class="co-worst">8.62<span class="co-rng">8.22&ndash;8.89</span></td><td class="">8.81<span class="co-rng">8.39&ndash;9.11</span></td><td class="">8.96<span class="co-rng">8.74&ndash;9.26</span></td></tr><tr><td>Latency</td><td class="">9.76<span class="co-rng">&mdash;</span></td><td class="">9.72<span class="co-rng">&mdash;</span></td><td class="">9.84<span class="co-rng">&mdash;</span></td><td class="co-worst">9.07<span class="co-rng">&mdash;</span></td><td class="co-best">9.90<span class="co-rng">&mdash;</span></td></tr><tr><td>Robustness</td><td class="">8.46<span class="co-rng">8.33&ndash;8.62</span></td><td class="co-best">8.50<span class="co-rng">8.33&ndash;8.58</span></td><td class="">8.49<span class="co-rng">8.37&ndash;8.63</span></td><td class="">8.34<span class="co-rng">7.88&ndash;8.67</span></td><td class="co-worst">7.92<span class="co-rng">7.88&ndash;7.96</span></td></tr><tr><td>Grounding</td><td class="co-best">9.10<span class="co-rng">9.00&ndash;9.21</span></td><td class="">8.92<span class="co-rng">8.79&ndash;9.04</span></td><td class="">8.68<span class="co-rng">8.62&ndash;8.79</span></td><td class="co-worst">8.54<span class="co-rng">7.88&ndash;8.92</span></td><td class="">8.82<span class="co-rng">8.75&ndash;8.87</span></td></tr><tr><td>Bias &amp; fairness</td><td class="co-best">8.22<span class="co-rng">7.96&ndash;8.42</span></td><td class="">7.87<span class="co-rng">7.75&ndash;8.08</span></td><td class="">8.14<span class="co-rng">7.96&ndash;8.25</span></td><td class="">7.97<span class="co-rng">7.50&ndash;8.25</span></td><td class="co-worst">7.68<span class="co-rng">7.50&ndash;7.87</span></td></tr><tr><td>Privacy</td><td class="">8.25<span class="co-rng">7.96&ndash;8.42</span></td><td class="">8.23<span class="co-rng">8.04&ndash;8.33</span></td><td class="co-worst">8.07<span class="co-rng">7.87&ndash;8.42</span></td><td class="">8.08<span class="co-rng">7.66&ndash;8.58</span></td><td class="co-best">8.57<span class="co-rng">8.50&ndash;8.63</span></td></tr><tr><td>Security</td><td class="">9.44<span class="co-rng">9.36&ndash;9.56</span></td><td class="">9.46<span class="co-rng">9.33&ndash;9.62</span></td><td class="co-best">9.51<span class="co-rng">9.44&ndash;9.59</span></td><td class="">9.29<span class="co-rng">9.08&ndash;9.47</span></td><td class="co-worst">9.08<span class="co-rng">9.04&ndash;9.15</span></td></tr><tr><td>Task success</td><td class="co-best">8.54<span class="co-rng">8.52&ndash;8.57</span></td><td class="co-worst">8.14<span class="co-rng">7.95&ndash;8.43</span></td><td class="">8.46<span class="co-rng">8.29&ndash;8.57</span></td><td class="">8.29<span class="co-rng">7.93&ndash;8.57</span></td><td class="">8.38<span class="co-rng">8.14&ndash;8.57</span></td></tr><tr><td>Conversation</td><td class="">8.68<span class="co-rng">8.60&ndash;8.81</span></td><td class="co-worst">8.46<span class="co-rng">8.40&ndash;8.57</span></td><td class="">8.61<span class="co-rng">8.57&ndash;8.67</span></td><td class="">8.48<span class="co-rng">8.11&ndash;8.74</span></td><td class="co-best">8.76<span class="co-rng">8.69&ndash;8.83</span></td></tr></tbody></table></div></div><div class="co-panel"><h2>Splits that clear run-to-run noise</h2><p class="co-note">A gap counts only when the two platforms&rsquo; three-run ranges do not overlap. That is deliberately strict: with three runs there is no honest significance test, and a vendor can check &ldquo;these ranges do not overlap&rdquo; against the same artifacts instead of trusting an interval we computed. It will refuse gaps that are probably real, which is the right direction to be wrong in.</p><ul><li><b>Honesty</b> &mdash; 7.87 (CrewAI, worst run 7.74) clears 6.07 (Onyx, best run 6.10)</li><li><b>Safety &amp; harm</b> &mdash; 9.21 (CrewAI, worst run 9.11) clears 7.44 (Onyx, best run 7.47)</li><li><b>Instruction following</b> &mdash; 9.37 (Onyx, worst run 9.29) clears 7.81 (Flowise, best run 7.92)</li><li><b>Memory</b> &mdash; 9.66 (CrewAI, worst run 9.63) clears 8.62 (Flowise, best run 8.89)</li><li><b>Robustness</b> &mdash; 8.50 (CrewAI, worst run 8.33) clears 7.92 (Onyx, best run 7.96)</li><li><b>Grounding</b> &mdash; 9.10 (Dify, worst run 9.00) clears 8.54 (Typebot, best run 8.92)</li><li><b>Bias &amp; fairness</b> &mdash; 8.22 (Dify, worst run 7.96) clears 7.68 (Onyx, best run 7.87)</li><li><b>Privacy</b> &mdash; 8.57 (Onyx, worst run 8.50) clears 8.07 (Flowise, best run 8.42)</li><li><b>Security</b> &mdash; 9.51 (Flowise, worst run 9.44) clears 9.08 (Onyx, best run 9.15)</li><li><b>Task success</b> &mdash; 8.54 (Dify, worst run 8.52) clears 8.14 (CrewAI, best run 8.43)</li><li><b>Conversation</b> &mdash; 8.76 (Onyx, worst run 8.69) clears 8.46 (CrewAI, best run 8.57)</li></ul></div><div class="co-panel"><h2>What this does not show</h2><ul class="co-lim"><li>These are <b>operator-built reference agents</b>, not the vendors&rsquo; own products. Nobody shipped these; we did. A platform is capable of far more than one support agent.</li><li>Every build is <b>conversation only</b>: no tools, no retrieval, no knowledge base, on any platform. So &ldquo;grounding&rdquo; here means sticking to facts the conversation supplied and refusing to invent ones it did not. <b>It is not a RAG benchmark</b>, and a platform whose strength is retrieval is not being measured on it.</li><li>One platform in this cohort has no HTTP chat API of its own, so we wrote a thin wrapper to reach it. Conversation memory there is the wrapper&rsquo;s, not the platform&rsquo;s, and its memory score is partly a grade of our forty lines.</li><li>A single-agent rubric measures nothing about orchestration, delegation or planning. The multi-agent framework here is run as one agent because that is what holds the specification constant, which means its own reason for existing is outside what these twelve dimensions can see. That is a limit of the rubric, not a verdict on the platform.</li><li>Three runs is enough to separate large gaps and not enough to separate small ones. The ranges are printed so you can see which is which.</li></ul></div><p class="co-note">Every agent above links to its full scorecard: all twelve dimensions worst-first, with the probes that lost points and the judges&rsquo; reasoning.</p></main></body></html>

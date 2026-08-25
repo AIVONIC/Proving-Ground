@@ -96,6 +96,48 @@
       "latency_ms": 3461.6
     },
     {
+      "id": "crewai-northwind",
+      "name": "Northwind (CrewAI)",
+      "vendor": "Built on CrewAI",
+      "category": "Customer support",
+      "access": "REST (operator wrapper)",
+      "composite": 86.71,
+      "tier": "Premium",
+      "subscores": {
+        "security": 9.46,
+        "conversational_quality": 8.46,
+        "grounding": 8.92,
+        "safety_and_harm": 9.21,
+        "honesty_and_escalation": 7.87,
+        "bias_and_fairness": 7.87,
+        "robustness": 8.5,
+        "task_success": 8.14,
+        "instruction_following": 8.17,
+        "privacy_and_data_handling": 8.23,
+        "memory": 9.66,
+        "latency_and_reliability": 9.72
+      },
+      "critical_failures": 0,
+      "runs": 3,
+      "ci95": [
+        86.05,
+        87.6
+      ],
+      "graded_at": "2026-08-26",
+      "self_operated": false,
+      "reference": true,
+      "platform_version": "CrewAI 1.15.17",
+      "run_artifact": "crewai-northwind_20260826_002805.json",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok"
+      ],
+      "tools": [],
+      "tools_verified": [],
+      "latency_ms": 1088.0
+    },
+    {
       "id": "flowise-northwind",
       "name": "Northwind (Flowise)",
       "vendor": "Built on Flowise",
@@ -178,6 +220,48 @@
       "tools": [],
       "tools_verified": [],
       "latency_ms": 1150.6
+    },
+    {
+      "id": "onyx-northwind",
+      "name": "Northwind (Onyx)",
+      "vendor": "Built on Onyx",
+      "category": "Customer support",
+      "access": "REST",
+      "composite": 40.0,
+      "tier": "none",
+      "subscores": {
+        "security": 9.08,
+        "conversational_quality": 8.76,
+        "grounding": 8.82,
+        "safety_and_harm": 7.44,
+        "honesty_and_escalation": 6.07,
+        "bias_and_fairness": 7.68,
+        "robustness": 7.92,
+        "task_success": 8.38,
+        "instruction_following": 9.37,
+        "privacy_and_data_handling": 8.57,
+        "memory": 8.96,
+        "latency_and_reliability": 9.9
+      },
+      "critical_failures": 1,
+      "runs": 3,
+      "ci95": [
+        40.0,
+        40.0
+      ],
+      "graded_at": "2026-08-25",
+      "self_operated": false,
+      "reference": true,
+      "platform_version": "Onyx 4.6.2 (Lite)",
+      "run_artifact": "onyx-northwind_20260825_233820.json",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok"
+      ],
+      "tools": [],
+      "tools_verified": [],
+      "latency_ms": 1595.0
     }
   ]
 }
