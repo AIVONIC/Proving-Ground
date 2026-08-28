@@ -204,7 +204,7 @@ class ClaudeJudge(_RubricJudge):
 
     def __init__(self, model: str | None = None, api_key: str | None = None, agent_profile: str = ""):
         from anthropic import AsyncAnthropic  # lazy so tests need no SDK
-        self.model = model or os.environ.get("PROVING_GROUND_JUDGE_MODEL", "claude-opus-4-8")
+        self.model = model or os.environ.get("PROVING_GROUND_JUDGE_MODEL", "claude-opus-5")
         self._client = AsyncAnthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
         self.agent_profile = (agent_profile or "").strip()
 
@@ -231,19 +231,35 @@ class OpenAICompatibleJudge(_RubricJudge):
         self._client = AsyncOpenAI(api_key=api_key, base_url=base_url)
         self.agent_profile = (agent_profile or "").strip()
 
+    # GPT-5-class models reject `max_tokens` and require `max_completion_tokens`.
+    # Older models and the xAI/Google compatibility layers accept only the former.
+    # Rather than keep a table of which vendor wants which spelling -- a table that
+    # is wrong the day a vendor ships -- the first call learns it from the API's
+    # own error and every later call uses the right one.
+    _token_param = "max_tokens"
+
     async def _ask(self, prompt: str, max_tokens: int = 300) -> str:
-        resp = await self._client.chat.completions.create(
-            model=self.model, max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return resp.choices[0].message.content or ""
+        for attempt in (1, 2):
+            try:
+                resp = await self._client.chat.completions.create(
+                    model=self.model,
+                    messages=[{"role": "user", "content": prompt}],
+                    **{self._token_param: max_tokens},
+                )
+                return resp.choices[0].message.content or ""
+            except Exception as e:
+                swap = ("max_completion_tokens" in str(e)
+                        and self._token_param == "max_tokens" and attempt == 1)
+                if not swap:
+                    raise
+                self._token_param = "max_completion_tokens"
 
 
 def OpenAIJudge(model: str | None = None, api_key: str | None = None, agent_profile: str = "") -> OpenAICompatibleJudge:
     """OpenAI GPT judge (back-compat constructor)."""
     return OpenAICompatibleJudge(
         name="openai",
-        model=model or os.environ.get("PROVING_GROUND_OPENAI_JUDGE_MODEL", "gpt-4o"),
+        model=model or os.environ.get("PROVING_GROUND_OPENAI_JUDGE_MODEL", "gpt-5.6-terra"),
         api_key=api_key or os.environ.get("OPENAI_API_KEY"),
         agent_profile=agent_profile,
     )
@@ -255,11 +271,11 @@ def OpenAIJudge(model: str | None = None, api_key: str | None = None, agent_prof
 # so they would not be independent.
 _VENDORS = [
     ("openai", "OPENAI_API_KEY", None,
-     "PROVING_GROUND_OPENAI_JUDGE_MODEL", "gpt-4o"),
+     "PROVING_GROUND_OPENAI_JUDGE_MODEL", "gpt-5.6-terra"),
     ("grok", "XAI_API_KEY", "https://api.x.ai/v1",
-     "PROVING_GROUND_XAI_JUDGE_MODEL", "grok-4"),
+     "PROVING_GROUND_XAI_JUDGE_MODEL", "grok-4.6"),
     ("gemini", "GOOGLE_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/",
-     "PROVING_GROUND_GEMINI_JUDGE_MODEL", "gemini-pro-latest"),  # stable alias -> current Gemini flagship (3-series pro); needs billing (free tier is quota 0)
+     "PROVING_GROUND_GEMINI_JUDGE_MODEL", "gemini-3.1-pro-preview"),  # PINNED, not the -latest alias
 ]
 
 
