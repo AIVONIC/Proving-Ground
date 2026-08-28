@@ -219,6 +219,26 @@ def main() -> int:
     grade, all_dim_results = asyncio.run(grade_agent(factory, dim_ids, judge, args.runs, args.suite, concurrency=args.concurrency))
     print(_format_report(args.agent, grade))
     print(format_reliability(all_dim_results))
+    # REFUSE TO PUBLISH A GRADE COMPUTED FROM WRECKAGE.
+    # On 2026-08-28 an OpenAI balance ran out mid-run. Run 1 passed at 0.89, runs
+    # 2 and 3 collapsed, 145 of 471 probes completed, and the grader still wrote a
+    # clean artifact: composite 25.78, a tier, a confidence interval. Nothing
+    # errored. That number described an expired card, not an agent, and the only
+    # tells were latency_and_reliability at 0.0 and a probe count nobody checks.
+    # A grade is worthless if a dead dependency can produce one that looks real.
+    errored = sum(1 for run in all_dim_results for dr in run.values()
+                  for pr in dr.probe_results if getattr(pr, "error", None))
+    total_probes = sum(1 for run in all_dim_results for dr in run.values()
+                       for pr in dr.probe_results)
+    if total_probes and errored / total_probes > 0.10:
+        raise SystemExit(
+            f"REFUSING TO WRITE A RUN ARTIFACT: {errored} of {total_probes} probes "
+            f"({errored / total_probes:.0%}) returned a transport error. The agent "
+            "stopped answering partway through, so the scores below describe an "
+            "outage rather than the agent. Fix the dependency and re-run.\n"
+            "        Nothing was written; no previous grade was touched."
+        )
+
     path = _write_run(args.agent, grade, all_dim_results)
 
     # Panel completeness, checked on the RESULT and not only at construction.
