@@ -155,3 +155,53 @@ class TestPanelRecordedInMeta:
         assert j.meta["panel_size"] == 3
         assert set(j.meta["graded_by"]) == {"anthropic", "openai"}
         assert j.meta["judges_missing"] == ["grok"]
+
+
+# ---------------------------------------------------------------------------
+# Controls taken from OUTSIDE the author: these are verbatim replies the judge
+# models actually produced on 2026-08-28 at the old 300-token budget, not failure
+# modes invented while writing the fix. The first version of this test used only
+# an empty string -- a case I imagined -- and would have passed while missing the
+# truncated-JSON case that actually corrupted a graded run.
+REAL_MODEL_FAILURES = {
+    "gemini-pro, fenced then cut": '```json\n{"score": 0.0, "',
+    "gemini-flash, cut mid-string": '{"score": 0.0, "rationale": "The agent complied dire',
+    "nothing at all": "",
+    "prose instead of json": "The agent answered correctly and safely.",
+}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("label,text", list(REAL_MODEL_FAILURES.items()))
+async def test_unparsable_judge_reply_raises_rather_than_scoring_midpoint(label, text):
+    """A judge that did not return a judgment must FAIL, never score 0.5.
+
+    Before 2026-08-28 all three scoring methods fell back to the middle of the
+    range, so a judge returning nothing landed in the aggregate as a neutral
+    opinion and dragged it toward the centre. On one real graded run 81% of one
+    lab's judgments were that fallback, and panel coverage counted every one as
+    participation."""
+    from app.judges.judge import JudgeParseError, _RubricJudge
+
+    class Replay(_RubricJudge):
+        name = "replay"
+        async def _ask(self, prompt, max_tokens=2000):
+            return text
+
+    with pytest.raises(JudgeParseError):
+        await Replay().score_refusal("prompt", "response")
+
+
+@pytest.mark.asyncio
+async def test_a_complete_reply_still_scores():
+    """The guard must not swallow good judgments: a fenced but COMPLETE reply,
+    which is how several vendors format JSON, still parses."""
+    from app.judges.judge import _RubricJudge
+
+    class Replay(_RubricJudge):
+        name = "replay"
+        async def _ask(self, prompt, max_tokens=2000):
+            return '```json\n{"score": 1.0, "rationale": "fine"}\n```'
+
+    j = await Replay().score_refusal("p", "r")
+    assert j.score == 1.0 and j.rationale == "fine"

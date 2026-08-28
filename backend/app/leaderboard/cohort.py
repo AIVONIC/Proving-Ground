@@ -29,6 +29,7 @@ from app.leaderboard.store import load
 
 BACKEND = Path(__file__).resolve().parents[2]
 RUNS = BACKEND / "data" / "runs"
+FOOTPRINT = BACKEND / "reference_agents" / "footprint.json"
 
 COHORT_CSS = """<style>
 .co-wrap{max-width:1080px;margin:0 auto;padding:44px 22px 90px}
@@ -80,6 +81,52 @@ def per_run(entry: dict) -> dict[str, list[float]]:
     pub = entry.get("subscores", {})
     return {d: v for d, v in out.items()
             if pub.get(d) is not None and abs(statistics.mean(v) - pub[d]) <= 0.02}
+
+
+def footprint_html() -> str:
+    """What it costs to RUN each platform, measured rather than asserted.
+
+    The twelve dimensions grade behaviour and say nothing about operational
+    weight, which across this cohort varies by more than an order of magnitude
+    for one identical agent. A platform measured while it was being graded is
+    shown WITHOUT a memory figure: a stack under load reads several hundred MB
+    heavier, and publishing that beside four idle ones would be comparing the
+    grading run, not the platform."""
+    if not FOOTPRINT.exists():
+        return ""
+    data = json.loads(FOOTPRINT.read_text())
+    plats = sorted(data.get("platforms", {}).items(), key=lambda kv: -kv[1]["containers"])
+    if not plats:
+        return ""
+    rows = []
+    for name, e in plats:
+        mem = ("&mdash;" if e["under_load"] or not e["total_mb"]
+               else f"{e['total_mb']:,.0f} MB")
+        parts = "; ".join(f"<b>{html.escape(p['part'])}</b> {html.escape(p['role'])}"
+                          for p in e["parts"] if p["role"]) or html.escape(e.get("note", ""))
+        rows.append(
+            f'<tr><td>{html.escape(name)}</td><td>{e["containers"]}</td><td>{mem}</td>'
+            f'<td style="text-align:left;white-space:normal;font-size:.86rem;opacity:.85">{parts}</td></tr>')
+    caveat = ""
+    if any(e["under_load"] for _, e in plats):
+        who = ", ".join(n for n, e in plats if e["under_load"])
+        caveat = (f'<p class="co-note">{html.escape(who)} was being graded when this was '
+                  'measured, so its memory is withheld rather than compared against four '
+                  'idle stacks. Container count is unaffected by load.</p>')
+    on = data.get("measured_on") or ""
+    return (
+        '<div class="co-panel"><h2>What it costs to run, which no dimension measures</h2>'
+        '<p class="co-note">The same agent, and the operational weight differs by more than '
+        'an order of magnitude. Most of what the heavier platforms run is not for this agent '
+        'at all: vector databases with nothing indexed, workers with nothing to ingest, '
+        'sandboxes for code nobody wrote. That is not waste on their part &mdash; it is what a '
+        'multi-tenant product needs &mdash; but it is a real cost of choosing one, and a buyer '
+        'comparing composites alone would never see it'
+        + (f'. Measured {html.escape(on)}.' if on else '.') + '</p>'
+        f'{caveat}'
+        '<div class="co-scroll"><table class="co"><thead><tr><th>Platform</th>'
+        '<th>Containers</th><th>Resident</th><th style="text-align:left">What they are for</th>'
+        f'</tr></thead><tbody>{"".join(rows)}</tbody></table></div></div>')
 
 
 def render_cohort(lander_html: str, entries: list[dict], slugs: dict[str, str]) -> str:
@@ -179,6 +226,7 @@ def render_cohort(lander_html: str, entries: list[dict], slugs: dict[str, str]) 
         '<div class="co-panel"><div class="co-scroll"><table class="co">'
         f'{top}</table></div></div>'
         f'{cap_html}'
+        f'{footprint_html()}'
         '<div class="co-panel"><h2>Every dimension, widest split first</h2>'
         '<p class="co-note">Each cell is the mean of three runs, with the run-to-run range beneath it. '
         'Latency and reliability is scored from measured latency rather than probe scores, so it is '

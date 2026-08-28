@@ -1,0 +1,27 @@
+# Proving Ground overlay on Dify's OWN docker-compose.yaml, taken verbatim from
+# the 0.15.3 tag. Nothing about Dify's configuration is changed here; this only
+# makes it safe to run beside other stacks on a shared workstation.
+#
+# The API is published DIRECTLY on 127.0.0.1:8380 rather than through Dify's
+# nginx, because that nginx binds host :80 and :443 in the upstream file and
+# those are not ports to take on this box. build_dify.py talks to /console/api
+# and /v1, both of which the api container serves itself, so the proxy adds
+# nothing for a headless build.
+#
+# 0.15.3 is pinned deliberately: as of 2026-08-28, Dify 1.x moves model providers
+# to plugins, so a 1.x build is not the same agent and the cohort comparison would
+# not hold. That is a statement about Dify at a date, not a fact about Dify: if the
+# provider path stabilises, rebuilding on the current release is better than
+# grading a year-old one. Re-check by running build_dify.py against a 1.x image and
+# seeing whether the model-config call still takes a provider inline.
+services:
+  api:
+    ports: ["127.0.0.1:8380:5001"]
+  db:
+    ports: ["127.0.0.1:5438:5432"]
+  nginx:
+    profiles: ["proxy"]      # binds :80/:443 upstream - never start it here
+  certbot:
+    profiles: ["proxy"]
+  web:
+    profiles: ["ui"]         # the graded surface is the REST API

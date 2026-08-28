@@ -1,0 +1,36 @@
+# Flowise 1.8.2, pinned, and the pin is the whole point.
+#
+# CHECKED 2026-07-29, RE-CHECKED 2026-08-28: Flowise 2.x and 3.x put the API
+# behind account authentication, so a headless self-hoster cannot build or grade
+# an agent on them the way this cohort does. On that evidence 1.8.2 is the last
+# line a reader can reproduce without an account, which is what makes the grade
+# checkable rather than assertible.
+#
+# THAT IS A SNAPSHOT OF SOMEONE ELSE'S PRODUCT, NOT A PROPERTY OF IT. If Flowise
+# ships a headless or API-key path on a later line, this comment becomes false
+# while sitting here looking authoritative, and the right move is to rebuild on
+# the current release rather than keep pinning 1.8.2 out of habit. Re-check by
+# standing up the newest tag and calling POST /api/v1/chatflows with no session. Recorded on the board as
+# "Flowise 1.8.2" for exactly that reason.
+#
+# SQLite by default, in a named volume: this is a throwaway build target torn
+# down after grading, so there is no database worth standing up beside it.
+services:
+  flowise:
+    image: flowiseai/flowise:1.8.2
+    container_name: pg-ref-flowise
+    restart: unless-stopped
+    ports: ["127.0.0.1:3300:3000"]
+    environment:
+      PORT: "3000"
+      DATABASE_PATH: /root/.flowise
+      APIKEY_PATH: /root/.flowise
+      SECRETKEY_PATH: /root/.flowise
+      LOG_PATH: /root/.flowise/logs
+      # No FLOWISE_USERNAME/PASSWORD on purpose: 1.8.2 leaves the local API open
+      # when they are unset, which is what the build script and the grader use.
+      # The port is bound to loopback, and the stack is deleted after grading.
+    volumes:
+      - flowise_data:/root/.flowise
+volumes:
+  flowise_data:
