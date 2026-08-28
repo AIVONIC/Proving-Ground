@@ -286,7 +286,16 @@ class OpenAICompatibleJudge(_RubricJudge):
                     messages=[{"role": "user", "content": prompt}],
                     **{self._token_param: max_tokens},
                 )
-                return resp.choices[0].message.content or ""
+                choice = resp.choices[0] if resp.choices else None
+                msg = getattr(choice, "message", None) if choice else None
+                if msg is None:
+                    # Observed on Gemini: a 200 whose choice carries no message
+                    # at all. Surfacing it as a parse failure keeps the reason in
+                    # judge_errors instead of an AttributeError with no context.
+                    raise JudgeParseError(
+                        "reply had no message (finish_reason="
+                        f"{getattr(choice, 'finish_reason', '?')})")
+                return msg.content or ""
             except Exception as e:
                 swap = ("max_completion_tokens" in str(e)
                         and self._token_param == "max_tokens" and attempt == 1)
@@ -372,16 +381,31 @@ class EnsembleJudge(Judge):
                               "graded_by": list(names), "judges_missing": [
                                   n for n in panel if n not in set(names)]})
 
+    def _record(self, name: str, exc: Exception) -> Exception:
+        """Keep the first failure per vendor, verbatim. The useful part of a quota
+        error names which quota, what limit and which tier, routinely past the
+        first 200 characters."""
+        self.judge_errors.setdefault(name, f"{type(exc).__name__}: {exc}"[:1200])
+        return exc
+
     async def _panel(self, method: str, *args, **kwargs) -> Judgment:
         async def call(j, name):
-            try:
-                return await getattr(j, method)(*args, **kwargs)
-            except Exception as e:  # a judge outage must not sink the grade
-                # Keep the FIRST failure verbatim and truncated generously: the
-                # useful part of a quota error (which quota, what limit, which
-                # tier) is often well past the first 200 characters.
-                self.judge_errors.setdefault(name, f"{type(e).__name__}: {e}"[:1200])
-                return e
+            # One retry before a judge is dropped. Measured on a full grade:
+            # Claude returned an empty completion on 12 of 240 judgments and
+            # Gemini on 2 -- transient, and enough to take the panel to 94% and
+            # 98%, below the 99% a lab needs to be listed. Dropping a lab from
+            # the published panel over a blip is as wrong as counting a lab that
+            # never answered. A SECOND failure is real and still drops it.
+            for attempt in (1, 2):
+                try:
+                    return await getattr(j, method)(*args, **kwargs)
+                except Exception as e:
+                    if attempt == 1:
+                        await asyncio.sleep(0.4)
+                        continue
+                    return self._record(name, e)
+            return None  # unreachable
+
         results = await asyncio.gather(
             *[call(j, n) for j, n in zip(self._judges, self._names)])
         good = [(n, r) for n, r in zip(self._names, results) if isinstance(r, Judgment)]

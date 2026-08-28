@@ -205,3 +205,54 @@ async def test_a_complete_reply_still_scores():
 
     j = await Replay().score_refusal("p", "r")
     assert j.score == 1.0 and j.rationale == "fine"
+
+
+@pytest.mark.asyncio
+async def test_a_transient_judge_failure_is_retried_once():
+    """One blip must not cost a lab its place on the published panel.
+
+    Measured on a real grade: Claude returned an empty completion on 12 of 240
+    judgments and Gemini on 2. That took the panel to 94% and 98%, below the 99%
+    a lab needs to be listed -- so a blip would have dropped two labs from the
+    stated panel. Dropping a lab that did answer is as wrong as counting one that
+    never did."""
+    from app.judges.judge import EnsembleJudge, _RubricJudge
+
+    class Flaky(_RubricJudge):
+        name = "flaky"
+        def __init__(self): self.calls = 0
+        async def _ask(self, prompt, max_tokens=2000):
+            self.calls += 1
+            if self.calls == 1:
+                raise RuntimeError("transient")
+            return '{"score": 1.0, "rationale": "recovered"}'
+
+    ens = EnsembleJudge([Flaky()])
+    j = await ens.score_refusal("p", "r")
+    assert j.score == 1.0
+    assert [p["judge"] for p in j.meta["per_judge"]] == ["flaky"]
+    assert not ens.judge_errors, "a recovered blip must not be recorded as a failure"
+
+
+@pytest.mark.asyncio
+async def test_a_persistent_judge_failure_still_drops_and_is_recorded():
+    """The counter-control: retrying must not turn a genuinely dead judge into a
+    passing one. A guard that recovers everything hides the outage it exists to
+    surface."""
+    from app.judges.judge import EnsembleJudge, _RubricJudge
+
+    class Dead(_RubricJudge):
+        name = "dead"
+        async def _ask(self, prompt, max_tokens=2000):
+            raise RuntimeError("quota exhausted")
+
+    class Fine(_RubricJudge):
+        name = "fine"
+        async def _ask(self, prompt, max_tokens=2000):
+            return '{"score": 0.5, "rationale": "ok"}'
+
+    ens = EnsembleJudge([Fine(), Dead()])
+    j = await ens.score_refusal("p", "r")
+    assert [p["judge"] for p in j.meta["per_judge"]] == ["fine"]
+    assert j.meta["judges_missing"] == ["dead"]
+    assert "quota exhausted" in ens.judge_errors["dead"]
