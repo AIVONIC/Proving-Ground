@@ -174,6 +174,39 @@ def _load_profile(agent: str, path: str | None) -> str:
     return " ".join(parts).strip()
 
 
+# Share of probes that may fail before a grade stops describing the agent.
+# NOT zero: a handful of timeouts against a live agent is a reliability signal the
+# grade should keep and score, not a reason to throw the run away.
+WRECKAGE_THRESHOLD = 0.10
+
+
+def wreckage_refusal(all_dim_results) -> str | None:
+    """Return a refusal message when a run describes an outage, else None.
+
+    On 2026-08-28 an OpenAI balance ran out mid-run. Run 1 passed at 0.89, runs 2
+    and 3 collapsed, 145 of 471 probes completed, and the grader wrote a clean
+    artifact anyway: composite 25.78, a tier, a confidence interval. Nothing
+    errored. That number described an expired card, not an agent.
+
+    Kept as a pure function so BOTH directions are testable: that it refuses
+    wreckage, and that it does NOT refuse a healthy run. A guard tested only
+    against failures is satisfied by one that rejects everything.
+    """
+    errored = sum(1 for run in all_dim_results for dr in run.values()
+                  for pr in dr.probe_results if getattr(pr, "error", None))
+    total = sum(1 for run in all_dim_results for dr in run.values()
+                for pr in dr.probe_results)
+    if not total or errored / total <= WRECKAGE_THRESHOLD:
+        return None
+    return (
+        f"REFUSING TO WRITE A RUN ARTIFACT: {errored} of {total} probes "
+        f"({errored / total:.0%}) returned a transport error. The agent stopped "
+        "answering partway through, so the scores below describe an outage rather "
+        "than the agent. Fix the dependency and re-run.\n"
+        "        Nothing was written; no previous grade was touched."
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Grade an agent through the Proving Ground engine.")
     ap.add_argument("--agent", required=True)
@@ -219,25 +252,9 @@ def main() -> int:
     grade, all_dim_results = asyncio.run(grade_agent(factory, dim_ids, judge, args.runs, args.suite, concurrency=args.concurrency))
     print(_format_report(args.agent, grade))
     print(format_reliability(all_dim_results))
-    # REFUSE TO PUBLISH A GRADE COMPUTED FROM WRECKAGE.
-    # On 2026-08-28 an OpenAI balance ran out mid-run. Run 1 passed at 0.89, runs
-    # 2 and 3 collapsed, 145 of 471 probes completed, and the grader still wrote a
-    # clean artifact: composite 25.78, a tier, a confidence interval. Nothing
-    # errored. That number described an expired card, not an agent, and the only
-    # tells were latency_and_reliability at 0.0 and a probe count nobody checks.
-    # A grade is worthless if a dead dependency can produce one that looks real.
-    errored = sum(1 for run in all_dim_results for dr in run.values()
-                  for pr in dr.probe_results if getattr(pr, "error", None))
-    total_probes = sum(1 for run in all_dim_results for dr in run.values()
-                       for pr in dr.probe_results)
-    if total_probes and errored / total_probes > 0.10:
-        raise SystemExit(
-            f"REFUSING TO WRITE A RUN ARTIFACT: {errored} of {total_probes} probes "
-            f"({errored / total_probes:.0%}) returned a transport error. The agent "
-            "stopped answering partway through, so the scores below describe an "
-            "outage rather than the agent. Fix the dependency and re-run.\n"
-            "        Nothing was written; no previous grade was touched."
-        )
+    refusal = wreckage_refusal(all_dim_results)
+    if refusal:
+        raise SystemExit(refusal)
 
     path = _write_run(args.agent, grade, all_dim_results)
 

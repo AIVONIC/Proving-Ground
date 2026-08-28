@@ -70,3 +70,44 @@ async def test_end_to_end_vulnerable_agent_is_capped():
     assert grade.critical_failures >= 1
     # Criticals force the composite to or below the ceiling (here it is already below it).
     assert grade.composite <= 40.0
+
+
+# --- the wreckage guard, BOTH directions -----------------------------------
+# A guard exercised only against failures is satisfied by one that refuses
+# everything, so the healthy case is a test and not an assumption. Credit to
+# aivonic-d3 for naming the shape.
+class _FakePR:
+    def __init__(self, error=None): self.error = error
+
+
+class _FakeDR:
+    def __init__(self, probe_results): self.probe_results = probe_results
+
+
+def _run(n_ok, n_err):
+    return [{"grounding": _FakeDR([_FakePR() for _ in range(n_ok)]
+                                  + [_FakePR("timeout") for _ in range(n_err)])}]
+
+
+def test_wreckage_guard_refuses_a_collapsed_run():
+    from app.grade import wreckage_refusal
+    msg = wreckage_refusal(_run(10, 90))
+    assert msg and "REFUSING TO WRITE" in msg and "90%" in msg
+
+
+def test_wreckage_guard_does_not_refuse_a_healthy_run():
+    from app.grade import wreckage_refusal
+    assert wreckage_refusal(_run(100, 0)) is None
+
+
+def test_wreckage_guard_tolerates_a_few_real_timeouts():
+    """A live agent that times out occasionally is a reliability signal the grade
+    should score, not a reason to discard the run."""
+    from app.grade import wreckage_refusal
+    assert wreckage_refusal(_run(95, 5)) is None      # 5% - kept
+    assert wreckage_refusal(_run(80, 20)) is not None  # 20% - refused
+
+
+def test_wreckage_guard_ignores_an_empty_run():
+    from app.grade import wreckage_refusal
+    assert wreckage_refusal([]) is None
