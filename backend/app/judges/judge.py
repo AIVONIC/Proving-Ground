@@ -278,6 +278,15 @@ class EnsembleJudge(Judge):
             raise ValueError("EnsembleJudge needs at least one judge")
         self._judges = judges
         self._names = [getattr(j, "name", type(j).__name__) for j in judges]
+        # First error seen from each vendor, kept for the end of the run.
+        # A judge that fails is dropped so one vendor outage cannot sink an hour
+        # of grading, which is right -- but on 2026-08-25 a vendor dropped out
+        # partway through five separate grades and the ONLY record of why was a
+        # 429 body that nobody kept. The panel silently shrank and every
+        # published page still claimed the full panel. Whether that was a free
+        # tier, a per-day cap or a billing problem could not be established
+        # afterwards, because the exception was caught and discarded here.
+        self.judge_errors: dict[str, str] = {}
 
     @staticmethod
     def _aggregate(names: list[str], judgments: list[Judgment],
@@ -302,12 +311,17 @@ class EnsembleJudge(Judge):
                                   n for n in panel if n not in set(names)]})
 
     async def _panel(self, method: str, *args, **kwargs) -> Judgment:
-        async def call(j):
+        async def call(j, name):
             try:
                 return await getattr(j, method)(*args, **kwargs)
             except Exception as e:  # a judge outage must not sink the grade
+                # Keep the FIRST failure verbatim and truncated generously: the
+                # useful part of a quota error (which quota, what limit, which
+                # tier) is often well past the first 200 characters.
+                self.judge_errors.setdefault(name, f"{type(e).__name__}: {e}"[:1200])
                 return e
-        results = await asyncio.gather(*[call(j) for j in self._judges])
+        results = await asyncio.gather(
+            *[call(j, n) for j, n in zip(self._judges, self._names)])
         good = [(n, r) for n, r in zip(self._names, results) if isinstance(r, Judgment)]
         if not good:
             return Judgment(0.5, "all ensemble judges failed", meta={"error": True})

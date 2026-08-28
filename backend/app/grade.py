@@ -238,6 +238,11 @@ def main() -> int:
                     for v in (os.environ.get("PROVING_GROUND_REQUIRE_JUDGES") or "").split(",")
                     if v.strip() and v.strip().lower() != "all"] or list(cov)
         short = shortfall(_json.loads(path.read_text()), required)
+        errs = getattr(judge, "judge_errors", {}) or {}
+        if errs:
+            print("Why a judge dropped out (first error per vendor, verbatim):")
+            for vendor, err in sorted(errs.items()):
+                print(f"  {vendor}: {err}")
         if short:
             print("WARNING: the panel this run required did not hold. Short: "
                   + ", ".join(f"{k} {v:.0%} of judgments" for k, v in short.items())
