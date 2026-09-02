@@ -29,7 +29,7 @@ import statistics
 from pathlib import Path
 
 from app.leaderboard.render import DIMS, PAGE_CSS, PREMIUM_FLOOR, radar_svg, site_bar
-from app.judges.coverage import panel_phrase
+from app.judges.coverage import DISPLAY as PANEL_DISPLAY, panel_phrase
 from app.leaderboard.store import load
 
 DIM_KEYS = {k: full for _short, k, full in DIMS}
@@ -133,6 +133,11 @@ def dimension_html(entry: dict, runs: list[dict], key: str, full: str) -> str:
 
 
 REPORT_CSS = """<style>
+.rp-panelnote{border:1px solid var(--hair,#e4e4e0);border-left:3px solid var(--accent,#0f9e84);
+  border-radius:10px;padding:14px 18px;margin:18px 0;font-size:.92rem;background:var(--panel-2,#f6f6f3)}
+.rp-panelnote ul{margin:8px 0;padding-left:20px}
+.rp-panelnote li{margin:3px 0}
+.rp-panelnote p{margin:8px 0 0;opacity:.85;max-width:72ch}
 .rp-wrap{max-width:900px;margin:0 auto;padding:0 22px}
 .rp-head{padding:44px 0 8px}
 .rp-title{font-size:clamp(1.8rem,3.6vw,2.6rem);margin:6px 0 4px;letter-spacing:-.01em}
@@ -204,7 +209,32 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
             if entry.get("platform_version") else "")
     # Stated from what the run artifact shows, never assumed. See
     # app/judges/coverage.py for why this stopped being a constant.
-    panel = html.escape(panel_phrase(entry.get("judge_labs") or []))
+    # The PANEL is who took part. Coverage is disclosed per dimension below,
+    # because it genuinely varies and a single figure cannot say so.
+    panel = html.escape(panel_phrase(entry.get("judge_panel") or entry.get("judge_labs") or []))
+    shortfall = entry.get("judge_shortfall") or {}
+    panel_note = ""
+    if shortfall:
+        rows = "".join(
+            f"<li><b>{html.escape(DIM_KEYS.get(d, d))}</b> &mdash; "
+            + ", ".join(f"{html.escape(PANEL_DISPLAY.get(k, k))} judged {v:.0%}"
+                        for k, v in sorted(labs.items()))
+            + "</li>"
+            for d, labs in sorted(shortfall.items())
+        )
+        panel_note = (
+            '<div class="rp-panelnote"><b>Not every lab judged every dimension.</b>'
+            f'<ul>{rows}</ul>'
+            '<p>This is not an outage. A frontier model&rsquo;s own safety guardrail refuses to '
+            'engage with a probe built from a harmful request, so it returns nothing rather than '
+            'scoring the agent&rsquo;s refusal. We tested whether it could be worked around: '
+            'delimiting the adversarial text and instructing the judge to score rather than answer '
+            'it changed nothing, and withholding the attack made that judge score SAFE replies while '
+            'still refusing UNSAFE ones &mdash; a judge that confirms passes and looks away from '
+            'failures, which would bias this score upward exactly where the agent did worst. '
+            'So the lab abstains and we say so, rather than quietly reporting a fuller panel than '
+            'the one that graded these probes.</p></div>'
+        )
     # A reference build is an agent WE built on someone's platform. Saying so on the
     # page is the difference between "we graded your product" (false, and the kind of
     # claim that ends a conversation) and "we built an agent on your platform and
@@ -231,6 +261,7 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
 <section class="rp-head">
   <span class="eyebrow">Private scorecard &middot; not published</span>
   <h1 class="rp-title">{name}</h1>
+  {panel_note}
   <p class="rp-sub">{vendor}{plat} &middot; graded {html.escape(entry.get('graded_at',''))} on the held-out private suite by the {panel}.</p>
   <div class="rp-kpis">
     <div class="rp-kpi"><b>{entry['composite']:.2f}</b><span>Composite / 100</span></div>

@@ -15,7 +15,8 @@ import json
 from pathlib import Path
 
 from app.dimensions.catalog import REGISTRY
-from app.judges.coverage import judge_coverage, panel_labs
+from app.judges.coverage import (dimensions_below_full, judge_coverage,
+                                 panel_labs)
 from app.leaderboard.store import upsert
 
 
@@ -76,6 +77,14 @@ def entry_from_run(run: dict, meta: dict) -> dict:
         # Never a constant: the pages used to say "four-lab judge panel" for every
         # entry while Gemini had covered 0 of 441 judgments on one of them.
         **({"judge_labs": meta["judge_labs"]} if meta.get("judge_labs") else {}),
+        # Labs that took part at all, and the dimensions where one fell short.
+        # judge_labs alone was misleading in both directions: it dropped a lab
+        # that judged six dimensions perfectly because it was blocked on a
+        # seventh, and it implied one panel across all twelve. A safety judge
+        # that abstains on the worst failures is a fact the card must carry, not
+        # something a single run-level percentage can express.
+        **({"judge_panel": meta["judge_panel"]} if meta.get("judge_panel") else {}),
+        **({"judge_shortfall": meta["judge_shortfall"]} if meta.get("judge_shortfall") else {}),
         "tools": list(meta.get("tools") or []),
         "tools_verified": list(meta.get("tools_verified") or []),
         **({"latency_ms": lat} if lat is not None else {}),
@@ -111,6 +120,8 @@ def main() -> int:
     run = json.loads(Path(a.run).read_text())
     labs = panel_labs(run)
     cov = judge_coverage(run)
+    panel = [lab for lab in ("claude", "openai", "grok", "gemini") if cov.get(lab, 0) > 0]
+    shortfall = dimensions_below_full(run)
     partial = {k: v for k, v in cov.items() if k not in labs}
     if partial:
         # Loud, because a thinner panel is invisible in the scores themselves.
@@ -123,6 +134,9 @@ def main() -> int:
         "platform_version": a.platform_version.strip(),
         "run_artifact": Path(a.run).name,
         "judge_labs": labs,
+        "judge_panel": panel,
+        "judge_shortfall": {d: {k: round(v, 3) for k, v in labs_.items()}
+                            for d, labs_ in shortfall.items()},
         "reference": a.reference,
         "tools": [t.strip() for t in a.tools.split(",") if t.strip()],
         "tools_verified": [t.strip() for t in a.tools_verified.split(",") if t.strip()],
