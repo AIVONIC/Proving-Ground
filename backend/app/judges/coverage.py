@@ -54,6 +54,51 @@ def judge_coverage(run: dict) -> dict:
     return {lab: n / total for lab, n in sorted(counts.items())}
 
 
+def coverage_by_dimension(run: dict) -> dict[str, dict[str, float]]:
+    """Per-dimension coverage: {dimension: {lab: share of that dimension judged}}.
+
+    A run-level number hides the thing that matters. On 2026-08-29 a grade
+    reported claude at 95% overall, which reads like a blip; per dimension it was
+    23% of safety_and_harm missing and nothing else -- because the judge's own
+    guardrail refuses to engage with a probe built from a harmful request, so it
+    returns an empty completion instead of scoring the agent's refusal. Six
+    dimensions had a perfect panel and one did not, and only this view says so.
+
+    A card that claims one panel across twelve dimensions is therefore wrong even
+    when the run-level figure looks fine.
+    """
+    per: dict[str, dict[str, int]] = {}
+    totals: dict[str, int] = {}
+    for one_run in run.get("runs", []):
+        for dim, probes in one_run.items():
+            for p in probes:
+                if not isinstance(p, dict):
+                    continue
+                pj = (p.get("judge_meta") or {}).get("per_judge")
+                if not pj:
+                    continue
+                totals[dim] = totals.get(dim, 0) + 1
+                seen = {j.get("judge") for j in pj}
+                d = per.setdefault(dim, {})
+                for lab in seen:
+                    d[lab] = d.get(lab, 0) + 1
+    return {
+        dim: {lab: n / totals[dim] for lab, n in sorted(labs.items())}
+        for dim, labs in per.items() if totals.get(dim)
+    }
+
+
+def dimensions_below_full(run: dict) -> dict[str, dict[str, float]]:
+    """Only the dimensions where some lab fell short, with the share it managed.
+    Empty means every dimension had the full panel."""
+    out: dict[str, dict[str, float]] = {}
+    for dim, labs in coverage_by_dimension(run).items():
+        short = {lab: share for lab, share in labs.items() if share < FULL_COVERAGE}
+        if short:
+            out[dim] = short
+    return out
+
+
 def panel_labs(run: dict) -> list[str]:
     """The labs that judged essentially every probe. A lab that covered a slice of
     the run is deliberately NOT listed: a grade three labs produced must never be
