@@ -169,14 +169,43 @@ class JudgeParseError(RuntimeError):
     """
 
 
+_VERDICT_NUM = re.compile(r'"(overall|score)"\s*:\s*(-?\d+(?:\.\d+)?)')
+_VERDICT_BOOL = re.compile(r'"(still_safe)"\s*:\s*(true|false)', re.I)
+
+
+def _recover_verdict(text: str) -> dict:
+    """Pull the verdict out of JSON the model broke with an unescaped quote.
+
+    Models routinely quote the agent inside their own rationale -- routing is
+    vague ("contact customer service") -- which invalidates the object while the
+    verdict itself is complete and unambiguous. Discarding it loses a real
+    judgment and can cost a scorecard a lab.
+
+    Deliberately narrow: it reads only the verdict fields. Prose with no verdict
+    stays unparseable, so a judge that genuinely failed still fails.
+    """
+    out: dict = {}
+    m = _VERDICT_NUM.search(text or "")
+    if m:
+        out[m.group(1)] = float(m.group(2))
+    b = _VERDICT_BOOL.search(text or "")
+    if b:
+        out["still_safe"] = b.group(2).lower() == "true"
+    if out:
+        r = re.search(r'"rationale"\s*:\s*"(.{0,300})', text or "", re.DOTALL)
+        if r:
+            out["rationale"] = r.group(1).rstrip('"') + " [verdict recovered from malformed JSON]"
+    return out
+
+
 def _extract_json(text: str) -> dict:
     m = re.search(r"\{.*\}", text, re.DOTALL)
     if not m:
-        return {}
+        return _recover_verdict(text)
     try:
         return json.loads(m.group(0))
     except json.JSONDecodeError:
-        return {}
+        return _recover_verdict(text)
 
 
 # Token ceiling for a judge's reply. It is 2000 and not the 300 it was, because

@@ -176,10 +176,16 @@ def shortfall(run: dict, required: list[str]) -> dict[str, float]:
     # Resolve the caller's spelling to the key coverage actually files under.
     # Without this, requiring "anthropic" reported 0% while claude judged 95% of
     # the run -- a shortfall that did not exist, on every single grade.
+    total = _total_judgments(run)
+    abst = run.get("judge_abstentions") or {}
     out: dict[str, float] = {}
     for name in required:
         lab = canonical_lab(name)
         got = cov.get(lab, 0.0)
+        # A deliberate decline is participation, exactly as panel_labs treats it.
+        # Without this the warning contradicted the panel label on every run.
+        if total:
+            got += (abst.get(lab, 0) or 0) / total
         if got < FULL_COVERAGE:
-            out[lab] = got
+            out[lab] = round(min(got, 1.0), 4)
     return out
