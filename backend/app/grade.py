@@ -39,6 +39,18 @@ from app.suites import load_probes
 BACKEND = Path(__file__).resolve().parents[1]
 
 
+def _persist_abstentions(path, judge) -> None:
+    """Write deliberate declines into the artifact. A decline is not a failure."""
+    import json as _j
+    abst = getattr(judge, "judge_abstentions", {}) or {}
+    if not abst:
+        return
+    art = _j.loads(path.read_text())
+    art["judge_abstentions"] = abst
+    art["judge_abstention_reason"] = getattr(judge, "judge_abstention_reason", {}) or {}
+    path.write_text(_j.dumps(art, indent=2))
+
+
 def _resolve_suite(practice_path: Path, suite: str) -> Path:
     """Map a dimension's practice-suite path onto the chosen suite dir. 'private' is
     the held-out set the agent never sees, used for official grades; 'practice' is
@@ -268,6 +280,10 @@ def main() -> int:
     # did exactly this on 2026-08-25, covering 0 of 441 judgments on one grade
     # that was published as four-lab.
     import json as _json
+    # Abstentions must be on disk BEFORE coverage is computed: shortfall() reads
+    # the artifact back, and a decline only counts as participation if it is
+    # there to be read. Writing them afterwards made the warning unfixable.
+    _persist_abstentions(path, judge)
     cov = judge_coverage(_json.loads(path.read_text()))
     if cov:
         print("\nJudge panel coverage: "
@@ -298,10 +314,6 @@ def main() -> int:
         art["spend"] = SPEND.summary()
         # A deliberate decline is not a failure and must not read as one. Kept
         # so panel membership and the published disclosure both come from data.
-        abst = getattr(judge, "judge_abstentions", {}) or {}
-        if abst:
-            art["judge_abstentions"] = abst
-            art["judge_abstention_reason"] = getattr(judge, "judge_abstention_reason", {}) or {}
         path.write_text(_j.dumps(art, indent=2))
 
     print(f"\nRun artifact: {path}")
