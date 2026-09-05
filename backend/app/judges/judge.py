@@ -17,7 +17,12 @@ import os
 import re
 import sys
 from abc import ABC, abstractmethod
+
+from app.judges.spend import Spend
 from dataclasses import dataclass
+
+
+SPEND = Spend()   # process-wide ledger; see app/judges/spend.py
 
 
 @dataclass
@@ -133,6 +138,15 @@ class StubJudge(Judge):
         if not text:
             return Judgment(0.0, "stub: empty response")
         return Judgment(0.7, "stub: non-trivial response (heuristic)")
+
+
+class JudgeAbstained(RuntimeError):
+    """The judge declined to score this probe, on purpose.
+
+    Distinct from JudgeParseError: a malformed reply is a fault, an abstention is
+    the model working as designed. Conflating them made a deliberate safety
+    refusal look like a broken judge and cost the panel a lab.
+    """
 
 
 class JudgeParseError(RuntimeError):
@@ -253,6 +267,18 @@ class ClaudeJudge(_RubricJudge):
             model=self.model, max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         )
+        u = getattr(msg, "usage", None)
+        if u is not None:
+            SPEND.record(self.model, getattr(u, "input_tokens", 0), getattr(u, "output_tokens", 0))
+        # The API says so explicitly; do not infer it from an empty string, which
+        # is also what a truncation and a content filter look like.
+        if getattr(msg, "stop_reason", None) == "refusal":
+            raise JudgeAbstained(
+                f"{self.model} declined to score this probe (stop_reason=refusal, "
+                f"0 content blocks). Not a fault: it will not engage with the probe "
+                f"text. Framing does not change it and redaction biases the result, "
+                f"so this judgment is left to the rest of the panel."
+            )
         return "".join(b.text for b in msg.content if getattr(b, "type", "") == "text")
 
 
@@ -286,15 +312,26 @@ class OpenAICompatibleJudge(_RubricJudge):
                     messages=[{"role": "user", "content": prompt}],
                     **{self._token_param: max_tokens},
                 )
+                u = getattr(resp, "usage", None)
+                if u is not None:
+                    SPEND.record(self.model, getattr(u, "prompt_tokens", 0),
+                                 getattr(u, "completion_tokens", 0))
                 choice = resp.choices[0] if resp.choices else None
                 msg = getattr(choice, "message", None) if choice else None
+                fr = str(getattr(choice, "finish_reason", "") or "")
+                if fr.startswith("content_filter"):
+                    # The vendor declined, the same way Claude's
+                    # stop_reason=refusal does. Not a fault, and filing it as one
+                    # costs the panel a lab over principled behaviour.
+                    raise JudgeAbstained(
+                        f"{self.model} declined to score this probe "
+                        f"(finish_reason={fr}). Left to the rest of the panel.")
                 if msg is None:
                     # Observed on Gemini: a 200 whose choice carries no message
                     # at all. Surfacing it as a parse failure keeps the reason in
                     # judge_errors instead of an AttributeError with no context.
                     raise JudgeParseError(
-                        "reply had no message (finish_reason="
-                        f"{getattr(choice, 'finish_reason', '?')})")
+                        f"reply had no message (finish_reason={fr or '?'})")
                 return msg.content or ""
             except Exception as e:
                 swap = ("max_completion_tokens" in str(e)
@@ -343,6 +380,9 @@ class EnsembleJudge(Judge):
             raise ValueError("EnsembleJudge needs at least one judge")
         self._judges = judges
         self._names = [getattr(j, "name", type(j).__name__) for j in judges]
+        # Deliberate declines, kept apart from failures.
+        self.judge_abstentions: dict[str, int] = {}
+        self.judge_abstention_reason: dict[str, str] = {}
         # First error seen from each vendor, kept for the end of the run.
         # A judge that fails is dropped so one vendor outage cannot sink an hour
         # of grading, which is right -- but on 2026-08-25 a vendor dropped out
@@ -381,6 +421,12 @@ class EnsembleJudge(Judge):
                               "graded_by": list(names), "judges_missing": [
                                   n for n in panel if n not in set(names)]})
 
+    def _record_abstention(self, name: str, exc: Exception) -> Exception:
+        """An abstention is reported, never counted as a failure."""
+        self.judge_abstentions[name] = self.judge_abstentions.get(name, 0) + 1
+        self.judge_abstention_reason.setdefault(name, str(exc)[:600])
+        return exc
+
     def _record(self, name: str, exc: Exception) -> Exception:
         """Keep the first failure per vendor, verbatim. The useful part of a quota
         error names which quota, what limit and which tier, routinely past the
@@ -399,6 +445,11 @@ class EnsembleJudge(Judge):
             for attempt in (1, 2):
                 try:
                     return await getattr(j, method)(*args, **kwargs)
+                except JudgeAbstained as e:
+                    # Deterministic by construction -- the model will not engage
+                    # with this probe text. Retrying spends a second call to be
+                    # refused again, and it is not a failure to retry away.
+                    return self._record_abstention(name, e)
                 except Exception as e:
                     if attempt == 1:
                         await asyncio.sleep(0.4)

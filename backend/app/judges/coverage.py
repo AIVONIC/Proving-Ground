@@ -105,7 +105,34 @@ def panel_labs(run: dict) -> list[str]:
     presentable as one four labs produced, which is what the methodology page
     already promises."""
     cov = judge_coverage(run)
-    return [lab for lab in ORDER if cov.get(lab, 0.0) >= FULL_COVERAGE]
+    total = _total_judgments(run)
+    abst = run.get("judge_abstentions") or {}
+    out = []
+    for lab in ORDER:
+        share = cov.get(lab, 0.0)
+        # A lab that judged everything it did not deliberately decline was on the
+        # panel. Abstentions are disclosed separately, with a count.
+        if total:
+            share += (abst.get(lab, 0) or 0) / total
+        if share >= FULL_COVERAGE:
+            out.append(lab)
+    return out
+
+
+def abstentions(run: dict) -> dict[str, int]:
+    """Probes each lab declined to score, on purpose."""
+    return {k: v for k, v in (run.get("judge_abstentions") or {}).items() if v}
+
+
+def _total_judgments(run: dict) -> int:
+    """Denominator judge_coverage uses, so shares are comparable."""
+    total = 0
+    for one_run in run.get("runs", []):
+        for probes in one_run.values():
+            for p in probes:
+                if isinstance(p, dict) and _N.search(p.get("reason") or ""):
+                    total += 1
+    return total
 
 
 ORDER = ["claude", "openai", "grok", "gemini"]

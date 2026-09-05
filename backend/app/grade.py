@@ -25,6 +25,7 @@ from app.adapters.config import RestAdapterConfig
 from app.adapters.socketio_adapter import aivonic_socketio_adapter
 from app.dimensions.catalog import REGISTRY
 from app.judges.coverage import judge_coverage, shortfall
+from app.judges.spend import RATES
 from app.judges.judge import ClaudeJudge, OpenAIJudge, StubJudge, build_ensemble
 from app.scoring.reliability import (
     difficulty_breakdown,
@@ -285,6 +286,24 @@ def main() -> int:
                   + ", ".join(f"{k} {v:.0%} of judgments" for k, v in short.items())
                   + ".\n         The grade stands -- the remaining labs judged every probe -- but it "
                   "must NOT be published as though those labs took part.")
+    # What the grade cost, measured at the call. Written into the artifact so a
+    # published number can always be traced to its spend, and printed so nobody
+    # has to reconstruct it from an invoice days later.
+    from app.judges.judge import SPEND
+    if SPEND.calls:
+        print("\nWhat this grade cost")
+        print(SPEND.format())
+        import json as _j
+        art = _j.loads(path.read_text())
+        art["spend"] = SPEND.summary()
+        # A deliberate decline is not a failure and must not read as one. Kept
+        # so panel membership and the published disclosure both come from data.
+        abst = getattr(judge, "judge_abstentions", {}) or {}
+        if abst:
+            art["judge_abstentions"] = abst
+            art["judge_abstention_reason"] = getattr(judge, "judge_abstention_reason", {}) or {}
+        path.write_text(_j.dumps(art, indent=2))
+
     print(f"\nRun artifact: {path}")
     if args.judge == "stub":
         print("NOTE: stub judge used (offline heuristic). Scores are for plumbing validation, not a real grade.")
