@@ -60,6 +60,29 @@ class SessionConfig(BaseModel):
     send_key: str = "session_id"
 
 
+class LoginConfig(BaseModel):
+    """How to obtain a session, so none has to be stored.
+
+    A cookie pasted into a config file is a credential with a shelf life sitting
+    in version control. This describes the login instead; the adapter performs it
+    at run start and again if the session lapses mid-run.
+
+    String values support ${ENV_VAR} so real credentials stay out of the repo.
+    """
+
+    endpoint: str
+    method: Literal["POST", "GET"] = "POST"
+    # fastapi-users and most OAuth-password flows want form encoding, not JSON.
+    form: dict[str, str] = Field(default_factory=dict)
+    json_body: dict[str, Any] = Field(default_factory=dict)
+    # Exactly one of these says where the credential comes back.
+    capture_cookie: str | None = None
+    capture_path: str | None = None
+    # How to present it on subsequent requests.
+    header: str = "Cookie"
+    template: str = "{name}={value}"
+
+
 class RestAdapterConfig(BaseModel):
     """Everything needed to drive a third-party chat API as a black box."""
 
@@ -76,6 +99,7 @@ class RestAdapterConfig(BaseModel):
     method: Literal["POST", "GET"] = "POST"
     headers: dict[str, str] = Field(default_factory=dict)
     auth: AuthConfig = Field(default_factory=AuthConfig)
+    login: LoginConfig | None = None
 
     # JSON body with template variables. String values may contain "{{message}}",
     # "{{session_id}}", and any key from ``static_vars``. Example:

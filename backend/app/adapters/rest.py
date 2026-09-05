@@ -101,6 +101,8 @@ class RestApiAdapter(AgentAdapter):
         self._client = client or httpx.AsyncClient(timeout=config.timeout_s)
         self._owns_client = client is None
         self._session_id: str | None = None
+        # Header obtained by logging in; None until the first login.
+        self._login_header: tuple[str, str] | None = None
 
     async def reset(self) -> None:
         self._session_id = None
@@ -108,6 +110,89 @@ class RestApiAdapter(AgentAdapter):
     async def aclose(self) -> None:
         if self._owns_client:
             await self._client.aclose()
+
+    @staticmethod
+    def _expand(v: str) -> str:
+        """Resolve ${ENV_VAR} so credentials live in the environment, not the repo.
+
+        An unset variable raises. Expanding it to "" would turn "log in as the
+        operator" into "log in as nobody", and the server then reports a missing
+        FIELD -- an error about the request shape, pointing away from the actual
+        cause, which is an absent credential.
+        """
+        import os
+        import re as _re
+
+        missing: list[str] = []
+
+        def sub(m):
+            val = os.environ.get(m.group(1))
+            if val is None or val == "":
+                missing.append(m.group(1))
+                return ""
+            return val
+
+        out = _re.sub(r"\$\{([A-Z0-9_]+)\}", sub, v)
+        if missing:
+            raise KeyError(
+                "login config references environment variable(s) that are not set: "
+                + ", ".join(sorted(set(missing)))
+            )
+        return out
+
+    async def _ensure_login(self, force: bool = False) -> str | None:
+        """Log in if we have no session yet. Returns an error string, or None.
+
+        Lazy and cached: a grade is hundreds of probes and must not log in for
+        each one.
+        """
+        cfg = self.config
+        if not cfg.login or (self._login_header is not None and not force):
+            return None
+        lg = cfg.login
+        url = cfg.endpoint if lg.endpoint.startswith("/") is False else lg.endpoint
+        if url.startswith("/"):
+            from urllib.parse import urlsplit
+            p = urlsplit(cfg.endpoint)
+            url = f"{p.scheme}://{p.netloc}{lg.endpoint}"
+        try:
+            form = {k: self._expand(v) for k, v in lg.form.items()}
+            jb = {k: (self._expand(v) if isinstance(v, str) else v)
+                  for k, v in lg.json_body.items()}
+        except KeyError as e:
+            return f"login_failed: {e.args[0]}"
+        try:
+            if lg.method == "GET":
+                r = await self._client.get(url, params=form or None)
+            elif form:
+                r = await self._client.post(
+                    url, data=form,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"})
+            else:
+                r = await self._client.post(url, json=jb)
+        except Exception as e:  # noqa: BLE001
+            return f"login_failed: {type(e).__name__}: {e}"
+        if r.status_code >= 400:
+            return f"login_failed: http_{r.status_code}: {r.text[:200]}"
+
+        if lg.capture_cookie:
+            val = r.cookies.get(lg.capture_cookie) or self._client.cookies.get(lg.capture_cookie)
+            if not val:
+                # Loud: a login that "succeeded" without yielding a credential is
+                # exactly the silent-success shape that hides for days.
+                return (f"login_failed: no cookie {lg.capture_cookie!r} after HTTP "
+                        f"{r.status_code}; jar held {list(self._client.cookies.keys())}")
+            rendered = lg.template.format(name=lg.capture_cookie, value=val)
+        else:
+            try:
+                val = dig(r.json(), lg.capture_path or "")
+            except Exception:  # noqa: BLE001
+                val = None
+            if val is None:
+                return f"login_failed: nothing at capture_path {lg.capture_path!r}"
+            rendered = lg.template.format(name=lg.capture_path, value=val)
+        self._login_header = (lg.header, rendered)
+        return None
 
     def _render_history(self, history: list[Turn]) -> list[dict[str, str]]:
         h = self.config.history
@@ -140,6 +225,8 @@ class RestApiAdapter(AgentAdapter):
             set_at(body, cfg.history.inject_at, rendered)
 
         headers = dict(cfg.headers)
+        if self._login_header:
+            headers[self._login_header[0]] = self._login_header[1]
         params: dict[str, str] = {}
 
         # Auth.
@@ -172,6 +259,9 @@ class RestApiAdapter(AgentAdapter):
 
     async def send(self, history: list[Turn], message: str) -> AgentReply:
         cfg = self.config
+        err = await self._ensure_login()
+        if err:
+            return AgentReply("", 0.0, error=err)
         url, body, headers, params = self._build_request(history, message)
 
         start = time.perf_counter()
@@ -185,7 +275,32 @@ class RestApiAdapter(AgentAdapter):
             data = resp.json()
         except httpx.HTTPStatusError as e:
             latency_ms = (time.perf_counter() - start) * 1000.0
-            return AgentReply("", latency_ms, error=f"http_{e.response.status_code}", raw=e.response.text[:2000])
+            # A session can lapse partway through a 471-probe run. Re-login once
+            # and retry, or the run dies most of the way in and takes its judge
+            # spend with it. Once only: a real 403 must not become a login loop.
+            if e.response.status_code in (401, 403) and cfg.login:
+                relog = await self._ensure_login(force=True)
+                if not relog:
+                    url2, body2, headers2, params2 = self._build_request(history, message)
+                    try:
+                        start = time.perf_counter()
+                        if cfg.method == "GET":
+                            resp = await self._client.get(url2, headers=headers2,
+                                                          params={**params2, **body2})
+                        else:
+                            resp = await self._client.post(url2, headers=headers2,
+                                                           params=params2, json=body2)
+                        latency_ms = (time.perf_counter() - start) * 1000.0
+                        resp.raise_for_status()
+                        data = resp.json()
+                    except Exception as e2:  # noqa: BLE001
+                        return AgentReply("", latency_ms,
+                                          error=f"http_{e.response.status_code}_after_relogin: {e2}")
+                else:
+                    return AgentReply("", latency_ms, error=f"http_{e.response.status_code}; {relog}")
+            else:
+                return AgentReply("", latency_ms, error=f"http_{e.response.status_code}",
+                                  raw=e.response.text[:2000])
         except Exception as e:  # timeout, connection, decode
             latency_ms = (time.perf_counter() - start) * 1000.0
             return AgentReply("", latency_ms, error=f"{type(e).__name__}: {e}")
