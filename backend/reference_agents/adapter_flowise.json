@@ -1,0 +1,18 @@
+{
+  "name": "flowise-northwind",
+  "endpoint": "http://localhost:3300/api/v1/prediction/0f9cd0c3-61c3-478e-8a85-d19d9b29f9a0",
+  "method": "POST",
+  "body_template": {
+    "question": "{{message}}"
+  },
+  "history": {
+    "mode": "server_session"
+  },
+  "session": {
+    "capture_path": "sessionId",
+    "send_in": "body",
+    "send_key": "overrideConfig.sessionId"
+  },
+  "response_text_path": "text",
+  "timeout_s": 60.0
+}

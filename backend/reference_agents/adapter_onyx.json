@@ -1,0 +1,35 @@
+{
+  "name": "onyx-northwind",
+  "endpoint": "http://localhost:8390/chat/send-chat-message",
+  "method": "POST",
+  "body_template": {
+    "message": "{{message}}",
+    "stream": false
+  },
+  "first_turn_body": {
+    "chat_session_info": {
+      "persona_id": 1
+    }
+  },
+  "history": {
+    "mode": "server_session"
+  },
+  "session": {
+    "capture_path": "chat_session_id",
+    "send_in": "body",
+    "send_key": "chat_session_id"
+  },
+  "response_text_path": "answer",
+  "timeout_s": 120.0,
+  "login": {
+    "endpoint": "/auth/login",
+    "method": "POST",
+    "form": {
+      "username": "${PG_ONYX_ADMIN_EMAIL}",
+      "password": "${PG_ONYX_ADMIN_PASSWORD}"
+    },
+    "capture_cookie": "fastapiusersauth",
+    "header": "Cookie",
+    "template": "{name}={value}"
+  }
+}

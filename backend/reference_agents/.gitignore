@@ -1,13 +1,9 @@
+# Adapter configs are TRACKED as of 2026-09-05. They were excluded because they held live credentials inline (an Onyx session cookie, a Dify app token); every credential is now a ${ENV_VAR} reference, and the cohort definition belongs in git -- it previously existed only on one workstation.
 ref-venv/
-adapter_flowise.json
-adapter_dify.json
 __pycache__/
 *.sh
 stacks/*/.env
 stacks/*/*.local
-adapter_typebot.json
-adapter_onyx.json
-adapter_crewai.json
 stacks/onyx/docker-compose.yml
 stacks/onyx/docker-compose.onyx-lite.yml
 stacks/crewai/venv/

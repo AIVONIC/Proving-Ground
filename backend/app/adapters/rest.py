@@ -140,6 +140,21 @@ class RestApiAdapter(AgentAdapter):
             )
         return out
 
+    def _expand_maybe(self, v: str) -> str:
+        """Expand ${ENV_VAR} where a credential may appear, tolerantly.
+
+        The login path RAISES on a missing variable because it can abort cleanly.
+        Here the value is already inside request construction, so an unset one is
+        left as-is: the vendor then rejects it and the error names the token,
+        which is more useful than every probe dying with a KeyError.
+        """
+        if not isinstance(v, str) or "${" not in v:
+            return v
+        try:
+            return self._expand(v)
+        except KeyError:
+            return v
+
     async def _ensure_login(self, force: bool = False) -> str | None:
         """Log in if we have no session yet. Returns an error string, or None.
 
@@ -224,7 +239,7 @@ class RestApiAdapter(AgentAdapter):
             rendered.append({h.role_key: h.user_role, h.content_key: message})
             set_at(body, cfg.history.inject_at, rendered)
 
-        headers = dict(cfg.headers)
+        headers = {k: self._expand_maybe(v) for k, v in cfg.headers.items()}
         if self._login_header:
             headers[self._login_header[0]] = self._login_header[1]
         params: dict[str, str] = {}
@@ -232,9 +247,9 @@ class RestApiAdapter(AgentAdapter):
         # Auth.
         a = cfg.auth
         if a.type == "bearer" and a.token:
-            headers["Authorization"] = f"Bearer {a.token}"
+            headers["Authorization"] = f"Bearer {self._expand_maybe(a.token)}"
         elif a.type == "header" and a.token:
-            headers[a.key] = a.token
+            headers[a.key] = self._expand_maybe(a.token)
         elif a.type == "query" and a.token:
             params[a.key] = a.token
 
