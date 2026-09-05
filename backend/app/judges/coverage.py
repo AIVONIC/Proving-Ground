@@ -122,7 +122,37 @@ def panel_phrase(labs: list[str]) -> str:
     return f"{WORD.get(len(labs), f'{len(labs)}-lab')} judge panel ({names})"
 
 
+# One vendor, two historical spellings. build_ensemble knows the Anthropic judge
+# as "anthropic" (its API vendor); judge_coverage files its judgments under
+# "claude" (the judge's own name attribute). Both are reasonable and neither is
+# going away, so they are reconciled here rather than in either caller.
+VENDOR_ALIASES: dict[str, str] = {
+    "anthropic": "claude",
+    "claude": "claude",
+    "openai": "openai",
+    "gpt": "openai",
+    "xai": "grok",
+    "grok": "grok",
+    "google": "gemini",
+    "gemini": "gemini",
+}
+
+
+def canonical_lab(name: str) -> str:
+    """The coverage key for a vendor name written either way."""
+    return VENDOR_ALIASES.get((name or "").strip().lower(), (name or "").strip().lower())
+
+
 def shortfall(run: dict, required: list[str]) -> dict[str, float]:
     """Required labs that did NOT cover the run, with the share they managed."""
     cov = judge_coverage(run)
-    return {lab: cov.get(lab, 0.0) for lab in required if cov.get(lab, 0.0) < FULL_COVERAGE}
+    # Resolve the caller's spelling to the key coverage actually files under.
+    # Without this, requiring "anthropic" reported 0% while claude judged 95% of
+    # the run -- a shortfall that did not exist, on every single grade.
+    out: dict[str, float] = {}
+    for name in required:
+        lab = canonical_lab(name)
+        got = cov.get(lab, 0.0)
+        if got < FULL_COVERAGE:
+            out[lab] = got
+    return out
