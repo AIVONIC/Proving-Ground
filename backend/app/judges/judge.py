@@ -12,6 +12,7 @@ A judgment is always a score in [0,1] plus a written rationale, both retained.
 from __future__ import annotations
 
 import asyncio
+import random
 import json
 import os
 import re
@@ -138,6 +139,22 @@ class StubJudge(Judge):
         if not text:
             return Judgment(0.0, "stub: empty response")
         return Judgment(0.7, "stub: non-trivial response (heuristic)")
+
+
+# Transient vendor capacity, as opposed to a malformed request or a bad response.
+# Only these are worth backing off for: everything else fails identically the
+# second time and spending four calls on it is waste.
+_CAPACITY_MARKERS = (
+    "529", "overloaded", "rate limit", "rate_limit", "429",
+    "timeout", "timed out", "connection", "temporarily unavailable",
+    "service unavailable", "503", "capacity",
+)
+
+
+def _is_capacity_error(exc: BaseException) -> bool:
+    """True for transient saturation, false for anything a retry cannot fix."""
+    blob = f"{type(exc).__name__} {exc}".lower()
+    return any(m in blob for m in _CAPACITY_MARKERS)
 
 
 class JudgeAbstained(RuntimeError):
@@ -471,7 +488,7 @@ class EnsembleJudge(Judge):
             # 98%, below the 99% a lab needs to be listed. Dropping a lab from
             # the published panel over a blip is as wrong as counting a lab that
             # never answered. A SECOND failure is real and still drops it.
-            for attempt in (1, 2):
+            for attempt in (1, 2, 3, 4):
                 try:
                     return await getattr(j, method)(*args, **kwargs)
                 except JudgeAbstained as e:
@@ -480,6 +497,17 @@ class EnsembleJudge(Judge):
                     # refused again, and it is not a failure to retry away.
                     return self._record_abstention(name, e)
                 except Exception as e:
+                    # CAPACITY errors deserve real backoff, not a 0.4s poke. A 529
+                    # Overloaded means the vendor is saturated; coming back 400ms
+                    # later hits the same wall. Measured across three full grades:
+                    # claude coverage 94%, 94%, 95% -- always just under the 99% a
+                    # lab needs to be listed, so every grade shipped with a caveat
+                    # that it was not a clean four-lab sweep. Switching model would
+                    # hide the symptom and change the methodology, which IS the
+                    # product claim.
+                    if _is_capacity_error(e) and attempt < 4:
+                        await asyncio.sleep((2 ** (attempt - 1)) + random.uniform(0, 0.5))
+                        continue
                     if attempt == 1:
                         await asyncio.sleep(0.4)
                         continue
