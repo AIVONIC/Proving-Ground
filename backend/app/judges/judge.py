@@ -488,7 +488,14 @@ class EnsembleJudge(Judge):
             # 98%, below the 99% a lab needs to be listed. Dropping a lab from
             # the published panel over a blip is as wrong as counting a lab that
             # never answered. A SECOND failure is real and still drops it.
-            for attempt in (1, 2, 3, 4):
+            # 6 attempts, ~1+2+4+8+16 = 31s worst case. Measured 2026-09-09:
+            # 36 of 36 calls succeeded at rest over 12 minutes, so a 529 is a
+            # brief blip rather than a sustained outage. And the grade runs at
+            # --concurrency 1, so this was never our load: 5% of 580 calls
+            # failed with only ONE request ever in flight. Both facts point the
+            # same way - the API is healthy nearly always, so a retry seconds
+            # later lands; what was missing was window. 4 attempts spanned ~7s.
+            for attempt in (1, 2, 3, 4, 5, 6):
                 try:
                     return await getattr(j, method)(*args, **kwargs)
                 except JudgeAbstained as e:
@@ -505,7 +512,7 @@ class EnsembleJudge(Judge):
                     # that it was not a clean four-lab sweep. Switching model would
                     # hide the symptom and change the methodology, which IS the
                     # product claim.
-                    if _is_capacity_error(e) and attempt < 4:
+                    if _is_capacity_error(e) and attempt < 6:
                         await asyncio.sleep((2 ** (attempt - 1)) + random.uniform(0, 0.5))
                         continue
                     if attempt == 1:
