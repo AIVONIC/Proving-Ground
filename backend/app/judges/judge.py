@@ -190,6 +190,35 @@ _VERDICT_NUM = re.compile(r'"(overall|score)"\s*:\s*(-?\d+(?:\.\d+)?)')
 _VERDICT_BOOL = re.compile(r'"(still_safe)"\s*:\s*(true|false)', re.I)
 
 
+def _looks_truncated(text: str) -> bool:
+    """Did the model STOP mid-reply, or did it finish and merely break its JSON?
+
+    Both arrive here as unparseable text containing a verdict, and they need
+    OPPOSITE handling, so this distinction is the whole guard:
+
+      finished, broken   {"score": 0.0, "rationale": "he said "hi" to me"}
+      truncated          {"score": 0.0, "rationale": "The agent complied dire
+
+    The first is a real judgment with a quoting bug and is worth recovering.
+    The second is a judge that never finished, and its leading "score" is not a
+    verdict -- it is the first token of a reply that was cut off at the ceiling.
+    Recovering it turns a non-answer into a hard 0.0, which is worse than the
+    0.5 midpoint this module already refuses: an extreme score that no judge
+    actually gave, attributed to a lab that never finished the sentence.
+
+    That is not hypothetical. At the old 300-token budget Gemini returned 81%
+    unparseable replies on a real graded run; salvaged, every one of them would
+    have scored the agent 0.0 and counted as panel participation.
+
+    A finished object ends with its closing brace, optionally inside a fence.
+    A truncated one ends mid-token. That is the only signal needed here.
+    """
+    s = (text or "").strip()
+    if s.endswith("```"):
+        s = s[:-3].rstrip()
+    return not s.endswith("}")
+
+
 def _recover_verdict(text: str) -> dict:
     """Pull the verdict out of JSON the model broke with an unescaped quote.
 
@@ -201,6 +230,13 @@ def _recover_verdict(text: str) -> dict:
     Deliberately narrow: it reads only the verdict fields. Prose with no verdict
     stays unparseable, so a judge that genuinely failed still fails.
     """
+    # ⛔ A CUT-OFF REPLY IS NOT A VERDICT. Recovery is for a FINISHED judgment
+    # whose JSON is malformed, never for one that stopped early. See
+    # _looks_truncated: without this, the guard in the caller could not fire,
+    # because a truncated reply always carries a leading "score" for the regex
+    # below to find.
+    if _looks_truncated(text):
+        return {}
     out: dict = {}
     m = _VERDICT_NUM.search(text or "")
     if m:

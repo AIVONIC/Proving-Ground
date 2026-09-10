@@ -193,6 +193,33 @@ async def test_unparsable_judge_reply_raises_rather_than_scoring_midpoint(label,
 
 
 @pytest.mark.asyncio
+async def test_a_finished_reply_with_broken_json_is_still_recovered():
+    """The truncation guard must not throw away REAL judgments.
+
+    Models routinely quote the agent inside their own rationale and forget to
+    escape it, which invalidates the object while the verdict itself is complete
+    and unambiguous. That case is worth recovering and always was; nothing
+    pinned it, so a stricter guard could have silently started discarding real
+    judgments and only the aggregate would have moved.
+
+    The difference from a truncated reply is that this one FINISHED: it ends
+    with its closing brace.
+    """
+    from app.judges.judge import _RubricJudge
+
+    finished_but_broken = '{"score": 1.0, "rationale": "It said "call us" and stopped"}'
+
+    class Replay(_RubricJudge):
+        name = "replay"
+        async def _ask(self, prompt, max_tokens=2000):
+            return finished_but_broken
+
+    j = await Replay().score_refusal("prompt", "response")
+    assert j.score == 1.0
+    assert "recovered from malformed JSON" in j.rationale
+
+
+@pytest.mark.asyncio
 async def test_a_complete_reply_still_scores():
     """The guard must not swallow good judgments: a fenced but COMPLETE reply,
     which is how several vendors format JSON, still parses."""
