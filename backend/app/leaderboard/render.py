@@ -14,6 +14,8 @@ import re
 from pathlib import Path
 
 from app.judges.coverage import ORDER, panel_phrase
+from app.scoring.config import CRITICAL_CAP
+from app.scoring.scorer import compute_composite
 from app.leaderboard.store import load
 
 # Radar order: (short axis label, subscore key, full label). Short drives the radar,
@@ -70,7 +72,7 @@ def _color(i: int) -> str:
 def _legend(entries: list[dict]) -> str:
     items = "".join(
         f'<span class="cmp-key"><i style="background:{_color(i)}"></i>{e["name"]}'
-        f'<b>{e["composite"]:.0f}</b></span>'
+        f'<b>{e["composite"]:.0f}{_cap_mark(e)}</b></span>'
         for i, e in enumerate(entries)
     )
     return f'<div class="cmp-legend">{items}</div>'
@@ -192,7 +194,7 @@ def compare_section(entries: list[dict]) -> str:
         f'<div class="cmp-panel"><div class="cmp-title">Twelve-dimension profile</div>{overlay_radar_svg(entries)}'
         '<div class="cmp-cap">Each outline is one agent across all twelve dimensions.</div></div>'
         f'<div class="cmp-panel"><div class="cmp-title">Composite &amp; 95% CI</div>{ranked_bars_svg(entries)}'
-        '<div class="cmp-cap">Whiskers are the 95% confidence interval over runs. Overlapping intervals are a statistical tie.</div></div>'
+        '<div class="cmp-cap">Whiskers are the 95% confidence interval over runs. Overlapping intervals are a statistical tie. &dagger; marks a composite CAPPED by a critical failure: the agent&rsquo;s dimension scores are unaffected and shown in full on its card below.</div></div>'
         f'{scatter_panel}'
         '</div></div></section>'
     )
@@ -237,6 +239,55 @@ def board_panel(entries: list[dict]) -> str:
     return panel_phrase([lab for lab in ORDER if lab in common])
 
 
+def _cap_mark(e: dict) -> str:
+    """A dagger next to a capped composite in the summary views.
+
+    The per-agent card explains the cap in full, but the head-to-head legend and
+    the CI chart show a bare number -- and those are what a visitor reads first,
+    and what gets screenshotted.
+    """
+    cf = int(e.get("critical_failures") or 0)
+    if cf <= 0:
+        return ""
+    uncapped, _, _ = compute_composite(e.get("subscores") or {}, 0)
+    return "&dagger;" if uncapped > CRITICAL_CAP else ""
+
+
+def _cap_line(e: dict) -> str:
+    """Say so when a composite is CAPPED, and show what it was capped from.
+
+    ⛔ Without this the board is actively misleading. A capped agent shows a
+    composite of 40 next to a twelve-dimension radar that tracks the field --
+    because its subscores really are 8.1-9.9 -- and nothing on the page
+    reconciles the two. A reader concludes the product is far worse than every
+    other entry, when what actually happened is one critical failure triggering
+    a published rule.
+
+    That is a damaging claim about somebody else's product, made by omission.
+    The cap is defensible; publishing the number without its mechanism is not.
+
+    Recomputed through compute_composite(subs, 0) -- the production scorer with
+    the critical count zeroed -- rather than a second implementation of the
+    weighting, so the "capped from" figure cannot drift from the real one.
+    """
+    cf = int(e.get("critical_failures") or 0)
+    if cf <= 0:
+        return ""
+    uncapped, _, _ = compute_composite(e.get("subscores") or {}, 0)
+    if uncapped <= CRITICAL_CAP:
+        return ""      # genuinely scored at or below the cap; nothing was capped
+    plural = "" if cf == 1 else "s"
+    return (
+        '<div class="lb-cap">'
+        f'<b>Capped at {CRITICAL_CAP:.0f}.</b> Weighted score before the cap was '
+        f'<b>{uncapped:.1f}</b>. {cf} critical failure{plural} in the held-out suite. '
+        'A critical failure is harmful compliance, not a weak answer, and it caps '
+        'the composite however well the agent scores elsewhere &mdash; so the '
+        'dimension bars below are its real, uncapped performance.'
+        '</div>'
+    )
+
+
 def card(rank: int, e: dict, report_slug: str | None = None) -> str:
     tier = (e.get("tier") or "none").lower()
     badge = (f'<span class="sc-badge tier-{tier}">{e["tier"]}</span>'
@@ -277,6 +328,7 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
         '<div style="text-align:right">'
         f'<div class="mono" style="font-size:11px;color:var(--muted)">{_conf_line(e)}</div>'
         f'{self_tag}</div></div>'
+        f'{_cap_line(e)}'
         f'{breakdown}'
         + (f'<a class="sc-link" href="/scorecards/{report_slug}">Open the full scorecard &rarr;</a>'
            if report_slug else '')
@@ -287,6 +339,10 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
 PAGE_CSS = """
 <style>
   .lb-wrap{max-width:1240px;margin:0 auto;padding:0 28px;}
+  .lb-cap{margin:12px 0 2px;padding:11px 13px;border-radius:8px;
+    background:rgba(189,81,66,.07);border:1px solid rgba(189,81,66,.28);
+    font-size:12.5px;line-height:1.5;color:var(--ink);}
+  .lb-cap b{color:#a8402f;}
   .lb-hero{padding:64px 0 34px;border-top:none;}
   .lb-grid{display:grid;grid-template-columns:1fr;gap:20px;padding-bottom:40px;}
   @media(min-width:720px){.lb-grid{grid-template-columns:1fr 1fr;}}
