@@ -82,9 +82,32 @@ ssh -o ConnectTimeout=10 "$HOST" true || fail "cannot reach $HOST"
     --bundle ../frontend/standalone.html ) \
   || fail "lander scorecard is out of date with entries.json (see command above)"
 
+# ⛔ AND THE LEADERBOARD PAGE, which the check above does NOT cover.
+#
+# The lander check validates index/standalone. leaderboard.html is not validated
+# by anything: deploy.sh merely COPIES it from the manifest. So on 2026-09-12 a
+# re-grade could be promoted, the lander resynced, and the whole site published
+# with a corrected homepage sitting on top of a two-day-old board -- and the
+# preflight would have passed, because it was asked about a different file. That
+# page is the one people link to and the one a graded vendor checks.
+#
+# render.py has no clock and no randomness, so re-rendering into a temp file and
+# diffing is an exact staleness test rather than a heuristic (verified
+# byte-identical on 2026-09-12).
+_lb_tmp="$(mktemp -t pg-leaderboard-XXXXXX.html)"
+( cd "$REPO/backend" && python3 -m app.leaderboard.render \
+    --lander ../frontend/index.html --out "$_lb_tmp" >/dev/null 2>&1 ) \
+  || { rm -f "$_lb_tmp"; fail "could not re-render the leaderboard to check it; this is 'could not look', not a pass"; }
+if ! diff -q "$_lb_tmp" "$REPO/frontend/leaderboard.html" >/dev/null 2>&1; then
+  rm -f "$_lb_tmp"
+  fail "leaderboard.html is out of date with entries.json. Fix:
+     cd backend && python3 -m app.leaderboard.render --lander ../frontend/index.html --out ../frontend/leaderboard.html"
+fi
+rm -f "$_lb_tmp"
+
 ( cd "$REPO/backend" && python3 -m pytest tests/test_lander_sync.py -q >/dev/null 2>&1 ) \
   || fail "lander tests fail; not publishing"
-echo "   lander matches entries.json, lander tests pass"
+echo "   lander AND leaderboard match entries.json, lander tests pass"
 
 if [[ -n "$(git -C "$REPO" status --porcelain -- frontend backend 2>/dev/null)" ]]; then
   echo "   NOTE: uncommitted changes in frontend/ or backend/ -- you are publishing them"
