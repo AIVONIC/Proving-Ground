@@ -286,7 +286,7 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
 
 PAGE_CSS = """
 <style>
-  .lb-wrap{max-width:1120px;margin:0 auto;padding:0 28px;}
+  .lb-wrap{max-width:1240px;margin:0 auto;padding:0 28px;}
   .lb-hero{padding:64px 0 34px;border-top:none;}
   .lb-grid{display:grid;grid-template-columns:1fr;gap:20px;padding-bottom:40px;}
   @media(min-width:720px){.lb-grid{grid-template-columns:1fr 1fr;}}
