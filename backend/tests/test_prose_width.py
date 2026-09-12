@@ -161,3 +161,35 @@ def test_head_to_head_says_the_cohort_is_operator_built():
     # and it must RETRACT itself the moment a real third-party agent is entered
     mixed = [dict(e[0], reference=False)] + list(e[1:])
     assert _cohort_band(mixed) == "", "the band must disappear once a genuine entry exists"
+
+
+def test_panels_sharing_a_grid_row_have_equal_figure_heights():
+    """Captions must start on the same line in both columns of a row.
+
+    The panels sit in a two-column grid, so the caption's vertical position is
+    set by the figure above it. Unequal figure heights push one caption higher
+    than the other and the two columns stop reading as a pair. Christian spotted
+    it on row one; row two was worse (188 against 300) and nobody had noticed.
+
+    These heights are derived, not hardcoded twice - the spread chart takes the
+    radar's height and the bar chart takes the scatter's - so this asserts the
+    derivation still holds rather than re-stating the numbers.
+    """
+    import re
+    from app.leaderboard.render import (overlay_radar_svg, ranked_bars_svg,
+                                        scatter_svg, spread_svg)
+    from app.leaderboard.store import load
+    e = [x for x in load() if x.get("ranked", True) and x.get("published", True)]
+    assert len(e) >= 2, "needs at least two agents for the comparison band to render"
+
+    def h(svg):
+        assert svg, "panel rendered nothing; an empty figure cannot be aligned"
+        return re.search(r'viewBox="[^"]* ([0-9.]+)"', svg).group(1)
+
+    assert h(overlay_radar_svg(e)) == h(spread_svg(e)), (
+        "row 1: the OVERLAY radar (what the head-to-head panel uses) and spread "
+        "must match. Asserting on radar_svg here passed while the live page was "
+        "misaligned, because the cards and the comparison band use different "
+        "radar functions at different heights.")
+    assert h(ranked_bars_svg(e)) == h(scatter_svg(e)), \
+        "row 2: CI bars and scatter must be the same height"

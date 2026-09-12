@@ -244,8 +244,21 @@ echo "   staged tree verified, ownership and modes pinned"
 
 # One real card path, captured before the swap so step 7 can prove it survived.
 # A card is unlisted by design, so nothing else on the site would notice its loss.
+# Take the sample from what the rendered BOARD links to, not from `ls | head -1`.
+# Alphabetical order picked crewai-northwind-782bf0c50b47, a SUPERSEDED card that
+# nginx now 301s to its current replacement - so this check failed on a 301 and
+# rolled back a perfectly good deploy. The board only ever links to current
+# cards, so deriving the sample from it cannot pick a redirect source, and it
+# stays correct as slugs change without anyone maintaining a list.
 SAMPLE_CARD="$(ssh -o ConnectTimeout=10 "$HOST" \
-  "ls '$DOCROOT.new/$SCORECARDS'/*.html 2>/dev/null | grep -v '/index.html$' | head -1 | xargs -r basename" || true)"
+  "grep -o '/$SCORECARDS/[a-z0-9-]*' '$DOCROOT.new/leaderboard/index.html' 2>/dev/null \
+   | head -1 | sed 's|.*/||'" || true)"
+# Fall back to the directory listing only if the board carries no card links at
+# all, so a board rendered without --report-dir still checks something.
+if [[ -z "$SAMPLE_CARD" ]]; then
+  SAMPLE_CARD="$(ssh -o ConnectTimeout=10 "$HOST" \
+    "ls '$DOCROOT.new/$SCORECARDS'/*.html 2>/dev/null | grep -v '/index.html$' | head -1 | xargs -r basename" || true)"
+fi
 
 say "6. Swap"
 
@@ -298,6 +311,16 @@ check "$BASE/llms.txt"     200
 if [[ -n "$SAMPLE_CARD" ]]; then
   check "$BASE/$SCORECARDS/${SAMPLE_CARD%.html}" 200 "rp-title"
   check "$BASE/$SCORECARDS/"                     200 "Scorecards"
+  # A superseded card must REDIRECT, never 404: three of those links are out in
+  # outreach threads. Follow it and assert we land on a real card.
+  _old="crewai-northwind-782bf0c50b47"
+  _code="$(curl -s -o /tmp/pg_verify_body -w '%{http_code}' -L "$BASE/$SCORECARDS/$_old")"
+  if [[ "$_code" == "200" ]] && grep -q "rp-title" /tmp/pg_verify_body; then
+    printf '   ok   %-46s superseded link redirects to a live card\n' "/$SCORECARDS/$_old"
+  else
+    printf '   \033[31mFAIL\033[0m %-46s superseded link does not resolve (HTTP %s)\n' \
+      "/$SCORECARDS/$_old" "$_code"; ERR=1
+  fi
 else
   printf '   --   %-46s no cards on the server to check\n' "/$SCORECARDS/"
 fi

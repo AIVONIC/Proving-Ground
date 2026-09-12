@@ -81,10 +81,16 @@ def _legend(entries: list[dict]) -> str:
     return f'<div class="cmp-legend">{items}</div>'
 
 
+# Shared by overlay_radar_svg and spread_svg, which sit side by side in the first
+# grid row. One constant, so the two cannot drift apart and push one caption
+# above the other.
+OVERLAY_RADAR_H = 380
+
+
 def overlay_radar_svg(entries: list[dict]) -> str:
     """All agents' twelve subscores on one radar, one outline each. This is the
     head-to-head shape comparison: same model or not, the profiles differ."""
-    out = ['<svg class="cmp-figure" viewBox="0 0 460 380" role="img" aria-label="Dimension comparison radar">']
+    out = [f'<svg class="cmp-figure" viewBox="0 0 460 {OVERLAY_RADAR_H}" role="img" aria-label="Dimension comparison radar">']
     for f in (0.25, 0.5, 0.75, 1.0):
         pts = " ".join(f"{_pt(i, R*f)[0]:.1f},{_pt(i, R*f)[1]:.1f}" for i in range(N))
         out.append(f'<polygon points="{pts}" class="radar-ring"/>')
@@ -110,8 +116,14 @@ def overlay_radar_svg(entries: list[dict]) -> str:
 def ranked_bars_svg(entries: list[dict]) -> str:
     """Composite ranked as horizontal bars with a 95% CI whisker, LMArena style:
     a lead inside two overlapping intervals is not a real lead."""
-    row, padT, x0, barW, W = 40, 14, 168, 250, 460
-    H = padT * 2 + row * len(entries)
+    # Height pinned to scatter_svg's, because these two share the second grid row
+    # and unequal figures push one caption above the other. The bar pitch stays
+    # 40 and the block is CENTRED in the taller box rather than stretched, so a
+    # four-agent board does not render four enormous bars. H grows if the board
+    # ever outgrows the fixed height.
+    row, x0, barW, W = 40, 168, 250, 460
+    H = max(300, 28 + row * len(entries))
+    padT = (H - row * len(entries)) / 2
     out = [f'<svg class="cmp-figure" viewBox="0 0 {W} {H}" role="img" aria-label="Composite ranking with confidence intervals">']
     for gx in (0, 25, 50, 75, 100):
         x = x0 + barW * gx / 100
@@ -182,8 +194,12 @@ def spread_svg(entries: list[dict]) -> str:
     # One shared half-width for every row, from the widest spread on the board.
     half = max(0.25, max(t[4] for t in stats) / 2 * 1.15)
 
-    row, padT, x0, plotW, W = 27, 18, 92, 250, 460
-    H = padT + row * len(stats) + 26
+    # H matches radar_svg's viewBox exactly, and the row pitch is derived FROM it
+    # rather than the other way round. Both panels sit in one grid row, so unequal
+    # figure heights push one caption above the other and the two columns stop
+    # reading as a pair.
+    padT, x0, plotW, W, H, axisH = 18, 92, 250, 460, OVERLAY_RADAR_H, 26
+    row = (H - padT - axisH) / max(1, len(stats))
     cx = x0 + plotW / 2
     out = [f'<svg class="cmp-figure" viewBox="0 0 {W} {H}" role="img" '
            f'aria-label="Per-dimension spread across agents, widest first">']
@@ -351,7 +367,7 @@ def compare_section(entries: list[dict]) -> str:
         '<div class="cmp-grid">'
         f'<div class="cmp-panel"><div class="cmp-title">Twelve-dimension profile</div>{overlay_radar_svg(entries)}'
         f'<div class="cmp-cap">{_radar_cap(entries)}</div></div>'
-        f'<div class="cmp-panel"><div class="cmp-title">Where they actually differ</div>{spread_svg(entries)}'
+        f'<div class="cmp-panel"><div class="cmp-title">Where they differ</div>{spread_svg(entries)}'
         '<div class="cmp-cap">Each dot is one agent\'s score for that dimension, plotted as its '
         'distance from the field average. Rows are ordered by spread, widest first, so the '
         'dimensions where these platforms genuinely diverge come first and the ones where they '
