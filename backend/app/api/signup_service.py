@@ -342,7 +342,7 @@ def _cert_html(c: dict | None, code: str) -> tuple[str, int]:
         '*{box-sizing:border-box}'
         'body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);'
         'line-height:1.6;-webkit-font-smoothing:antialiased}'
-        '.wrap{max-width:760px;margin:0 auto;padding:56px 28px 72px}'
+        '.wrap{max-width:960px;margin:0 auto;padding:56px 28px 72px}'
         'a{color:var(--accent)}'
         '.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;'
         'text-transform:uppercase;color:var(--faint)}'

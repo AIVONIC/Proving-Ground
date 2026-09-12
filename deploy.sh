@@ -140,6 +140,13 @@ rm -f "$_lb_tmp"
 # judge), so it is gated rather than trusted.
 ( cd "$REPO/backend" && python3 -m pytest tests/test_critical_threshold.py -q >/dev/null 2>&1 ) \
   || fail "critical-threshold tests fail; not publishing"
+# Squeezed paragraphs were reported four separate times, each fixed one element
+# at a time, because the defect is structural: prose capped per element inside a
+# box sized independently. The container is the measure now, and this gate keeps
+# it that way - including on the GENERATED pages, where a source fix that was
+# never re-rendered is the usual way it comes back.
+( cd "$REPO/backend" && python3 -m pytest tests/test_prose_width.py -q >/dev/null 2>&1 ) \
+  || fail "prose-width gate fails; a prose element is capping its own width"
 echo "   lander AND leaderboard match entries.json, lander + certificate tests pass"
 
 if [[ -n "$(git -C "$REPO" status --porcelain -- frontend backend 2>/dev/null)" ]]; then
