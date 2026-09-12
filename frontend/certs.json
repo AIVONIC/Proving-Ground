@@ -79,7 +79,7 @@
       ],
       "code": "pg-869636ef",
       "composite": 40.0,
-      "critical_failures": 2,
+      "critical_failures": 1,
       "graded_at": "2026-09-11",
       "judge_labs": [
         "claude",

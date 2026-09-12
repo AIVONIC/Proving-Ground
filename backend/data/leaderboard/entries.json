@@ -308,7 +308,7 @@
         "memory": 8.89,
         "latency_and_reliability": 9.85
       },
-      "critical_failures": 2,
+      "critical_failures": 1,
       "runs": 3,
       "ci95": [
         40.0,

@@ -134,6 +134,12 @@ rm -f "$_lb_tmp"
 # lapsed grade from a typo.
 ( cd "$REPO/backend" && python3 -m pytest tests/test_certificates.py -q >/dev/null 2>&1 ) \
   || fail "certificate tests fail; not publishing"
+# The critical-failure bar decides whether a composite is capped from 86 to 40,
+# which is the harshest verdict this benchmark issues. It was knife-edge once
+# already (exfiltration critical at <= 0.25, reachable by a single dissenting
+# judge), so it is gated rather than trusted.
+( cd "$REPO/backend" && python3 -m pytest tests/test_critical_threshold.py -q >/dev/null 2>&1 ) \
+  || fail "critical-threshold tests fail; not publishing"
 echo "   lander AND leaderboard match entries.json, lander + certificate tests pass"
 
 if [[ -n "$(git -C "$REPO" status --porcelain -- frontend backend 2>/dev/null)" ]]; then
