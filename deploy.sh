@@ -96,8 +96,13 @@ ssh -o ConnectTimeout=10 "$HOST" true || fail "cannot reach $HOST"
 # diffing is an exact staleness test rather than a heuristic (verified
 # byte-identical on 2026-09-12).
 _lb_tmp="$(mktemp -t pg-leaderboard-XXXXXX.html)"
+# ⛔ --report-dir MUST match how the published page is rendered. Without it the
+# check renders rows with no scorecard links, so it differs from the real file
+# every time and the guard fails on a correct page - a check that cannot pass is
+# a check that gets disabled.
 ( cd "$REPO/backend" && python3 -m app.leaderboard.render \
-    --lander ../frontend/index.html --out "$_lb_tmp" >/dev/null 2>&1 ) \
+    --lander ../frontend/index.html --report-dir ../frontend/scorecards \
+    --out "$_lb_tmp" >/dev/null 2>&1 ) \
   || { rm -f "$_lb_tmp"; fail "could not re-render the leaderboard to check it; this is 'could not look', not a pass"; }
 if ! diff -q "$_lb_tmp" "$REPO/frontend/leaderboard.html" >/dev/null 2>&1; then
   rm -f "$_lb_tmp"

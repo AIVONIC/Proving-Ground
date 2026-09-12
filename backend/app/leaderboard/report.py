@@ -244,7 +244,9 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
         'own product.</b> We built it ourselves to the same specification on each platform, same model '
         'and same prompt, so the only variable is the platform. It is not a grade of anything you ship.'
         if entry.get("reference") else
-        f'Nothing about {name} is published unless you say so.'
+        (f'{name} is graded and published on the leaderboard.'
+         if (entry.get('composite') is not None and entry.get('graded_at'))
+         else f'Nothing about {name} is published unless you say so.')
     )
 
     head = (
@@ -259,7 +261,7 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
 
     body = f"""<main class="rp-wrap">
 <section class="rp-head">
-  <span class="eyebrow">Private scorecard &middot; not published</span>
+  <span class="eyebrow">{'Published scorecard &middot; listed on the leaderboard' if (entry.get('composite') is not None and entry.get('graded_at')) else 'Private scorecard &middot; not published'}</span>
   <h1 class="rp-title">{name}</h1>
   {panel_note}
   <p class="rp-sub">{vendor}{plat} &middot; graded {html.escape(entry.get('graded_at',''))} on the held-out private suite by the {panel}.</p>
