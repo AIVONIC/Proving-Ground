@@ -43,6 +43,7 @@ MANIFEST=(
   "llms.txt:llms.txt"
   "robots.txt:robots.txt"
   "sitemap.xml:sitemap.xml"
+  "certs.json:certs.json"   # the public certificate index; the service reads this file
   "favicon.ico:favicon.ico"
   "favicons:favicons"
   "og.png:og.png"
@@ -109,11 +110,31 @@ if ! diff -q "$_lb_tmp" "$REPO/frontend/leaderboard.html" >/dev/null 2>&1; then
   fail "leaderboard.html is out of date with entries.json. Fix:
      cd backend && python3 -m app.leaderboard.render --lander ../frontend/index.html --out ../frontend/leaderboard.html"
 fi
+
+# certs.json is what /verify and /badge resolve against, so a stale one does not
+# merely look wrong -- it answers a buyer's question about a vendor with the
+# wrong grade, or reports a real certificate as never issued. Same diff-preflight
+# as the leaderboard above: regeneration is deterministic, so any difference means
+# entries.json moved and this file did not.
+_ct_tmp="$(mktemp)"; trap 'rm -f "$_lb_tmp" "$_ct_tmp"' EXIT
+( cd backend && python3 -m app.leaderboard.certs --out "$_ct_tmp" >/dev/null ) \
+  || fail "could not regenerate the certificate index"
+if ! diff -q <(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1])),sort_keys=True))' "$_ct_tmp") \
+             <(python3 -c 'import json,sys;print(json.dumps(json.load(open(sys.argv[1])),sort_keys=True))' "$REPO/frontend/certs.json") >/dev/null 2>&1; then
+  fail "frontend/certs.json is stale against the leaderboard. Regenerate:
+     cd backend && python3 -m app.leaderboard.certs --out ../frontend/certs.json"
+fi
 rm -f "$_lb_tmp"
 
 ( cd "$REPO/backend" && python3 -m pytest tests/test_lander_sync.py -q >/dev/null 2>&1 ) \
   || fail "lander tests fail; not publishing"
-echo "   lander AND leaderboard match entries.json, lander tests pass"
+# The certificate contract gates the publish too: a deploy that changes entries.json
+# changes what every /verify URL answers, and the expired-vs-unknown distinction
+# fails silently -- nothing errors, no page looks wrong, a buyer just cannot tell a
+# lapsed grade from a typo.
+( cd "$REPO/backend" && python3 -m pytest tests/test_certificates.py -q >/dev/null 2>&1 ) \
+  || fail "certificate tests fail; not publishing"
+echo "   lander AND leaderboard match entries.json, lander + certificate tests pass"
 
 if [[ -n "$(git -C "$REPO" status --porcelain -- frontend backend 2>/dev/null)" ]]; then
   echo "   NOTE: uncommitted changes in frontend/ or backend/ -- you are publishing them"
@@ -123,7 +144,7 @@ fi
 say "2. Build staging tree from the manifest"
 
 STAGE="$(mktemp -d)"
-trap 'rm -rf "$STAGE"' EXIT
+trap 'rm -rf "$STAGE"; rm -f "$_lb_tmp" "$_ct_tmp"' EXIT
 for pair in "${MANIFEST[@]}"; do
   src="$REPO/frontend/${pair%%:*}"; dst="$STAGE/${pair##*:}"
   [[ -e "$src" ]] || fail "manifest lists ${pair%%:*} but it is not in frontend/"

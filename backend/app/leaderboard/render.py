@@ -32,6 +32,9 @@ PREMIUM_FLOOR = 6.5  # a dimension below this blocks Premium; shown as a weaknes
 CX, CY, R, N = 230, 188, 132, 12
 
 
+from app.leaderboard.certs import code_for
+
+
 def _pt(i: int, r: float):
     a = -math.pi / 2 + i * 2 * math.pi / N
     return CX + r * math.cos(a), CY + r * math.sin(a)
@@ -335,6 +338,12 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
         f'{breakdown}'
         + (f'<a class="sc-link" href="/scorecards/{report_slug}">Open the full scorecard &rarr;</a>'
            if report_slug else '')
+        # UNCONDITIONAL where the scorecard link is not. A scorecard carries the
+        # vendor's own transcripts and is placed by hand, so most rows have no slug --
+        # but the certificate is public by design, and a row a buyer cannot verify is
+        # the same dead end the scorecard link exists to fix.
+        + (f'<a class="sc-link sc-verify" href="/verify/{code_for(e["id"])}">Verify this grade</a>'
+           if e.get("composite") is not None and e.get("graded_at") else '')
         + '</div>'
     )
 
@@ -398,6 +407,8 @@ PAGE_CSS = """
   .sc-link{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:11.5px;
     letter-spacing:0.04em;color:var(--accent);text-decoration:none;border-bottom:1px solid var(--hair-strong);padding-bottom:2px;}
   .sc-link:hover{border-color:var(--accent);}
+  .sc-verify{color:var(--muted);margin-left:14px;}
+  .sc-verify:hover{color:var(--accent);border-color:var(--accent);}
 </style>
 """
 

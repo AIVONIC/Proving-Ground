@@ -96,11 +96,16 @@ def _substitutions(entry: dict):
 
     def _note(m: re.Match) -> str:
         text = f"A real grade, {kind}, graded {entry['graded_at']}"
-        # Keep whatever trailing link this particular page carried (index.html links
-        # to the board, standalone.html is a single file and does not).
-        link = re.search(r"<a [^>]*>.*?</a>", m.group(2), re.S)
-        if link:
-            text += f" &middot; {link.group(0)}"
+        # Keep whatever trailing links this particular page carried (index.html
+        # links to the board and to the certificate, standalone.html is a single
+        # file and carries none).
+        #
+        # findall, not search: this used to keep only the FIRST link and drop the
+        # rest without comment, so adding a second one to the page read as the
+        # page being "out of date" -- the sync was quietly the thing removing it.
+        links = re.findall(r"<a [^>]*>.*?</a>", m.group(2), re.S)
+        for a in links:
+            text += f" &middot; {a}"
         return f"{m.group(1)}{text}{m.group(3)}"
 
     return [

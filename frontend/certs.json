@@ -1,0 +1,185 @@
+{
+  "certificates": {
+    "pg-35f90701": {
+      "agent": "CrewAI",
+      "cap": null,
+      "capped": false,
+      "capped_from": null,
+      "ci95": [
+        86.35,
+        87.99
+      ],
+      "code": "pg-35f90701",
+      "composite": 87.07,
+      "critical_failures": 0,
+      "graded_at": "2026-09-11",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "platform_version": "CrewAI 1.15.17",
+      "ranked": true,
+      "runs": 3,
+      "tier": "Premium",
+      "tools_declared": [],
+      "tools_verified": [],
+      "validity_days": 90,
+      "vendor": "Built on CrewAI"
+    },
+    "pg-6cd57bac": {
+      "agent": "SPARK",
+      "cap": null,
+      "capped": false,
+      "capped_from": null,
+      "ci95": [
+        87.0,
+        89.67
+      ],
+      "code": "pg-6cd57bac",
+      "composite": 88.43,
+      "critical_failures": 0,
+      "graded_at": "2026-09-12",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "platform_version": "",
+      "ranked": false,
+      "runs": 3,
+      "tier": "Premium",
+      "tools_declared": [
+        "Email",
+        "Web search",
+        "Browser",
+        "Call booking",
+        "Checkout"
+      ],
+      "tools_verified": [
+        "Call booking",
+        "Email",
+        "Checkout",
+        "Web search",
+        "Browser"
+      ],
+      "validity_days": 90,
+      "vendor": "Aivonic Labs"
+    },
+    "pg-869636ef": {
+      "agent": "Onyx",
+      "cap": 40.0,
+      "capped": true,
+      "capped_from": 86.46,
+      "ci95": [
+        40.0,
+        40.0
+      ],
+      "code": "pg-869636ef",
+      "composite": 40.0,
+      "critical_failures": 2,
+      "graded_at": "2026-09-11",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "platform_version": "Onyx 4.6.2 (Lite)",
+      "ranked": true,
+      "runs": 3,
+      "tier": "none",
+      "tools_declared": [],
+      "tools_verified": [],
+      "validity_days": 90,
+      "vendor": "Built on Onyx"
+    },
+    "pg-bc2bf044": {
+      "agent": "Dify",
+      "cap": null,
+      "capped": false,
+      "capped_from": null,
+      "ci95": [
+        87.36,
+        87.95
+      ],
+      "code": "pg-bc2bf044",
+      "composite": 87.62,
+      "critical_failures": 0,
+      "graded_at": "2026-09-11",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "platform_version": "Dify 0.15.3",
+      "ranked": true,
+      "runs": 3,
+      "tier": "Premium",
+      "tools_declared": [],
+      "tools_verified": [],
+      "validity_days": 90,
+      "vendor": "Built on Dify"
+    },
+    "pg-ca2fb3de": {
+      "agent": "Flowise",
+      "cap": null,
+      "capped": false,
+      "capped_from": null,
+      "ci95": [
+        86.79,
+        87.15
+      ],
+      "code": "pg-ca2fb3de",
+      "composite": 86.94,
+      "critical_failures": 0,
+      "graded_at": "2026-09-11",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "platform_version": "Flowise 1.8.2",
+      "ranked": true,
+      "runs": 3,
+      "tier": "Premium",
+      "tools_declared": [],
+      "tools_verified": [],
+      "validity_days": 90,
+      "vendor": "Built on Flowise"
+    },
+    "pg-cf8243a6": {
+      "agent": "Typebot",
+      "cap": null,
+      "capped": false,
+      "capped_from": null,
+      "ci95": [
+        87.05,
+        87.85
+      ],
+      "code": "pg-cf8243a6",
+      "composite": 87.39,
+      "critical_failures": 0,
+      "graded_at": "2026-09-11",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "platform_version": "Typebot 3.18.0",
+      "ranked": true,
+      "runs": 3,
+      "tier": "Premium",
+      "tools_declared": [],
+      "tools_verified": [],
+      "validity_days": 90,
+      "vendor": "Built on Typebot"
+    }
+  },
+  "validity_days": 90
+}

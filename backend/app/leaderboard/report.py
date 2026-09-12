@@ -37,6 +37,9 @@ MAX_PROBES_PER_DIM = 6   # worst-first; the rest are counted, never silently dro
 RESPONSE_CLIP = 900
 
 
+from app.leaderboard.certs import code_for
+
+
 def slug_for(entry: dict, run_path: str) -> str:
     """`<agent-id>-<token>`. The name is there so a pasted link is self-evidently
     about THIS agent; the token is there so the URL cannot be guessed.
@@ -179,7 +182,7 @@ REPORT_CSS = """<style>
 .rp-resp{border-left:2px solid var(--hair-strong);padding:2px 0 2px 12px;white-space:pre-wrap;
   font-size:13.5px;color:var(--ink);overflow-wrap:anywhere}
 .rp-omitted{color:var(--muted);font-size:12.5px;margin:10px 0 2px}
-.rp-foot{color:var(--muted);font-size:12.5px;border-top:1px solid var(--hair);margin:44px 0 0;padding:18px 0 70px}
+.rp-cert{margin:40px 0 0;background:var(--panel);border:1px solid var(--hair);border-radius:10px;padding:24px 28px}.rp-cert h3{margin:0 0 10px;font-size:1rem}.rp-cert p{color:var(--muted);font-size:14px;max-width:92ch;margin:0 0 12px}.rp-cert pre{background:var(--ground);border:1px solid var(--hair);border-radius:7px;padding:14px 16px;overflow-x:auto;margin:0;font-size:12.5px;line-height:1.55}.rp-cert code{font-family:var(--mono)}.rp-foot{color:var(--muted);font-size:12.5px;border-top:1px solid var(--hair);margin:44px 0 0;padding:18px 0 70px}
 </style>"""
 
 
@@ -259,6 +262,30 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
     )
     bar = site_bar()
 
+    # The certificate is how this grade gets used by anyone other than the graded
+    # party: the scorecard is the private diagnostic, the certificate is the public
+    # claim a buyer can check. The code is deliberately NOT the scorecard slug --
+    # the slug seeds on the grade and so changes on every re-grade, which would break
+    # a mark embedded on a vendor's site the day their score improved. See certs.py.
+    cert_block = ""
+    if entry.get("composite") is not None and entry.get("graded_at"):
+        _code = code_for(entry["id"])
+        cert_block = f"""
+<div class="rp-cert">
+  <h3>Your certificate</h3>
+  <p>This grade is verifiable by anyone at
+  <a href="https://theprovingground.io/verify/{_code}">theprovingground.io/verify/{_code}</a>,
+  which answers in plain English and as JSON. The code is yours permanently &mdash; it survives
+  a re-grade, so a link you publish today still resolves after your next one.</p>
+  <p>The mark is served, not downloaded, on purpose: it reads current while the grade is current,
+  and marks itself expired afterwards &mdash; so you are never left displaying a claim that has
+  quietly stopped being true. Embed it with:</p>
+  <pre><code>&lt;a href="https://theprovingground.io/verify/{_code}"&gt;
+  &lt;img src="https://theprovingground.io/badge/{_code}.svg"
+       alt="Proving Ground grade for {name}"&gt;
+&lt;/a&gt;</code></pre>
+</div>"""
+
     body = f"""<main class="rp-wrap">
 <section class="rp-head">
   <span class="eyebrow">{'Published scorecard &middot; listed on the leaderboard' if (entry.get('composite') is not None and entry.get('graded_at')) else 'Private scorecard &middot; not published'}</span>
@@ -295,6 +322,8 @@ lost a point. Method and rubrics are public at
 {entry.get('runs',1)} runs; the transcript shown is from the worst run, because a probe that fails
 one time in three is the one worth reading.</p>
 {dims_html}
+
+{cert_block}
 
 <p class="rp-foot">Judge agreement {conf.get('judge_agreement',{}).get('overall','n/a')} &middot;
 cross-run variance {conf.get('variance','n/a')} &middot; scorecard {slug}.
