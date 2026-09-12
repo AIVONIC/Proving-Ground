@@ -51,3 +51,7 @@ backend/scratch/
 # Generated per-agent scorecards. These contain a vendor's own transcripts and are
 # sent privately, never published. The generator (app/leaderboard/report.py) IS public.
 frontend/scorecards/
+
+# Execution-sandbox run artifacts, same class as data/runs/ above: generated,
+# and they carry agent transcripts.
+backend/data/exec_runs/
