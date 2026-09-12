@@ -114,11 +114,38 @@ def test_head_to_head_discloses_zero_tools_and_the_tie():
     e = [x for x in load() if x.get("ranked", True)]
     cap = _radar_cap(e)
     assert "0 to 10" in cap, "the axis range must be stated; outlines sit in the outer quarter"
-    assert "statistical tie" in cap, "a sub-point spread must not read as several strong results"
+    assert "not how they compare" in cap.replace("&mdash;", "").replace("  ", " "), \
+        "the radar must say it shows level, not comparison"
+    assert "that close" in cap, "the clustered field must still be stated in words"
     if all(len(x.get("tools_verified") or x.get("tools") or []) == 0 for x in e):
         assert "zero executing tools" in cap
         assert "HANDLED" in cap, "Task must not read as 'completes tasks' for a tool-less agent"
         assert "Elite" in cap, "state that none of them reaches Elite, since the shape implies it"
+
+
+def test_a_chart_answers_the_comparison_question_not_just_a_caption():
+    """A caption explaining why a chart misleads is a workaround. The spread panel
+    is the fix, and it must exist and be ordered by spread."""
+    from app.leaderboard.render import DIM_SHORT, spread_svg
+    from app.leaderboard.store import load
+    import re
+    import xml.etree.ElementTree as ET
+    e = [x for x in load() if x.get("ranked", True)]
+    svg = spread_svg(e)
+    assert svg, "no spread chart rendered"
+    ET.fromstring(svg.replace("var(--hair-strong)", "#333"))     # a broken SVG is an invisible one
+    rows = re.findall(r'class="cmp-rowlabel">([^<]+)<', svg)
+    assert len(rows) == len(DIM_SHORT), f"expected every dimension, got {rows}"
+    spreads = []
+    for d, short in DIM_SHORT.items():
+        vals = [float(x["subscores"][d]) for x in e]
+        spreads.append((short, max(vals) - min(vals)))
+    expected = [r for r, _ in sorted(spreads, key=lambda t: -t[1])]
+    assert rows == expected, (
+        "rows must be ordered by spread, widest first - otherwise the chart buries "
+        f"where the platforms diverge. got {rows}")
+    # one dot per agent per row
+    assert svg.count("<circle") == len(e) * len(DIM_SHORT)
 
 
 def test_head_to_head_says_the_cohort_is_operator_built():

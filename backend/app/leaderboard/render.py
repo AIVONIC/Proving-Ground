@@ -136,6 +136,82 @@ def ranked_bars_svg(entries: list[dict]) -> str:
     return "".join(out)
 
 
+DIM_SHORT = {
+    "task_success": "Task", "security": "Security", "grounding": "Grounding",
+    "safety_and_harm": "Safety", "conversational_quality": "Conversation",
+    "instruction_following": "Instructions", "bias_and_fairness": "Bias",
+    "honesty_and_escalation": "Honesty", "privacy_and_data_handling": "Privacy",
+    "robustness": "Robustness", "memory": "Memory",
+    "latency_and_reliability": "Latency",
+}
+
+
+def spread_svg(entries: list[dict]) -> str:
+    """Where the agents ACTUALLY differ, per dimension, on one shared scale.
+
+    ⛔ WHY THIS EXISTS: THE RADAR CANNOT ANSWER THE QUESTION IT LOOKS LIKE IT IS
+    ANSWERING.
+
+    A 0-10 radar is honest about LEVEL and useless for COMPARISON once a field
+    clusters. Every score on this board is between 6.9 and 9.9, so every outline
+    sits in the outer quarter of the radius, the five shapes overlap, and the
+    chart reads as "all near perfect" whatever the numbers are. Christian read it
+    exactly that way and was right to. A caption explaining that away is a
+    workaround; the fix is a chart that shows the truth.
+
+    ⛔ AND THE OBVIOUS FIX IS THE DISHONEST ONE. Scaling each row to its own
+    min-max makes a 0.12-point spread look identical to a 1.27-point spread - the
+    same "scale to the largest value" trap that makes any tiny difference look
+    decisive. So every row here shares ONE scale, sized to the widest spread on
+    the board, and each row carries its absolute range in text. A dimension where
+    the agents agree renders as a tight cluster, because it IS one.
+
+    Rows are ordered by spread, widest first, so the page leads with where the
+    platforms genuinely diverge instead of burying it in alphabetical order.
+    """
+    dims = [d for d in DIM_SHORT if all(d in (e.get("subscores") or {}) for e in entries)]
+    if len(entries) < 2 or not dims:
+        return ""
+
+    stats = []
+    for d in dims:
+        vals = [float(e["subscores"][d]) for e in entries]
+        stats.append((d, min(vals), max(vals), sum(vals) / len(vals), max(vals) - min(vals)))
+    stats.sort(key=lambda t: -t[4])
+
+    # One shared half-width for every row, from the widest spread on the board.
+    half = max(0.25, max(t[4] for t in stats) / 2 * 1.15)
+
+    row, padT, x0, plotW, W = 27, 18, 92, 250, 460
+    H = padT + row * len(stats) + 26
+    cx = x0 + plotW / 2
+    out = [f'<svg class="cmp-figure" viewBox="0 0 {W} {H}" role="img" '
+           f'aria-label="Per-dimension spread across agents, widest first">']
+    # centre line = each dimension's own field average
+    out.append(f'<line x1="{cx:.1f}" y1="{padT-6}" x2="{cx:.1f}" y2="{padT + row*len(stats):.1f}" '
+               f'class="radar-ring"/>')
+    for frac, lab in ((-1.0, f"-{half:.1f}"), (0.0, "field avg"), (1.0, f"+{half:.1f}")):
+        x = cx + plotW / 2 * frac
+        out.append(f'<text x="{x:.1f}" y="{H-8:.1f}" class="axis-label" text-anchor="middle">{lab}</text>')
+
+    for i, (d, lo, hi, avg, sp) in enumerate(stats):
+        y = padT + row * i + row / 2
+        out.append(f'<text x="8" y="{y+3.5:.1f}" class="cmp-rowlabel">{DIM_SHORT[d]}</text>')
+        xlo = cx + plotW / 2 * ((lo - avg) / half)
+        xhi = cx + plotW / 2 * ((hi - avg) / half)
+        out.append(f'<line x1="{xlo:.1f}" y1="{y:.1f}" x2="{xhi:.1f}" y2="{y:.1f}" '
+                   f'stroke="var(--hair-strong)" stroke-width="1"/>')
+        for idx, e in enumerate(entries):
+            v = float(e["subscores"][d])
+            x = cx + plotW / 2 * ((v - avg) / half)
+            out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{_color(idx)}" '
+                       f'fill-opacity="0.85"><title>{e["name"]} {DIM_SHORT[d]} {v:.2f}</title></circle>')
+        out.append(f'<text x="{x0+plotW+8:.1f}" y="{y+3.5:.1f}" class="cmp-rowval">'
+                   f'{lo:.2f}&#8211;{hi:.2f}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
 def scatter_svg(entries: list[dict]) -> str:
     """Quality (composite) vs median latency, Artificial-Analysis style. Renders
     only when every entry carries a latency figure; cost and latency are reported
@@ -235,13 +311,15 @@ def _radar_cap(entries: list[dict]) -> str:
     """
     ranked = [e for e in entries if e.get("composite") is not None
               and not (e.get("critical_failures") or 0)]
-    bits = ["Each outline is one agent across all twelve dimensions, on an axis of 0 to 10 from "
-            "the centre."]
+    bits = ["Each outline is one agent across all twelve dimensions, on an axis of <b>0 to 10</b> "
+            "from the centre &mdash; so this shows how high the scores are, and deliberately not "
+            "how they compare."]
     if len(ranked) >= 2:
         comps = sorted(e["composite"] for e in ranked)
-        bits.append(f"The outlines overlap because the field is genuinely close: {len(ranked)} of "
+        bits.append(f"The outlines overlap because the field really is that close: {len(ranked)} of "
                     f"these agents sit within <b>{comps[-1] - comps[0]:.2f} points</b> of each "
-                    f"other, which is a statistical tie rather than several strong results.")
+                    f"other. A clustered field makes a radar unreadable as a comparison, which is "
+                    f"what the panel beside it is for.")
     if all(len(e.get("tools_verified") or e.get("tools") or []) == 0 for e in entries):
         bits.append("<b>Every agent plotted here has zero executing tools</b> &mdash; they can only "
                     "converse. <b>Task</b> therefore scores how well a task is HANDLED (scoping it, "
@@ -273,6 +351,14 @@ def compare_section(entries: list[dict]) -> str:
         '<div class="cmp-grid">'
         f'<div class="cmp-panel"><div class="cmp-title">Twelve-dimension profile</div>{overlay_radar_svg(entries)}'
         f'<div class="cmp-cap">{_radar_cap(entries)}</div></div>'
+        f'<div class="cmp-panel"><div class="cmp-title">Where they actually differ</div>{spread_svg(entries)}'
+        '<div class="cmp-cap">Each dot is one agent\'s score for that dimension, plotted as its '
+        'distance from the field average. Rows are ordered by spread, widest first, so the '
+        'dimensions where these platforms genuinely diverge come first and the ones where they '
+        'are indistinguishable fall to the bottom. <b>Every row shares one scale</b>, sized to '
+        'the widest spread on the board &mdash; scaling each row to its own range would make a '
+        '0.1-point difference look as decisive as a 1.3-point one. Absolute ranges are printed '
+        'on the right; the radar beside this shows the level, this shows the difference.</div></div>'
         f'<div class="cmp-panel"><div class="cmp-title">Composite &amp; 95% CI</div>{ranked_bars_svg(entries)}'
         '<div class="cmp-cap">Whiskers are the 95% confidence interval over runs. Overlapping intervals are a statistical tie. &dagger; marks a composite CAPPED by a critical failure: the agent&rsquo;s dimension scores are unaffected and shown in full on its card below.</div></div>'
         f'{scatter_panel}'
