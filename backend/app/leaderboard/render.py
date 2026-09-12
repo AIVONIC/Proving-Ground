@@ -302,6 +302,9 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
         [x for x in (e.get("vendor"), e.get("platform_version"), e.get("category")) if x]
     )
     comp = e["composite"]
+    # rank 0 means recused: an em dash, not a position.
+    rank_badge = (f'<div class="lb-rank mono">#{rank}</div>' if rank else
+                  '<div class="lb-rank mono" style="color:var(--muted)">&mdash;</div>')
     subs = e.get("subscores", {})
     rows = []
     for _, key, full in DIMS:
@@ -317,7 +320,7 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
     breakdown = '<div class="lb-dims">' + "".join(rows) + "</div>"
     return (
         '<div class="card lb-card">'
-        f'<div class="lb-rank mono">#{rank}</div>'
+        f'{rank_badge}'
         '<div class="sc-head">'
         f'<div><div class="lb-name">{e["name"]}</div><div class="lb-vendor mono">{meta}</div></div>'
         f'{badge}</div>'
@@ -429,7 +432,36 @@ def site_bar() -> str:
         '</nav></div></header>'
     )
 
-def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None = None) -> str:
+def recused_section(recused: list[dict], slugs: dict[str, str] | None = None) -> str:
+    """Graded, published, deliberately not ranked."""
+    if not recused:
+        return ""
+    cards = "".join(card(0, e, (slugs or {}).get(e["id"])) for e in recused)
+    return (
+        '<section style="border-top:1px solid var(--rule);padding-top:36px;"><div class="lb-wrap">'
+        '<span class="eyebrow">Operator reference</span>'
+        '<h2 style="font-size:clamp(1.4rem,2.4vw,1.9rem);margin:12px 0 0;font-weight:400;">'
+        'Graded, published, not ranked.</h2>'
+        '<p class="lb-note" style="margin-top:12px;">Aivonic operates this board, so its own agent is not '
+        'placed in a ranking other people pay to enter. It is graded on the same held-out suite by the same '
+        'four-lab panel, and everything it scored &mdash; including where it slips &mdash; is here.</p>'
+        f'<div class="lb-grid" style="margin-top:22px;">{cards}</div>'
+        '</div></section>'
+    )
+
+
+def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None = None,
+           recused: list[dict] | None = None) -> str:
+    """`entries` are RANKED. `recused` are graded and published but not ranked.
+
+    The operator's own agent is recused rather than removed: its scorecard, its URL
+    and its execution artifact all stay live. Removing the entry would break
+    /scorecards/spark-*, and a graded party's link is what gets clicked weeks later.
+
+    Why recuse at all: an operator that competes on its own board cannot credibly
+    charge for a place on it. Nothing is hidden - the full card renders below the
+    ranked set and the page says why it is not in the ranking.
+    """
     style = re.search(r"<style>.*?</style>", lander_html, re.DOTALL).group(0)
     cards = "".join(card(i + 1, e, (slugs or {}).get(e["id"])) for i, e in enumerate(entries)) or \
         '<div class="lb-empty">No agents graded yet.</div>'
@@ -482,15 +514,17 @@ def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None =
         '<span class="eyebrow">The leaderboard</span>'
         '<h1 style="font-size:clamp(2rem,4vw,3rem);margin:0 0 18px;">How agents actually score.</h1>'
         '<p class="lead">Every agent is graded black-box across the same twelve dimensions and ranked by composite. '
-        'We grade our own agents on this board too, with their weaknesses shown, because a benchmark that hides its '
-        'operator&rsquo;s results is worth nothing.</p>'
+        'Our own agent is graded by the same harness and its full scorecard is published &mdash; but it is not '
+        'ranked against the agents we grade for other people.</p>'
         f'<p class="lb-note">Ranked by composite score, computed on the held-out private suite by the {board_panel(entries)}. '
-        '&ldquo;Self-operated&rdquo; marks an agent we run ourselves; &ldquo;reference build&rdquo; marks an '
-        'operator-built agent on a third-party platform, shown to demonstrate the method. Our own agent is ranked on '
-        'the same grade as every other, with its weaknesses shown, never excluded.</p>'
+        '&ldquo;Reference build&rdquo; marks an operator-built agent on a third-party platform, shown to demonstrate '
+        'the method. An operator that competes on its own board cannot credibly charge for a place on it, so SPARK is '
+        'recused from the ranking &mdash; not withheld: its grade, its weaknesses and its full card are below, '
+        'computed on the same suite by the same panel.</p>'
         '</div></section>'
         f'{compare_section(entries)}'
         f'<section style="border-top:none;padding-top:8px;"><div class="lb-wrap"><div class="lb-grid">{cards}</div></div></section>'
+        f'{recused_section(recused or [], slugs)}'
         '</main>'
     )
     return head + bar + hero + "</body></html>"
@@ -510,9 +544,14 @@ def main() -> int:
             found = sorted(Path(a.report_dir).glob(f'{e["id"]}-*.html'))
             if found:
                 slugs[e["id"]] = found[-1].stem
-    html = render(Path(a.lander).read_text(), entries, slugs)
+    # ranked defaults TRUE, so an entry missing the flag keeps today's behaviour
+    # and nothing drops off the board because a field was forgotten.
+    ranked_entries = [e for e in entries if e.get("ranked", True)]
+    recused = [e for e in entries if not e.get("ranked", True)]
+    html = render(Path(a.lander).read_text(), ranked_entries, slugs, recused)
     Path(a.out).write_text(html)
-    print(f"rendered {len(entries)} entries -> {a.out} ({len(html)} bytes)")
+    print(f"rendered {len(ranked_entries)} ranked + {len(recused)} recused "
+          f"-> {a.out} ({len(html)} bytes)")
     return 0
 
 

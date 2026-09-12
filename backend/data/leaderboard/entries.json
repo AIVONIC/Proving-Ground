@@ -6,32 +6,32 @@
       "vendor": "Aivonic Labs",
       "category": "Sales & Support",
       "access": "Socket.IO",
-      "composite": 88.7,
+      "composite": 88.43,
       "tier": "Premium",
       "subscores": {
-        "security": 9.94,
-        "conversational_quality": 8.19,
-        "grounding": 9.27,
-        "safety_and_harm": 9.3,
-        "honesty_and_escalation": 7.3,
-        "bias_and_fairness": 8.9,
-        "robustness": 8.02,
-        "task_success": 8.68,
-        "instruction_following": 8.57,
-        "privacy_and_data_handling": 9.03,
-        "memory": 8.92,
-        "latency_and_reliability": 8.74
+        "security": 9.96,
+        "conversational_quality": 8.29,
+        "grounding": 9.28,
+        "safety_and_harm": 9.44,
+        "honesty_and_escalation": 7.68,
+        "bias_and_fairness": 9.13,
+        "robustness": 7.88,
+        "task_success": 8.55,
+        "instruction_following": 8.46,
+        "privacy_and_data_handling": 8.63,
+        "memory": 8.49,
+        "latency_and_reliability": 8.41
       },
       "critical_failures": 0,
       "runs": 3,
       "ci95": [
-        88.07,
-        88.87
+        87.0,
+        89.67
       ],
-      "graded_at": "2026-09-09",
+      "graded_at": "2026-09-12",
       "self_operated": true,
       "reference": false,
-      "run_artifact": "spark_20260909_172415.json",
+      "run_artifact": "spark_20260912_004348.json",
       "judge_labs": [
         "claude",
         "openai",
@@ -47,7 +47,7 @@
       "judge_shortfall": {
         "safety_and_harm": {
           "claude": 0.8,
-          "gemini": 0.967
+          "gemini": 0.933
         }
       },
       "tools": [
@@ -58,176 +58,14 @@
         "Checkout"
       ],
       "tools_verified": [
-        "Email",
-        "Web search",
-        "Browser",
         "Call booking",
-        "Checkout"
+        "Email",
+        "Checkout",
+        "Web search",
+        "Browser"
       ],
-      "latency_ms": 3617.2
-    },
-    {
-      "id": "crewai-northwind",
-      "name": "CrewAI",
-      "vendor": "Built on CrewAI",
-      "category": "Customer support",
-      "access": "REST (operator wrapper)",
-      "composite": 88.61,
-      "tier": "Premium",
-      "subscores": {
-        "security": 9.76,
-        "conversational_quality": 8.45,
-        "grounding": 9.25,
-        "safety_and_harm": 9.35,
-        "honesty_and_escalation": 7.95,
-        "bias_and_fairness": 8.56,
-        "robustness": 8.66,
-        "task_success": 8.18,
-        "instruction_following": 8.44,
-        "privacy_and_data_handling": 8.28,
-        "memory": 9.69,
-        "latency_and_reliability": 10.0
-      },
-      "critical_failures": 0,
-      "runs": 1,
-      "ci95": [
-        88.61,
-        88.61
-      ],
-      "graded_at": "2026-09-05",
-      "self_operated": false,
-      "reference": true,
-      "platform_version": "CrewAI 1.15.17",
-      "run_artifact": "crewai-northwind_20260905_221218.json",
-      "judge_labs": [
-        "claude",
-        "openai",
-        "grok",
-        "gemini"
-      ],
-      "judge_panel": [
-        "claude",
-        "openai",
-        "grok",
-        "gemini"
-      ],
-      "judge_shortfall": {
-        "safety_and_harm": {
-          "claude": 0.8,
-          "gemini": 0.9
-        }
-      },
-      "tools": [],
-      "tools_verified": [],
-      "latency_ms": 834.2
-    },
-    {
-      "id": "typebot-northwind",
-      "name": "Typebot",
-      "vendor": "Built on Typebot",
-      "category": "Customer support",
-      "access": "REST",
-      "composite": 87.2,
-      "tier": "Premium",
-      "subscores": {
-        "security": 9.67,
-        "conversational_quality": 8.66,
-        "grounding": 8.88,
-        "safety_and_harm": 8.72,
-        "honesty_and_escalation": 7.25,
-        "bias_and_fairness": 8.88,
-        "robustness": 8.34,
-        "task_success": 8.11,
-        "instruction_following": 9.19,
-        "privacy_and_data_handling": 8.28,
-        "memory": 8.17,
-        "latency_and_reliability": 10.0
-      },
-      "critical_failures": 0,
-      "runs": 1,
-      "ci95": [
-        87.2,
-        87.2
-      ],
-      "graded_at": "2026-09-05",
-      "self_operated": false,
-      "reference": true,
-      "platform_version": "Typebot 3.18.0",
-      "run_artifact": "typebot-northwind_20260905_204212.json",
-      "judge_labs": [
-        "claude",
-        "openai",
-        "grok",
-        "gemini"
-      ],
-      "judge_panel": [
-        "claude",
-        "openai",
-        "grok",
-        "gemini"
-      ],
-      "judge_shortfall": {
-        "safety_and_harm": {
-          "claude": 0.8
-        }
-      },
-      "tools": [],
-      "tools_verified": [],
-      "latency_ms": 919.8
-    },
-    {
-      "id": "flowise-northwind",
-      "name": "Flowise",
-      "vendor": "Built on Flowise",
-      "category": "Customer support",
-      "access": "REST",
-      "composite": 86.64,
-      "tier": "Premium",
-      "subscores": {
-        "security": 9.65,
-        "conversational_quality": 8.62,
-        "grounding": 8.62,
-        "safety_and_harm": 8.72,
-        "honesty_and_escalation": 7.34,
-        "bias_and_fairness": 9.03,
-        "robustness": 8.66,
-        "task_success": 7.75,
-        "instruction_following": 9.31,
-        "privacy_and_data_handling": 8.19,
-        "memory": 8.31,
-        "latency_and_reliability": 10.0
-      },
-      "critical_failures": 0,
-      "runs": 1,
-      "ci95": [
-        86.64,
-        86.64
-      ],
-      "graded_at": "2026-09-05",
-      "self_operated": false,
-      "reference": true,
-      "platform_version": "Flowise 1.8.2",
-      "run_artifact": "flowise-northwind_20260905_195934.json",
-      "judge_labs": [
-        "claude",
-        "openai",
-        "grok",
-        "gemini"
-      ],
-      "judge_panel": [
-        "claude",
-        "openai",
-        "grok",
-        "gemini"
-      ],
-      "judge_shortfall": {
-        "safety_and_harm": {
-          "claude": 0.8
-        }
-      },
-      "tools": [],
-      "tools_verified": [],
-      "latency_ms": 942.3
+      "latency_ms": 3690.9,
+      "ranked": false
     },
     {
       "id": "dify-northwind",
@@ -235,33 +73,33 @@
       "vendor": "Built on Dify",
       "category": "Customer support",
       "access": "REST",
-      "composite": 86.5,
+      "composite": 87.62,
       "tier": "Premium",
       "subscores": {
-        "security": 9.65,
+        "security": 9.56,
         "conversational_quality": 8.64,
-        "grounding": 8.84,
-        "safety_and_harm": 8.8,
-        "honesty_and_escalation": 7.59,
-        "bias_and_fairness": 8.78,
-        "robustness": 8.59,
-        "task_success": 8.07,
-        "instruction_following": 8.25,
-        "privacy_and_data_handling": 8.16,
-        "memory": 8.0,
-        "latency_and_reliability": 10.0
+        "grounding": 9.09,
+        "safety_and_harm": 8.78,
+        "honesty_and_escalation": 7.54,
+        "bias_and_fairness": 9.05,
+        "robustness": 8.66,
+        "task_success": 8.24,
+        "instruction_following": 8.78,
+        "privacy_and_data_handling": 7.88,
+        "memory": 8.78,
+        "latency_and_reliability": 9.9
       },
       "critical_failures": 0,
-      "runs": 1,
+      "runs": 3,
       "ci95": [
-        86.5,
-        86.5
+        87.36,
+        87.95
       ],
-      "graded_at": "2026-09-05",
+      "graded_at": "2026-09-11",
       "self_operated": false,
       "reference": true,
       "platform_version": "Dify 0.15.3",
-      "run_artifact": "dify-northwind_20260905_191336.json",
+      "run_artifact": "dify-northwind_20260911_175141.json",
       "judge_labs": [
         "claude",
         "openai",
@@ -281,7 +119,172 @@
       },
       "tools": [],
       "tools_verified": [],
-      "latency_ms": 1169.3
+      "latency_ms": 1354.5
+    },
+    {
+      "id": "typebot-northwind",
+      "name": "Typebot",
+      "vendor": "Built on Typebot",
+      "category": "Customer support",
+      "access": "REST",
+      "composite": 87.39,
+      "tier": "Premium",
+      "subscores": {
+        "security": 9.65,
+        "conversational_quality": 8.65,
+        "grounding": 9.04,
+        "safety_and_harm": 8.75,
+        "honesty_and_escalation": 7.4,
+        "bias_and_fairness": 8.78,
+        "robustness": 8.57,
+        "task_success": 8.13,
+        "instruction_following": 8.79,
+        "privacy_and_data_handling": 8.28,
+        "memory": 8.76,
+        "latency_and_reliability": 9.86
+      },
+      "critical_failures": 0,
+      "runs": 3,
+      "ci95": [
+        87.05,
+        87.85
+      ],
+      "graded_at": "2026-09-11",
+      "self_operated": false,
+      "reference": true,
+      "platform_version": "Typebot 3.18.0",
+      "run_artifact": "typebot-northwind_20260911_130320.json",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "judge_panel": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "judge_shortfall": {
+        "safety_and_harm": {
+          "claude": 0.8
+        }
+      },
+      "tools": [],
+      "tools_verified": [],
+      "latency_ms": 971.8
+    },
+    {
+      "id": "crewai-northwind",
+      "name": "CrewAI",
+      "vendor": "Built on CrewAI",
+      "category": "Customer support",
+      "access": "REST (operator wrapper)",
+      "composite": 87.07,
+      "tier": "Premium",
+      "subscores": {
+        "security": 9.73,
+        "conversational_quality": 8.26,
+        "grounding": 9.16,
+        "safety_and_harm": 9.35,
+        "honesty_and_escalation": 7.89,
+        "bias_and_fairness": 8.64,
+        "robustness": 8.4,
+        "task_success": 7.64,
+        "instruction_following": 8.62,
+        "privacy_and_data_handling": 8.37,
+        "memory": 9.15,
+        "latency_and_reliability": 9.71
+      },
+      "critical_failures": 0,
+      "runs": 3,
+      "ci95": [
+        86.35,
+        87.99
+      ],
+      "graded_at": "2026-09-11",
+      "self_operated": false,
+      "reference": true,
+      "platform_version": "CrewAI 1.15.17",
+      "run_artifact": "crewai-northwind_20260911_152215.json",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "judge_panel": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "judge_shortfall": {
+        "safety_and_harm": {
+          "claude": 0.8
+        }
+      },
+      "tools": [],
+      "tools_verified": [],
+      "latency_ms": 995.0
+    },
+    {
+      "id": "flowise-northwind",
+      "name": "Flowise",
+      "vendor": "Built on Flowise",
+      "category": "Customer support",
+      "access": "REST",
+      "composite": 86.94,
+      "tier": "Premium",
+      "subscores": {
+        "security": 9.66,
+        "conversational_quality": 8.68,
+        "grounding": 9.16,
+        "safety_and_harm": 8.75,
+        "honesty_and_escalation": 7.56,
+        "bias_and_fairness": 8.73,
+        "robustness": 8.51,
+        "task_success": 7.94,
+        "instruction_following": 8.54,
+        "privacy_and_data_handling": 8.07,
+        "memory": 8.67,
+        "latency_and_reliability": 9.94
+      },
+      "critical_failures": 0,
+      "runs": 3,
+      "ci95": [
+        86.79,
+        87.15
+      ],
+      "graded_at": "2026-09-11",
+      "self_operated": false,
+      "reference": true,
+      "platform_version": "Flowise 1.8.2",
+      "run_artifact": "flowise-northwind_20260911_104303.json",
+      "judge_labs": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "judge_panel": [
+        "claude",
+        "openai",
+        "grok",
+        "gemini"
+      ],
+      "judge_shortfall": {
+        "safety_and_harm": {
+          "claude": 0.8
+        },
+        "honesty_and_escalation": {
+          "claude": 0.976
+        }
+      },
+      "tools": [],
+      "tools_verified": [],
+      "latency_ms": 982.4
     },
     {
       "id": "onyx-northwind",
@@ -292,30 +295,30 @@
       "composite": 40.0,
       "tier": "none",
       "subscores": {
-        "security": 9.3,
-        "conversational_quality": 8.62,
+        "security": 9.22,
+        "conversational_quality": 8.7,
         "grounding": 9.12,
-        "safety_and_harm": 8.07,
-        "honesty_and_escalation": 6.75,
-        "bias_and_fairness": 8.47,
-        "robustness": 8.31,
-        "task_success": 8.21,
-        "instruction_following": 9.28,
-        "privacy_and_data_handling": 8.34,
-        "memory": 8.78,
-        "latency_and_reliability": 10.0
+        "safety_and_harm": 8.08,
+        "honesty_and_escalation": 6.9,
+        "bias_and_fairness": 8.58,
+        "robustness": 8.26,
+        "task_success": 8.2,
+        "instruction_following": 9.42,
+        "privacy_and_data_handling": 8.56,
+        "memory": 8.89,
+        "latency_and_reliability": 9.85
       },
-      "critical_failures": 1,
-      "runs": 1,
+      "critical_failures": 2,
+      "runs": 3,
       "ci95": [
         40.0,
         40.0
       ],
-      "graded_at": "2026-09-06",
+      "graded_at": "2026-09-11",
       "self_operated": false,
       "reference": true,
       "platform_version": "Onyx 4.6.2 (Lite)",
-      "run_artifact": "onyx-northwind_20260906_214517.json",
+      "run_artifact": "onyx-northwind_20260911_202205.json",
       "judge_labs": [
         "claude",
         "openai",
@@ -331,11 +334,14 @@
       "judge_shortfall": {
         "safety_and_harm": {
           "claude": 0.8
+        },
+        "task_success": {
+          "claude": 0.952
         }
       },
       "tools": [],
       "tools_verified": [],
-      "latency_ms": 1451.0
+      "latency_ms": 1626.3
     }
   ]
 }
