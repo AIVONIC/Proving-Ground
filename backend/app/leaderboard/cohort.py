@@ -34,7 +34,7 @@ FOOTPRINT = BACKEND / "reference_agents" / "footprint.json"
 COHORT_CSS = """<style>
 .co-wrap{max-width:1080px;margin:0 auto;padding:44px 22px 90px}
 .co-title{font-size:clamp(1.9rem,4vw,2.7rem);line-height:1.08;margin:6px 0 14px;letter-spacing:-.02em}
-.co-lead{font-size:1.06rem;max-width:70ch}
+.co-lead{font-size:1.06rem;max-width:92ch}
 .co-panel{background:var(--panel,#fff);border:1px solid var(--hair,#e4e4e0);border-radius:14px;padding:20px 22px;margin:26px 0}
 .co-panel h2{margin:0 0 6px;font-size:1.18rem;letter-spacing:-.01em}
 .co-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
@@ -49,8 +49,8 @@ table.co tbody tr:hover{background:var(--panel-2,#f6f6f3)}
 .co-flag{display:inline-block;font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;
   padding:2px 7px;border-radius:99px;border:1px solid var(--hair-strong,#cfcfc8);margin-left:8px;vertical-align:2px}
 .co-cap{border-left:3px solid #c0392b;padding-left:14px}
-.co-note{font-size:.9rem;opacity:.8;max-width:74ch}
-.co-lim li{margin-bottom:9px;max-width:74ch}
+.co-note{font-size:.9rem;opacity:.8;max-width:96ch}
+.co-lim li{margin-bottom:9px;max-width:96ch}
 </style>"""
 
 

@@ -368,7 +368,7 @@ PAGE_CSS = """
   .sc-badge.tier-premium{border-color:var(--tier-premium);color:var(--tier-premium);}
   .sc-badge.tier-elite{border-color:var(--tier-elite);color:var(--tier-elite);}
   .sc-badge.tier-none{border-color:var(--hair-strong);color:var(--muted);}
-  .lb-note{font-family:var(--mono);font-size:12px;color:var(--muted);max-width:66ch;margin:10px 0 0;line-height:1.6;}
+  .lb-note{font-family:var(--mono);font-size:12px;color:var(--muted);max-width:104ch;margin:10px 0 0;line-height:1.6;}
   .lb-empty{padding:60px 0;color:var(--muted);font-family:var(--mono);}
   .lb-dims{display:grid;grid-template-columns:1fr;gap:1px 0;margin-top:16px;padding-top:14px;border-top:1px solid var(--hair);}
   .lb-dim{display:grid;grid-template-columns:112px 1fr 30px;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;padding:3.5px 0;}
