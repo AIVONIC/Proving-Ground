@@ -30,7 +30,7 @@ from pathlib import Path
 
 from app.leaderboard.render import DIMS, PAGE_CSS, PREMIUM_FLOOR, radar_svg, site_bar
 from app.judges.coverage import DISPLAY as PANEL_DISPLAY, panel_phrase
-from app.leaderboard.store import load
+from app.leaderboard.store import load, load_published
 
 DIM_KEYS = {k: full for _short, k, full in DIMS}
 MAX_PROBES_PER_DIM = 6   # worst-first; the rest are counted, never silently dropped
@@ -459,7 +459,11 @@ def main() -> int:
     if a.index:
         out_dir = Path(a.out_dir)
         rows, missing = [], []
-        for e in load():
+        # load_published, not load: a withheld card is still GENERATED (it is the
+        # document handed to the vendor) but must not be discoverable here. The
+        # docstring below says listing is derived from being on the board, and
+        # `published: false` is exactly the case where that stopped being true.
+        for e in load_published():
             found = sorted(out_dir.glob(f'{e["id"]}-*.html'))
             if found:
                 rows.append((e, found[-1].stem))

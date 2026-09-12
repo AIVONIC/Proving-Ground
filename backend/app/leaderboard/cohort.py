@@ -25,7 +25,7 @@ from pathlib import Path
 
 from app.judges.coverage import ORDER, panel_phrase
 from app.leaderboard.render import DIMS, PAGE_CSS, site_bar
-from app.leaderboard.store import load
+from app.leaderboard.store import load, load_published
 
 BACKEND = Path(__file__).resolve().parents[2]
 RUNS = BACKEND / "data" / "runs"
@@ -95,7 +95,14 @@ def footprint_html() -> str:
     if not FOOTPRINT.exists():
         return ""
     data = json.loads(FOOTPRINT.read_text())
-    plats = sorted(data.get("platforms", {}).items(), key=lambda kv: -kv[1]["containers"])
+    # This table is keyed by platform NAME from a static file, so it does not pass
+    # through load_published() like everything else on the page - which is exactly
+    # how it survived the withholding and went on naming a platform as part of the
+    # graded cohort. It reveals no score, but "we graded you" is the thing being
+    # withheld, so it has to honour the same list.
+    public = {e["name"] for e in load_published()}
+    plats = sorted(((n, v) for n, v in data.get("platforms", {}).items() if n in public),
+                   key=lambda kv: -kv[1]["containers"])
     if not plats:
         return ""
     rows = []
@@ -277,7 +284,7 @@ def main() -> int:
             continue
         slugs[f.stem.rsplit("-", 1)[0]] = f.stem
 
-    out = render_cohort(Path(a.lander).read_text(), load(), slugs)
+    out = render_cohort(Path(a.lander).read_text(), load_published(), slugs)
     Path(a.out).write_text(out)
     print(f"cohort page -> {a.out} ({len(out)} bytes)")
     return 0

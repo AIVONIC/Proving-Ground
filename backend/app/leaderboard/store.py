@@ -38,3 +38,29 @@ def upsert(entry: dict) -> list[dict]:
     entries.append(entry)
     save(entries)
     return load()
+
+
+def load_published() -> list[dict]:
+    """Entries that may appear on ANY public surface.
+
+    ⛔ ONE DEFINITION OF "PUBLIC", BECAUSE THREE COPIES DRIFTED WITHIN AN HOUR.
+
+    `published: false` was added to withhold a capped safety result until the
+    vendor had been told. The board honoured it immediately. Two other public
+    surfaces did not, because each derived "is this public" for itself:
+
+      /cohort            printed the composite, the critical-failure count, the
+                         platform version AND a sentence naming the agent and
+                         what it complied with. Fully public, indexable, and far
+                         more damaging than the board row that had been removed.
+      /scorecards/       listed the withheld card, making it discoverable.
+
+    Neither was a bug in the flag. Both were surfaces answering the question
+    themselves, and CLAUDE.md already records that shape: define the exclusion
+    ONCE, because two copies of "what counts as public" drift silently in both
+    directions. Every public renderer calls THIS, and a new surface that forgets
+    to is the thing to look for in review.
+
+    Defaults TRUE, so an entry missing the field is published exactly as before.
+    """
+    return [e for e in load() if e.get("published", True)]

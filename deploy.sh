@@ -147,6 +147,13 @@ rm -f "$_lb_tmp"
 # never re-rendered is the usual way it comes back.
 ( cd "$REPO/backend" && python3 -m pytest tests/test_prose_width.py -q >/dev/null 2>&1 ) \
   || fail "prose-width gate fails; a prose element is capping its own width"
+# An agent withheld pending vendor disclosure must not reach ANY public surface.
+# The board honoured the flag immediately; /cohort and the scorecard index did
+# not, and /cohort was publishing the composite, the critical-failure count and a
+# sentence naming what the agent complied with. Asserts on the OUTPUT, because a
+# surface can call the right function and still print the name.
+( cd "$REPO/backend" && python3 -m pytest tests/test_withheld_not_published.py -q >/dev/null 2>&1 ) \
+  || fail "a withheld agent appears on a public surface; not publishing"
 echo "   lander AND leaderboard match entries.json, lander + certificate tests pass"
 
 if [[ -n "$(git -C "$REPO" status --porcelain -- frontend backend 2>/dev/null)" ]]; then
