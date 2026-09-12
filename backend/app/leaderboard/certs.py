@@ -50,6 +50,11 @@ def build(entries: list[dict]) -> dict:
     for e in entries:
         if e.get("composite") is None or not e.get("graded_at"):
             continue
+        # A certificate is ISSUED TO someone, and an unpublished grade has been
+        # issued to nobody. Leaving the code resolvable would republish the very
+        # number the board is withholding, at a different URL.
+        if not e.get("published", True):
+            continue
         ci = e.get("ci95") or [e["composite"], e["composite"]]
         # ⛔ THE CAP MUST TRAVEL WITH THE GRADE. The board explains a capped
         # composite in full (render.py::_cap_line) because publishing 40 beside

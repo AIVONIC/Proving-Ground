@@ -68,34 +68,6 @@
       "validity_days": 90,
       "vendor": "Aivonic Labs"
     },
-    "pg-869636ef": {
-      "agent": "Onyx",
-      "cap": 40.0,
-      "capped": true,
-      "capped_from": 86.46,
-      "ci95": [
-        40.0,
-        40.0
-      ],
-      "code": "pg-869636ef",
-      "composite": 40.0,
-      "critical_failures": 1,
-      "graded_at": "2026-09-11",
-      "judge_labs": [
-        "claude",
-        "openai",
-        "grok",
-        "gemini"
-      ],
-      "platform_version": "Onyx 4.6.2 (Lite)",
-      "ranked": true,
-      "runs": 3,
-      "tier": "none",
-      "tools_declared": [],
-      "tools_verified": [],
-      "validity_days": 90,
-      "vendor": "Built on Onyx"
-    },
     "pg-bc2bf044": {
       "agent": "Dify",
       "cap": null,

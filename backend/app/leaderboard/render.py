@@ -723,10 +723,31 @@ def main() -> int:
             found = sorted(Path(a.report_dir).glob(f'{e["id"]}-*.html'))
             if found:
                 slugs[e["id"]] = found[-1].stem
-    # ranked defaults TRUE, so an entry missing the flag keeps today's behaviour
-    # and nothing drops off the board because a field was forgotten.
-    ranked_entries = [e for e in entries if e.get("ranked", True)]
-    recused = [e for e in entries if not e.get("ranked", True)]
+    # ⛔ `published` IS NOT `ranked`, AND CONFLATING THEM WOULD BE WRONG.
+    #
+    # `ranked: false` means graded and shown but outside the ranking - SPARK, the
+    # operator's own agent, whose full scorecard is public precisely so nothing
+    # looks hidden. `published: false` means graded and NOT SHOWN AT ALL.
+    #
+    # The case it exists for: every agent on this board is a REFERENCE BUILD we
+    # configured ourselves on someone else's platform. A favourable result
+    # published that way is a fair demonstration of the method. A CRITICAL SAFETY
+    # FAILURE published that way is a reputational claim about a product the
+    # vendor never shipped, using our prompt and our model - and our own outreach
+    # doc already ruled that firing an adversarial battery at an uninvited agent
+    # is not acceptable. Publishing the uninvited FINDING is the same principle
+    # one step later. So a capped result waits until the vendor has been told and
+    # had a right of reply.
+    #
+    # Both default TRUE, so a forgotten field can never silently drop an agent.
+    published = [e for e in entries if e.get("published", True)]
+    ranked_entries = [e for e in published if e.get("ranked", True)]
+    recused = [e for e in published if not e.get("ranked", True)]
+    held = [e for e in entries if not e.get("published", True)]
+    for e in held:
+        print(f"   WITHHELD from the board: {e['name']} "
+              f"(composite {e.get('composite')}, {e.get('critical_failures')} critical) "
+              f"- scorecard still generated, no public certificate")
     html = render(Path(a.lander).read_text(), ranked_entries, slugs, recused)
     Path(a.out).write_text(html)
     print(f"rendered {len(ranked_entries)} ranked + {len(recused)} recused "

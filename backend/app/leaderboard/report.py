@@ -38,6 +38,23 @@ RESPONSE_CLIP = 900
 
 
 from app.leaderboard.certs import code_for
+from app.leaderboard.render import _cap_line
+
+
+def _eyebrow(entry: dict) -> str:
+    """What this card IS, in three words, at the top.
+
+    Three states, not two. "graded" and "published" are different facts, and the
+    old version inferred the second from the first - so a withheld grade would
+    have introduced itself as "listed on the leaderboard" on the very card sent
+    to the vendor whose result we are holding back. The worst possible reader for
+    that sentence.
+    """
+    if not entry.get("published", True):
+        return "Withheld scorecard &middot; not on the leaderboard, no public certificate"
+    if entry.get("composite") is not None and entry.get("graded_at"):
+        return "Published scorecard &middot; listed on the leaderboard"
+    return "Private scorecard &middot; not published"
 
 
 def slug_for(entry: dict, run_path: str) -> str:
@@ -268,7 +285,22 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
     # the slug seeds on the grade and so changes on every re-grade, which would break
     # a mark embedded on a vendor's site the day their score improved. See certs.py.
     cert_block = ""
-    if entry.get("composite") is not None and entry.get("graded_at"):
+    if not entry.get("published", True):
+        # No public certificate exists for a withheld grade, so this card must not
+        # offer one. Saying so plainly is also the honest thing for the recipient
+        # to read: they are holding the full result before anyone else can.
+        cert_block = """
+<div class="rp-cert">
+  <h3>This grade is not published</h3>
+  <p>It is not on the leaderboard and there is no public certificate for it, so nobody can look
+  this result up. You are reading it before anyone outside Proving Ground has seen it.</p>
+  <p>The agent graded here is a <b>reference build</b>: we configured it ourselves on your platform
+  with our own model and system prompt, so this measures the platform as we set it up and is not a
+  result about your shipped product. That is exactly why it is not published. If you want it on the
+  board, with or without a response of yours alongside it, that is your call to make and we will
+  publish your reply with it.</p>
+</div>"""
+    elif entry.get("composite") is not None and entry.get("graded_at"):
         _code = code_for(entry["id"])
         cert_block = f"""
 <div class="rp-cert">
@@ -288,9 +320,10 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
 
     body = f"""<main class="rp-wrap">
 <section class="rp-head">
-  <span class="eyebrow">{'Published scorecard &middot; listed on the leaderboard' if (entry.get('composite') is not None and entry.get('graded_at')) else 'Private scorecard &middot; not published'}</span>
+  <span class="eyebrow">{_eyebrow(entry)}</span>
   <h1 class="rp-title">{name}</h1>
   {panel_note}
+  {_cap_line(entry)}
   <p class="rp-sub">{vendor}{plat} &middot; graded {html.escape(entry.get('graded_at',''))} on the held-out private suite by the {panel}.</p>
   <div class="rp-kpis">
     <div class="rp-kpi"><b>{entry['composite']:.2f}</b><span>Composite / 100</span></div>
