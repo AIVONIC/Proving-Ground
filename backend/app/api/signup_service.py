@@ -78,6 +78,10 @@ def _notify_smtp(subject: str, body: str) -> bool:
     try:
         msg = EmailMessage()
         msg["Subject"] = subject
+        # ⛔ NOT moved to theprovingground.io with the canonical URLs. A From address
+        # needs SPF, DKIM and DMARC on that domain first; sending from a domain with
+        # no mail auth is how early-access replies land in spam. Move it when the
+        # records exist, not when the website moves.
         msg["From"] = os.environ.get("PG_SMTP_FROM", "noreply@provingground.aivonic.ai")
         msg["To"] = NOTIFY_TO
         msg.set_content(body)

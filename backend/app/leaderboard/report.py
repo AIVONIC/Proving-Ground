@@ -419,7 +419,7 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_report(Path(a.lander).read_text(), entry, data, slug))
     print(f"scorecard {entry['name']} -> {out} ({out.stat().st_size} bytes)")
-    print(f"URL when deployed: https://provingground.aivonic.ai/scorecards/{slug}")
+    print(f"URL when deployed: https://theprovingground.io/scorecards/{slug}")
     return 0
 
 

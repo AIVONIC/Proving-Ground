@@ -19,4 +19,4 @@ Allow: /
 User-agent: Applebot-Extended
 Allow: /
 
-Sitemap: https://provingground.aivonic.ai/sitemap.xml
+Sitemap: https://theprovingground.io/sitemap.xml

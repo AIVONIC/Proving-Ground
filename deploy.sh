@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 #
-# Publish the Proving Ground site to provingground.aivonic.ai.
+# Publish the Proving Ground site to theprovingground.io (also served on the
+# original provingground.aivonic.ai, same nginx block and certificate).
 #
 # The docroot used to be updated with bare `scp`, which adds files and never
 # removes them. Over one month that left SEVENTEEN backup copies of the site
@@ -27,7 +28,7 @@ set -euo pipefail
 HOST="root@72.62.59.75"
 DOCROOT="/var/www/html/pg"
 BACKUPS="/root/pg-backups"          # deliberately OUTSIDE the docroot
-BASE="https://provingground.aivonic.ai"
+BASE="https://theprovingground.io"
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # repo path (under frontend/) -> published path (under the docroot).

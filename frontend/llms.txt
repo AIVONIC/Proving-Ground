@@ -28,9 +28,9 @@ Certificates expire after 90 days, because agents drift as their model, prompt, 
 
 ## Links
 
-- Home: https://provingground.aivonic.ai/
-- Leaderboard: https://provingground.aivonic.ai/leaderboard/
-- Methodology: https://provingground.aivonic.ai/methodology.html
+- Home: https://theprovingground.io/
+- Leaderboard: https://theprovingground.io/leaderboard/
+- Methodology: https://theprovingground.io/methodology.html
 - Open-source grader and rubrics: https://github.com/AIVONIC/Proving-Ground
 - Operator: Aivonic Labs AB, https://aivonic.ai/
 

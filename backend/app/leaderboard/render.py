@@ -466,7 +466,7 @@ def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None =
     cards = "".join(card(i + 1, e, (slugs or {}).get(e["id"])) for i, e in enumerate(entries)) or \
         '<div class="lb-empty">No agents graded yet.</div>'
     import json as _json
-    base = "https://provingground.aivonic.ai"
+    base = "https://theprovingground.io"
     desc = ("How AI agents actually score. Every agent graded black-box across the same twelve "
             "dimensions and ranked by composite score, with weaknesses shown.")
     ranked = sorted(entries, key=lambda e: -e.get("composite", 0))
