@@ -188,7 +188,12 @@
   .dims { display: grid; grid-template-columns: 1fr; border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; }
   @media (min-width: 680px) { .dims { grid-template-columns: 1fr 1fr; } }
   @media (min-width: 1000px) { .dims { grid-template-columns: 1fr 1fr 1fr; } }
-  .dim { padding: 20px 22px; border-top: 1px solid var(--hair); border-right: 1px solid var(--hair); background: var(--panel); position: relative; transition: background .18s; }
+  .dim { padding: 24px 26px; border-top: 1px solid var(--hair); border-right: 1px solid var(--hair); background: var(--panel); position: relative; transition: background .18s; }
+    /* Cost & efficiency is reported, not scored, so it is not one of the twelve.
+       Spanning the full row says that, and removes the orphaned card sitting beside
+       two empty cells - 13 items never divide into a 2 or 3 column grid. Works at
+       every breakpoint because 1 / -1 spans whatever the column count is. */
+    .dim.reported { grid-column: 1 / -1; border-right: none; }
   .dim:hover { background: var(--panel-2); }
   .dim-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   .dim h3 { font-size: 1.06rem; letter-spacing: -0.01em; }
@@ -300,7 +305,7 @@
           <div class="sc-composite">88<small> / 100</small></div>
           <div style="text-align:right">
             <div class="mono" style="font-size:12px;color:var(--muted)">3-run avg &middot; CI 87&ndash;90</div>
-            <div class="sc-note">A real grade, self-operated, graded 2026-09-12 &middot; <a href="/leaderboard/">see the board</a></div>
+            <div class="sc-note">A real grade, self-operated, graded 2026-09-12 &middot; <a href="/scorecards/spark-476e6653aa85.html">see its scorecard</a></div>
           </div>
         </div>
       </div>
@@ -422,7 +427,7 @@
       <div class="card reveal">
         <span class="eyebrow" style="justify-content:center;">Building in the open</span>
         <h2>Put your agent on the record.</h2>
-        <p class="lead">Whether you build agents or buy them, an independent grade is the fastest way to know what you actually have. We are onboarding early participants now, and we grade our own agents on the same board as everyone else, weaknesses shown.</p>
+        <p class="lead">Whether you build agents or buy them, an independent grade is the fastest way to know what you actually have. We are onboarding early participants now, and our own agent is graded by the same harness and published in full, though it is not ranked against the agents we grade for other people.</p>
         <div class="cta-row" id="eaCta" style="justify-content:center;margin-top:26px;">
           <button type="button" class="btn primary" id="eaReveal">Request early access &rarr;</button>
           <a class="btn" href="/methodology">See the methodology</a>

@@ -171,7 +171,12 @@
   .dims { display: grid; grid-template-columns: 1fr; border: 1px solid var(--hair); border-radius: 4px; overflow: hidden; }
   @media (min-width: 680px) { .dims { grid-template-columns: 1fr 1fr; } }
   @media (min-width: 1000px) { .dims { grid-template-columns: 1fr 1fr 1fr; } }
-  .dim { padding: 20px 22px; border-top: 1px solid var(--hair); border-right: 1px solid var(--hair); background: var(--panel); position: relative; transition: background .18s; }
+  .dim { padding: 24px 26px; border-top: 1px solid var(--hair); border-right: 1px solid var(--hair); background: var(--panel); position: relative; transition: background .18s; }
+    /* Cost & efficiency is reported, not scored, so it is not one of the twelve.
+       Spanning the full row says that, and removes the orphaned card sitting beside
+       two empty cells - 13 items never divide into a 2 or 3 column grid. Works at
+       every breakpoint because 1 / -1 spans whatever the column count is. */
+    .dim.reported { grid-column: 1 / -1; border-right: none; }
   .dim:hover { background: var(--panel-2); }
   .dim-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   .dim h3 { font-size: 1.06rem; letter-spacing: -0.01em; }
