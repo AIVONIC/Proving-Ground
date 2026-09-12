@@ -100,3 +100,37 @@ def test_the_audit_can_actually_see_rules(rel):
     which is how a clean pass gets reported on an unexamined file."""
     text = (ROOT / rel).read_text(encoding="utf-8", errors="replace")
     assert list(_rules(text)), f"{rel}: parsed zero max-width rules; the check is blind here"
+
+
+# --- head-to-head disclosure -------------------------------------------------
+# Not a width test, but the same failure mode: the summary band at the top is
+# what a visitor reads first and screenshots, and it was making a stronger claim
+# than the data supports. Christian read the radar as "these agents are elite"
+# and was right to - every outline sits in the outer quarter of a 0-10 axis.
+
+def test_head_to_head_discloses_zero_tools_and_the_tie():
+    from app.leaderboard.render import _radar_cap
+    from app.leaderboard.store import load
+    e = [x for x in load() if x.get("ranked", True)]
+    cap = _radar_cap(e)
+    assert "0 to 10" in cap, "the axis range must be stated; outlines sit in the outer quarter"
+    assert "statistical tie" in cap, "a sub-point spread must not read as several strong results"
+    if all(len(x.get("tools_verified") or x.get("tools") or []) == 0 for x in e):
+        assert "zero executing tools" in cap
+        assert "HANDLED" in cap, "Task must not read as 'completes tasks' for a tool-less agent"
+        assert "Elite" in cap, "state that none of them reaches Elite, since the shape implies it"
+
+
+def test_head_to_head_says_the_cohort_is_operator_built():
+    from app.leaderboard.render import _cohort_band
+    from app.leaderboard.store import load
+    e = [x for x in load() if x.get("ranked", True)]
+    band = _cohort_band(e)
+    if all(x.get("reference") for x in e):
+        assert "reference builds" in band
+        assert "not those vendors" in band, (
+            "presenting operator-built agents as a vendor ranking is a claim about "
+            "other companies' products made by omission")
+    # and it must RETRACT itself the moment a real third-party agent is entered
+    mixed = [dict(e[0], reference=False)] + list(e[1:])
+    assert _cohort_band(mixed) == "", "the band must disappear once a genuine entry exists"

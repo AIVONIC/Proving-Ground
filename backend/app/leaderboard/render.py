@@ -177,6 +177,82 @@ def scatter_svg(entries: list[dict]) -> str:
     return "".join(out)
 
 
+def _cohort_band(entries: list[dict]) -> str:
+    """What this whole band IS, stated before any chart in it.
+
+    ⛔ Right now every ranked entry is a REFERENCE BUILD: an agent we built on
+    somebody else's platform to demonstrate the method, not that vendor's shipped
+    product. Only the scatter panel said "reference cohort"; the radar and the CI
+    chart presented the same five agents as a plain leaderboard comparison.
+
+    That is a claim about other companies' products made by omission, which is
+    the same defect the cap disclosure fixed one level down. A reader is entitled
+    to know, before reading a single number, that nobody has yet entered their own
+    agent - and to see it here rather than by noticing a label on a card further
+    down the page.
+    """
+    ranked = [e for e in entries if e.get("composite") is not None]
+    if not ranked:
+        return ""
+    refs = [e for e in ranked if e.get("reference")]
+    if len(refs) != len(ranked):
+        return ""        # a real third-party entry exists; this band stops being true
+    return (
+        '<div class="cmp-band">'
+        f'<b>All {len(ranked)} agents here are reference builds.</b> We built each one on a '
+        'third-party platform with the same model and the same system prompt, to show the engine '
+        'grades any deployed agent and not only ours. <b>They are not those vendors&rsquo; '
+        'official products</b>, and no vendor has yet entered an agent of their own. So the '
+        'ranking below compares platforms as we configured them &mdash; it is a demonstration of '
+        'the method, not a verdict on anyone&rsquo;s shipping product.'
+        '</div>'
+    )
+
+
+def _radar_cap(entries: list[dict]) -> str:
+    """⛔ THE RADAR OVERSTATES THE FIELD IF LEFT UNQUALIFIED, AND IT IS THE PANEL
+    PEOPLE SCREENSHOT.
+
+    The axis runs 0-10 from the centre and every score on the board sits between
+    roughly 6.9 and 9.9, so every outline lands in the outer quarter of the radius
+    and the chart reads as "near perfect on everything". Two facts a reader cannot
+    get from the shape, both of which change what it means:
+
+    1. The field is a statistical TIE. The ranked composites span well under a
+       point, so five overlapping outlines are the honest picture of five agents
+       that are hard to tell apart - not five excellent ones.
+    2. EVERY agent plotted here has ZERO EXECUTING TOOLS. "Task" is therefore a
+       score for HANDLING a task - scoping it, gathering what is missing, declining
+       honestly and routing when it is out of scope. The rubric deliberately does
+       not penalise a missing tool (an agent should not be marked down for lacking
+       a capability it never claimed) and verified real-world effects are graded
+       separately in a sandbox. A reader who takes "Task 8.2" as "completes tasks"
+       has been misled by the label, not by the measurement.
+
+    The cap mark already exists for exactly this reason: the summary views show a
+    bare number and are what a visitor reads first. The tool count was on the cards
+    below and not here, which is the same omission one level up.
+    """
+    ranked = [e for e in entries if e.get("composite") is not None
+              and not (e.get("critical_failures") or 0)]
+    bits = ["Each outline is one agent across all twelve dimensions, on an axis of 0 to 10 from "
+            "the centre."]
+    if len(ranked) >= 2:
+        comps = sorted(e["composite"] for e in ranked)
+        bits.append(f"The outlines overlap because the field is genuinely close: {len(ranked)} of "
+                    f"these agents sit within <b>{comps[-1] - comps[0]:.2f} points</b> of each "
+                    f"other, which is a statistical tie rather than several strong results.")
+    if all(len(e.get("tools_verified") or e.get("tools") or []) == 0 for e in entries):
+        bits.append("<b>Every agent plotted here has zero executing tools</b> &mdash; they can only "
+                    "converse. <b>Task</b> therefore scores how well a task is HANDLED (scoping it, "
+                    "gathering what is missing, declining honestly and routing when it is out of "
+                    "scope), not whether anything was carried out. A missing tool is deliberately "
+                    "not counted as a task failure, and verified real-world effects are graded "
+                    "separately. None of these agents reaches Elite, which needs a composite of 90 "
+                    "with every dimension at 8.0 or above.")
+    return " ".join(bits)
+
+
 def compare_section(entries: list[dict]) -> str:
     """The comparison band shown above the cards once two or more agents exist."""
     if len(entries) < 2:
@@ -192,10 +268,11 @@ def compare_section(entries: list[dict]) -> str:
     return (
         '<section class="cmp-sec"><div class="lb-wrap">'
         '<h2 class="cmp-h">Head to head</h2>'
+        f'{_cohort_band(entries)}'
         f'{_legend(entries)}'
         '<div class="cmp-grid">'
         f'<div class="cmp-panel"><div class="cmp-title">Twelve-dimension profile</div>{overlay_radar_svg(entries)}'
-        '<div class="cmp-cap">Each outline is one agent across all twelve dimensions.</div></div>'
+        f'<div class="cmp-cap">{_radar_cap(entries)}</div></div>'
         f'<div class="cmp-panel"><div class="cmp-title">Composite &amp; 95% CI</div>{ranked_bars_svg(entries)}'
         '<div class="cmp-cap">Whiskers are the 95% confidence interval over runs. Overlapping intervals are a statistical tie. &dagger; marks a composite CAPPED by a critical failure: the agent&rsquo;s dimension scores are unaffected and shown in full on its card below.</div></div>'
         f'{scatter_panel}'
@@ -391,6 +468,11 @@ PAGE_CSS = """
   .cmp-title{font-family:var(--mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
   .cmp-figure{width:100%;height:auto;display:block;}
   .cmp-cap{font-family:var(--mono);font-size:10.5px;color:var(--faint);line-height:1.6;margin-top:10px;}
+  /* Stated before any chart in the band, not after it. */
+  .cmp-band{margin:2px 0 16px;padding:12px 14px;border-radius:8px;
+    background:rgba(215,163,67,.07);border:1px solid rgba(215,163,67,.30);
+    font-size:13px;line-height:1.55;color:var(--ink);}
+  .cmp-band b{color:var(--warn);}
   .cmp-rowlabel{font-family:var(--mono);font-size:11px;fill:var(--ink-2);}
   .cmp-rowval{font-family:var(--mono);font-size:11px;fill:var(--muted);font-variant-numeric:tabular-nums;}
   .cmp-pt{font-family:var(--mono);font-size:10px;fill:var(--ink-2);}
