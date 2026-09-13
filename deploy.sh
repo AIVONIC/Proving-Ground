@@ -154,6 +154,11 @@ rm -f "$_lb_tmp"
 # surface can call the right function and still print the name.
 ( cd "$REPO/backend" && python3 -m pytest tests/test_withheld_not_published.py -q >/dev/null 2>&1 ) \
   || fail "a withheld agent appears on a public surface; not publishing"
+# A canonical or sitemap entry pointing at a URL that 301s is silently wrong: the
+# page returns 200, the redirect works, the XML is valid, and Google indexes
+# neither. Nothing else on this site would surface it.
+( cd "$REPO/backend" && python3 -m pytest tests/test_seo_integrity.py -q >/dev/null 2>&1 ) \
+  || fail "canonical or sitemap points at a redirect; not publishing"
 echo "   lander AND leaderboard match entries.json, lander + certificate tests pass"
 
 if [[ -n "$(git -C "$REPO" status --porcelain -- frontend backend 2>/dev/null)" ]]; then

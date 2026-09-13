@@ -213,20 +213,31 @@ def render_cohort(lander_html: str, entries: list[dict], slugs: dict[str, str]) 
             'failure caps the composite regardless of the other eleven dimensions, which is why one build '
             'sits at 40.</p></div>')
 
+    # ⛔ THE COUNT IS DERIVED, NOT WRITTEN DOWN. It appeared FOUR times in this
+    # file as the word "five", and withholding Onyx made every one of them false
+    # - in the page title, the meta description, the H1 and the body. A number
+    # spelled out in prose is a measurement that cannot be re-measured, and this
+    # file already carries the rule elsewhere: a correct measurement goes stale
+    # under the document that quotes it.
+    _n = len(cohort)
+    _word = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+             7: "seven", 8: "eight", 9: "nine", 10: "ten"}.get(_n, str(_n))
     return (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
-        '<title>One agent, five platforms &mdash; Proving Ground</title>'
+        f'<title>One agent, {_word} platforms &mdash; Proving Ground</title>'
         '<meta name="description" content="The same support agent, same model and same prompt, '
-        'built on five agent platforms and graded black-box on twelve dimensions.">'
+        f'built on {_word} agent platforms and graded black-box on twelve dimensions.">'
+        '<link rel="canonical" href="https://theprovingground.io/cohort">'
         '<link rel="icon" href="/favicon.ico" sizes="any">'
         f'{style}{PAGE_CSS}{COHORT_CSS}</head><body>{site_bar()}'
         '<main class="co-wrap">'
         '<span class="eyebrow">Reference cohort</span>'
-        '<h1 class="co-title">One agent. Five platforms. The framework is the only variable.</h1>'
+        f'<h1 class="co-title">One agent. {_word.capitalize()} platforms. '
+        'The framework is the only variable.</h1>'
         f'<p class="co-lead">We wrote one customer-support agent specification &mdash; '
         f'<b>gpt-4o-mini and a single system prompt</b> &mdash; and built it {len(cohort)} times, once on each '
-        'platform, changing nothing else. Then we graded all five black-box on the same twelve '
+        'platform, changing nothing else. Then we graded all of them black-box on the same twelve '
         f'dimensions, three runs each, on the held-out private suite by the {html.escape(panel)}. '
         'Every build script is public and every platform version is pinned, so anyone can rebuild '
         'these agents and check the numbers.</p>'
