@@ -21,6 +21,11 @@ services:
     ports: ["127.0.0.1:3500:7860"]
     environment:
       LANGFLOW_AUTO_LOGIN: "true"
+      # Required since Langflow 1.5: AUTO_LOGIN alone still demands an API key
+      # on the RUN endpoint, and says so in its own 403 body. Without it the
+      # management API works, a flow builds fine, and every graded message
+      # fails - which would have read as the agent being broken.
+      LANGFLOW_SKIP_AUTH_AUTO_LOGIN: "true"
       LANGFLOW_SAVE_DB_IN_CONFIG_DIR: "true"
       LANGFLOW_CONFIG_DIR: /app/langflow
     volumes:
