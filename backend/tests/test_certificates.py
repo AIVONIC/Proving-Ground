@@ -193,3 +193,44 @@ def test_code_is_stable_across_regrades(client):
     e2 = {**e, "graded_at": "2026-06-01", "composite": 91.0}
     assert code_for(e["id"]) == code_for(e2["id"])
     assert slug_for(e, "runs/a.json") != slug_for(e2, "runs/b.json")
+
+
+def test_certificate_page_honours_the_same_themes_as_the_site(client):
+    """The site is dark by default and light under prefers-color-scheme: light.
+    The certificate shipped dark-only, so a visitor on a light OS got a dark
+    certificate from an otherwise light site - and this is the page most likely
+    to be opened in a second tab beside the board.
+    """
+    import re
+    css = client.get(f"/verify/{client.valid}").text
+    for pat, what in [(r':root\{[^}]*--ground:#0f1518', "dark on bare :root"),
+                      (r'@media\(prefers-color-scheme:light\)', "light under a light OS"),
+                      (r':root\[data-theme="light"\]', "explicit light stamp"),
+                      (r':root\[data-theme="dark"\]', "explicit dark stamp")]:
+        assert re.search(pat, css), f"certificate page is missing: {what}"
+
+    # A token defined ONLY inside a media block does not exist un-stamped, which
+    # renders one theme's text on the other theme's ground.
+    root = css[css.index(":root{"):css.index("@media(prefers-color-scheme")]
+    defined = set(re.findall(r'(--[a-z-]+):', root))
+    used = set(re.findall(r'var\((--[a-z-]+)\)', css))
+    assert not (used - defined), f"tokens used but undefined on bare :root: {used - defined}"
+
+
+def test_no_hardcoded_colour_is_written_into_a_style_attribute(client):
+    """A colour chosen in Python lands in a style attribute and cannot follow the
+    theme - it is decided before the browser knows which palette applies."""
+    import re
+    page = client.get(f"/verify/{client.valid}").text
+    stray = sorted(set(re.findall(r'style="[^"]*?(#[0-9a-fA-F]{6})', page)))
+    assert not stray, f"literal hex in a style attribute: {stray}"
+
+
+def test_the_badge_keeps_literal_colours(client):
+    """The opposite rule, and the reason is the opposite too: a badge renders
+    inside a THIRD PARTY's page, where our tokens do not exist and their theme is
+    not ours to follow. var() there would resolve to nothing."""
+    import re
+    svg = client.get(f"/badge/{client.valid}.svg").text
+    assert re.search(r'#[0-9a-fA-F]{6}', svg), "badge must carry literal colours"
+    assert "var(--" not in svg, "a badge cannot reference our CSS variables"

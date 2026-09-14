@@ -317,7 +317,29 @@ def _status(cert: dict) -> dict:
 
 
 _BASE = "https://theprovingground.io"
-_TIER_COLOR = {"Elite": "#e0b24c", "Premium": "#1ec9a8", "Standard": "#93a09c"}
+# ⛔ CSS VARIABLES, NOT HEX. A colour chosen in Python and written into a style
+# attribute cannot follow the theme: it is decided before the browser knows which
+# palette applies. These resolve per-theme like everything else, and their values
+# are index.html's for both.
+# ⛔ TWO MAPS, BECAUSE THE PAGE AND THE BADGE HAVE OPPOSITE REQUIREMENTS, AND ONE
+# MAP SERVING BOTH BREAKS WHICHEVER ONE IT WAS NOT WRITTEN FOR.
+#
+# The PAGE must use tokens: a colour chosen in Python lands in a style attribute
+# and is decided before the browser knows which palette applies, so it cannot
+# follow the theme.
+#
+# The BADGE must use literals: it renders inside a THIRD PARTY's page via <img>,
+# where our tokens do not exist. var() there resolves to nothing and the value
+# block renders unfilled - and an <img> reports no error, so it fails silently on
+# someone else's site.
+#
+# I made exactly that mistake: converting the map for the page's sake silently
+# broke every badge. Caught by a test asserting the badge carries literal hex.
+_TIER_TOKEN = {"Elite": "var(--tier-elite)", "Premium": "var(--tier-premium)",
+               "Standard": "var(--tier-standard)"}
+_TIER_TOKEN_FALLBACK = "var(--tier-standard)"
+_TIER_HEX = {"Elite": "#e0b24c", "Premium": "#1ec9a8", "Standard": "#93a09c"}
+_TIER_HEX_FALLBACK = "#93a09c"
 
 # Bounded deliberately. A badge cached for a year cannot expire, which would
 # defeat the whole mechanism; an hour is short enough that a lapse shows up the
@@ -334,11 +356,35 @@ def _cert_html(c: dict | None, code: str) -> tuple[str, int]:
         '<meta name="robots" content="noindex">'
         f'<title>Verify {code} &middot; The Proving Ground</title>'
         '<style>'
+        # ⛔ THREE THEME STATES, AND THE VALUES ARE index.html's, NOT A COPY I CHOSE.
+        #
+        # This page shipped dark-only while the rest of the site honours
+        # prefers-color-scheme, so a visitor on a light OS got a dark certificate
+        # from an otherwise light site - and the certificate is the page a buyer
+        # is most likely to open in a second tab beside the board.
+        #
+        # Dark on bare :root (the site's default), light under a light OS, and
+        # [data-theme] wins over both in either direction. Every colour is defined
+        # on bare :root first: a token whose only definition sits inside a media
+        # block does not exist in the un-stamped state.
         ':root{--ground:#0f1518;--panel:#151d20;--hair:#26312f;--ink:#e4ded4;'
         '--muted:#828a86;--faint:#566058;--accent:#1ec9a8;--warn:#d7a343;'
+        '--tier-standard:#93a09c;--tier-premium:#1ec9a8;--tier-elite:#e0b24c;'
         '--serif:ui-serif,"Iowan Old Style","Palatino Linotype",Georgia,serif;'
         '--sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;'
         '--mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,Consolas,monospace}'
+        '@media(prefers-color-scheme:light){:root:not([data-theme="dark"]){'
+        '--ground:#f2f4f2;--panel:#ffffff;--hair:#dce1de;--ink:#131c1b;'
+        '--muted:#5f6a66;--faint:#9aa39e;--accent:#0d9a80;--warn:#b7842a;'
+        '--tier-standard:#7b857f;--tier-premium:#0d9a80;--tier-elite:#b8862f}}'
+        ':root[data-theme="light"]{'
+        '--ground:#f2f4f2;--panel:#ffffff;--hair:#dce1de;--ink:#131c1b;'
+        '--muted:#5f6a66;--faint:#9aa39e;--accent:#0d9a80;--warn:#b7842a;'
+        '--tier-standard:#7b857f;--tier-premium:#0d9a80;--tier-elite:#b8862f}'
+        ':root[data-theme="dark"]{'
+        '--ground:#0f1518;--panel:#151d20;--hair:#26312f;--ink:#e4ded4;'
+        '--muted:#828a86;--faint:#566058;--accent:#1ec9a8;--warn:#d7a343;'
+        '--tier-standard:#93a09c;--tier-premium:#1ec9a8;--tier-elite:#e0b24c}'
         '*{box-sizing:border-box}'
         'body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);'
         'line-height:1.6;-webkit-font-smoothing:antialiased}'
@@ -395,7 +441,7 @@ def _cert_html(c: dict | None, code: str) -> tuple[str, int]:
             '</div>' + foot, 404)
 
     cur = c["status"] == "current"
-    tier_c = _TIER_COLOR.get(c.get("tier", ""), "#93a09c")
+    tier_c = _TIER_TOKEN.get(c.get("tier", ""), _TIER_TOKEN_FALLBACK)
     pill = (
         f'<span class="pill" style="color:{tier_c};border-color:{tier_c}">'
         f'{c.get("tier", "Graded")} &middot; current</span>'
@@ -473,7 +519,7 @@ def _badge_svg(c: dict | None, code: str) -> str:
         # badge is less honest than the page it links to.
         label, val, col = "proving ground / capped", f'{c["composite"]:.0f} of {c["cap"]:.0f}', "#d7a343"
     elif c["status"] == "current":
-        label, val, col = "the proving ground", f'{c["composite"]}/100', _TIER_COLOR.get(c.get("tier", ""), "#1ec9a8")
+        label, val, col = "the proving ground", f'{c["composite"]}/100', _TIER_HEX.get(c.get("tier", ""), "#1ec9a8")
     else:
         label, val, col = "proving ground / expired", f'{c["composite"]} ({c["graded_at"]})', "#d7a343"
 

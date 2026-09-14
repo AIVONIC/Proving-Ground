@@ -41,7 +41,29 @@ VALIDITY_DAYS = 90          # matches the site; see methodology #13
 
 
 def code_for(agent_id: str) -> str:
-    """Stable for the life of the agent. Survives every re-grade."""
+    """Stable for the life of the agent. Survives every re-grade.
+
+    ⛔ WHY THIS IS OPAQUE RATHER THAN THE VENDOR'S NAME, WHICH IS THE OBVIOUS
+    DESIGN AND IS WRONG FOR EVERY AGENT CURRENTLY ON THE BOARD.
+
+    `theprovingground.io/verify/dify` reads as "Dify is verified here". But every
+    graded agent today is a REFERENCE BUILD: we configured it ourselves on the
+    vendor's platform, with our model and our system prompt. The cohort band, the
+    scorecard header and the methodology page each say so in as many words - and a
+    URL would quietly contradict all three, because a URL is the part that gets
+    pasted into a deck without the paragraph underneath it.
+
+    That is the same misattribution the Onyx withholding exists to prevent, one
+    layer up. An opaque code claims nothing about anybody.
+
+    The readable slug is RIGHT, and should be added, the moment an agent is the
+    vendor's own submission rather than our build of their platform - then the
+    name is theirs to claim and a code is just friction. The distinction already
+    exists in the data as `reference` / `self_operated`; gate on that, never on
+    convenience. Whatever is added, THIS code keeps resolving forever: it is
+    printed on scorecards already sent, and a certificate URL that stops working
+    is worse than an ugly one.
+    """
     return "pg-" + hashlib.sha256(f"cert|{agent_id}".encode()).hexdigest()[:8]
 
 
