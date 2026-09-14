@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class AuthConfig(BaseModel):
@@ -50,14 +50,39 @@ class SessionConfig(BaseModel):
 
     On the first reply we read the id from ``capture_path`` and send it back on
     every subsequent call at ``send_in`` / ``send_key``. ``reset`` drops it so the
-    next call starts a new session.
+    next call starts a new session. With ``generate`` the id is minted locally at
+    the start of each conversation instead, and sent from the FIRST call.
     """
 
-    capture_path: str  # dot-path into the JSON response, e.g. "session_id" or "data.conversation.id"
+    # ⛔ EXACTLY ONE OF capture_path / generate.
+    #
+    # `capture_path` reads a server-minted id out of the first reply. That is the
+    # common shape and it assumes the server mints a NEW id per conversation.
+    #
+    # `generate` mints one CLIENT-side at the start of each conversation, for
+    # servers that do not. Langflow is the case that forced it: omit session_id
+    # and it echoes back the FLOW id, which is constant - so capturing it threads
+    # every conversation in the run into one server-side session. That grades the
+    # platform on a transcript made of other conversations. Measured 2026-09-14 on
+    # Langflow: memory 5.91, honesty 5.66, instruction-following 5.67, and the
+    # replies were the agent confused about who it was talking to. It scored 79.32
+    # and the number was about the harness.
+    capture_path: str | None = None
+    generate: bool = False
     # ``url`` means the id is threaded only by substituting it into
     # ``RestAdapterConfig.session_endpoint``; nothing is added to body/header/query.
     send_in: Literal["body", "header", "query", "url"] = "body"
     send_key: str = "session_id"
+
+    @model_validator(mode="after")
+    def _one_source(self):
+        if bool(self.capture_path) == bool(self.generate):
+            raise ValueError(
+                "session needs exactly one of capture_path or generate. Neither "
+                "means {{session_id}} is never substituted and the literal "
+                "template string is sent as the id; both is ambiguous. The first "
+                "silently threads an entire run into one session.")
+        return self
 
 
 class LoginConfig(BaseModel):

@@ -8,7 +8,14 @@
     "output_type": "chat",
     "input_type": "chat"
   },
-  "history": { "mode": "server_session" },
+  "history": {
+    "mode": "server_session"
+  },
+  "session": {
+    "generate": true,
+    "send_in": "body",
+    "send_key": "session_id"
+  },
   "response_text_path": "outputs.0.outputs.0.results.message.text",
   "timeout_s": 120.0
 }

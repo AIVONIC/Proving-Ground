@@ -7,6 +7,7 @@ code: request shape, response extraction, and session threading are all data.
 from __future__ import annotations
 
 import copy
+import uuid
 import time
 from typing import Any
 
@@ -101,11 +102,22 @@ class RestApiAdapter(AgentAdapter):
         self._client = client or httpx.AsyncClient(timeout=config.timeout_s)
         self._owns_client = client is None
         self._session_id: str | None = None
+        if config.session is not None and config.session.generate:
+            self._session_id = f"pg-{uuid.uuid4().hex[:16]}"
         # Header obtained by logging in; None until the first login.
         self._login_header: tuple[str, str] | None = None
 
     async def reset(self) -> None:
-        self._session_id = None
+        # A generated id is minted HERE, at the start of each conversation, so the
+        # very first request already carries it. Capturing cannot do that: it has
+        # to send one turn without an id, and a server that answers with a
+        # CONSTANT (Langflow echoes the flow id) then threads the whole run into
+        # one session.
+        cfg = self.config.session
+        if cfg is not None and cfg.generate:
+            self._session_id = f"pg-{uuid.uuid4().hex[:16]}"
+        else:
+            self._session_id = None
 
     async def aclose(self) -> None:
         if self._owns_client:
@@ -321,7 +333,7 @@ class RestApiAdapter(AgentAdapter):
             return AgentReply("", latency_ms, error=f"{type(e).__name__}: {e}")
 
         # Capture a server session id on first reply.
-        if cfg.session and self._session_id is None:
+        if cfg.session and cfg.session.capture_path and self._session_id is None:
             captured = dig(data, cfg.session.capture_path)
             if captured is not None:
                 self._session_id = str(captured)
