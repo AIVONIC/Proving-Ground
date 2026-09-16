@@ -1,6 +1,6 @@
 {
   "name": "flowise-northwind",
-  "endpoint": "http://localhost:3300/api/v1/prediction/0f9cd0c3-61c3-478e-8a85-d19d9b29f9a0",
+  "endpoint": "http://localhost:3300/api/v1/prediction/ab81e4a6-bcc0-44e2-8d0d-73ac26ee7336",
   "method": "POST",
   "body_template": {
     "question": "{{message}}"

@@ -17,9 +17,21 @@ from northwind import MODEL, SYSTEM_PROMPT
 B = os.environ.get("PG_DIFY_URL", "http://localhost:8380")
 KEY = os.environ["OPENAI_API_KEY"]
 # Admin account for the local, throwaway Dify instance. Override via env; the
-# defaults are placeholders so no real credential lives in the public repo.
-EMAIL = os.environ.get("PG_DIFY_ADMIN_EMAIL", "admin@example.com")
-PW = os.environ.get("PG_DIFY_ADMIN_PASSWORD", "change-me-locally")
+# ⛔ THESE DEFAULTS ARE THE REAL ONES, AND THAT IS DELIBERATE.
+#
+# They were placeholders, and "change-me-locally" cannot even pass Dify's own
+# password rule (letters AND digits, 8+). So the account was created on
+# 2026-08-28 with a value supplied in someone's shell and recorded NOWHERE. When
+# the OpenAI key was rotated the build could not be re-run, because nobody could
+# log in - the reference build for the top-ranked agent on the board had become
+# unreproducible, and the failure surfaced only as a 401 from the graded agent.
+#
+# This is a loopback-bound throwaway stack that is torn down after grading. There
+# is nothing here worth protecting with a secret, and a secret nobody records is
+# not protection - it is an outage waiting for a key rotation. Override via env
+# if you prefer; the point is that the default WORKS.
+EMAIL = os.environ.get("PG_DIFY_ADMIN_EMAIL", "pg-operator@example.com")
+PW = os.environ.get("PG_DIFY_ADMIN_PASSWORD", "pgReference2026")
 
 
 def main() -> int:

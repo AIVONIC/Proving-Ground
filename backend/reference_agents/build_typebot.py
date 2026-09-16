@@ -217,6 +217,21 @@ def main() -> int:
 
     psql(f"""
 BEGIN;
+-- ⛔ IDEMPOTENT: every other build script in this directory can be re-run, and
+-- this one could not. It failed on a unique-key collision the moment the bot
+-- already existed, which is exactly when you need to rebuild - the OpenAI key
+-- baked into the Credentials row goes stale on rotation, and the only fix is to
+-- build again. "Reproducible: rerun to rebuild identically" was not true here.
+--
+-- Deleting the Typebot cascades to PublicTypebot; Credentials and the workspace
+-- are removed explicitly because they are what holds the stale key.
+DELETE FROM "PublicTypebot" WHERE "typebotId" IN
+  (SELECT id FROM "Typebot" WHERE "publicId" = {q(PUBLIC_ID)});
+DELETE FROM "Typebot" WHERE "publicId" = {q(PUBLIC_ID)};
+DELETE FROM "Credentials" WHERE name = 'pg-openai';
+DELETE FROM "MemberInWorkspace" WHERE "workspaceId" IN
+  (SELECT id FROM "Workspace" WHERE name = 'Proving Ground reference');
+DELETE FROM "Workspace" WHERE name = 'Proving Ground reference';
 INSERT INTO "User" (id, email, name, "onboardingCategories")
   VALUES ({q(user_id)}, 'pg-operator@example.com', 'PG Operator', '[]'::jsonb)
   ON CONFLICT (email) DO NOTHING;
