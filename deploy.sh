@@ -165,6 +165,15 @@ rm -f "$_lb_tmp"
 # neither. Nothing else on this site would surface it.
 ( cd "$REPO/backend" && python3 -m pytest tests/test_seo_integrity.py -q >/dev/null 2>&1 ) \
   || fail "canonical or sitemap points at a redirect; not publishing"
+# A published page must be a DOCUMENT, not a fragment. The lander was served as a
+# bare fragment (no doctype, no <html>, no <head>, no <body>) for some time: every
+# browser rendered it correctly, and LinkedIn's preview fetcher would not build a
+# card for it. It was repaired on the SERVER on 2026-09-16 and the repair did not
+# come back to the repo, so this deploy would have overwritten the fix with the
+# fragment again -- rsync has no opinion about whether a file is a valid document.
+( cd "$REPO/backend" && python3 -m pytest tests/test_document_structure.py -q >/dev/null 2>&1 ) \
+  || fail "a published page is not a complete HTML document; not publishing"
+
 # ⛔ THE EMBARGOED TAXONOMY MAY NOT REACH THE PUBLIC SITE.
 #
 # The manifest is a whitelist, so leaving taxonomy.html out of it is already enough to
