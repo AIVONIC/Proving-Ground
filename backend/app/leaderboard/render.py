@@ -521,7 +521,7 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
         # vendor's own transcripts and is placed by hand, so most rows have no slug --
         # but the certificate is public by design, and a row a buyer cannot verify is
         # the same dead end the scorecard link exists to fix.
-        + (f'<a class="sc-link sc-verify" href="/verify/{code_for(e["id"])}">Verify this grade</a>'
+        + (f'<a class="sc-link sc-verify" href="/verify/{e["id"]}">Verify this grade</a>'
            if e.get("composite") is not None and e.get("graded_at") else '')
         + '</div>'
     )

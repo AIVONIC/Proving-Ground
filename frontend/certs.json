@@ -2,6 +2,7 @@
   "certificates": {
     "pg-35f90701": {
       "agent": "CrewAI",
+      "alias": "crewai-northwind",
       "cap": null,
       "capped": false,
       "capped_from": null,
@@ -30,6 +31,7 @@
     },
     "pg-5d2a5270": {
       "agent": "Langflow",
+      "alias": "langflow-northwind",
       "cap": null,
       "capped": false,
       "capped_from": null,
@@ -58,6 +60,7 @@
     },
     "pg-6cd57bac": {
       "agent": "SPARK",
+      "alias": "spark",
       "cap": null,
       "capped": false,
       "capped_from": null,
@@ -98,6 +101,7 @@
     },
     "pg-bc2bf044": {
       "agent": "Dify",
+      "alias": "dify-northwind",
       "cap": null,
       "capped": false,
       "capped_from": null,
@@ -126,6 +130,7 @@
     },
     "pg-ca2fb3de": {
       "agent": "Flowise",
+      "alias": "flowise-northwind",
       "cap": null,
       "capped": false,
       "capped_from": null,
@@ -154,6 +159,7 @@
     },
     "pg-cf8243a6": {
       "agent": "Typebot",
+      "alias": "typebot-northwind",
       "cap": null,
       "capped": false,
       "capped_from": null,

@@ -92,6 +92,18 @@ def build(entries: list[dict]) -> dict:
                 capped_from = round(unc, 2)
         certs[code_for(e["id"])] = {
             "code": code_for(e["id"]),
+            # ⛔ READABLE, AND IT NAMES THE BUILD RATHER THAN THE VENDOR.
+            #
+            # /verify/dify would read as "Dify is verified here" and every agent on
+            # this board is our own reference build, so that is a claim about
+            # somebody else's product. /verify/dify-northwind is the Northwind
+            # reference agent built on Dify, which is exactly what it is - and it
+            # matches the scorecard slug convention already in use.
+            #
+            # The hex code keeps resolving forever: it is printed on scorecards
+            # already sent, and a certificate URL that stops working is worse than
+            # an ugly one. This is an ALIAS, never a replacement.
+            "alias": e["id"],
             "agent": e["name"],
             "vendor": e.get("vendor", ""),
             "platform_version": e.get("platform_version") or "",

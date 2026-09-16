@@ -302,20 +302,23 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
 </div>"""
     elif entry.get("composite") is not None and entry.get("graded_at"):
         _code = code_for(entry["id"])
+        _alias = entry["id"]      # readable, names the build, resolves identically
         cert_block = f"""
 <div class="rp-cert">
   <h3>Your certificate</h3>
   <p>This grade is verifiable by anyone at
-  <a href="https://theprovingground.io/verify/{_code}">theprovingground.io/verify/{_code}</a>,
+  <a href="https://theprovingground.io/verify/{_alias}">theprovingground.io/verify/{_alias}</a>,
   which answers in plain English and as JSON. The code is yours permanently &mdash; it survives
   a re-grade, so a link you publish today still resolves after your next one.</p>
   <p>The mark is served, not downloaded, on purpose: it reads current while the grade is current,
   and marks itself expired afterwards &mdash; so you are never left displaying a claim that has
   quietly stopped being true. Embed it with:</p>
-  <pre><code>&lt;a href="https://theprovingground.io/verify/{_code}"&gt;
-  &lt;img src="https://theprovingground.io/badge/{_code}.svg"
+  <pre><code>&lt;a href="https://theprovingground.io/verify/{_alias}"&gt;
+  &lt;img src="https://theprovingground.io/badge/{_alias}.svg"
        alt="Proving Ground grade for {name}"&gt;
 &lt;/a&gt;</code></pre>
+  <p class="rp-omitted">This also resolves at <code>/verify/{_code}</code>, which is permanent and
+  never changes. Either address works; the readable one is easier to paste.</p>
 </div>"""
 
     body = f"""<main class="rp-wrap">

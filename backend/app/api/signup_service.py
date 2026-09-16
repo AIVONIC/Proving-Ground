@@ -564,11 +564,21 @@ def _badge_svg_unavailable() -> str:
 
 
 def _lookup(code: str):
-    """`None` = never issued. `_UNAVAILABLE` = we cannot answer right now."""
+    """`None` = never issued. `_UNAVAILABLE` = we cannot answer right now.
+
+    Resolves EITHER the permanent hex code or the readable alias. Both are real
+    addresses for the same certificate: the alias is what anyone would type or
+    paste, the code is what is already printed on scorecards that have been sent,
+    and a URL we have handed someone must never stop working.
+    """
     certs = _load_certs()
     if certs is None:
         return _UNAVAILABLE
-    c = certs.get("certificates", {}).get(code.strip().lower())
+    key = code.strip().lower()
+    table = certs.get("certificates", {})
+    c = table.get(key)
+    if c is None:
+        c = next((v for v in table.values() if (v.get("alias") or "").lower() == key), None)
     return _status(c) if c else None
 
 

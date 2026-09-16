@@ -234,3 +234,37 @@ def test_the_badge_keeps_literal_colours(client):
     svg = client.get(f"/badge/{client.valid}.svg").text
     assert re.search(r'#[0-9a-fA-F]{6}', svg), "badge must carry literal colours"
     assert "var(--" not in svg, "a badge cannot reference our CSS variables"
+
+
+def test_both_the_code_and_the_readable_alias_resolve(client):
+    """Two addresses, one certificate. The alias is what anyone pastes; the code
+    is already printed on scorecards that have been sent, so it must never stop
+    working."""
+    from app.leaderboard.certs import build
+    from app.leaderboard.store import load
+    certs = build(load())["certificates"]
+    c = certs[client.valid]
+    alias = c["alias"]
+    by_code = client.get(f"/verify/{c['code']}.json").json()
+    by_alias = client.get(f"/verify/{alias}.json").json()
+    assert by_code["code"] == by_alias["code"] == c["code"]
+    assert by_code["composite"] == by_alias["composite"]
+    assert client.get(f"/badge/{alias}.svg").status_code == 200
+
+
+def test_the_alias_names_the_build_not_the_vendor(client):
+    """⛔ /verify/dify would read as "Dify is verified here", and every agent on
+    this board is our own reference build. The alias is the agent id, which names
+    the build: dify-northwind. When a VENDOR submits their own agent its id is
+    theirs and the bare name becomes correct - gate on ownership, never on how the
+    URL looks."""
+    from app.leaderboard.certs import build
+    from app.leaderboard.store import load
+    for e in load():
+        if not e.get("reference"):
+            continue
+        alias = e["id"]
+        vendor_word = e["name"].lower()
+        assert alias.lower() != vendor_word, (
+            f"reference build {e['name']} has alias {alias!r}, which reads as a "
+            f"claim about the vendor's own product")
