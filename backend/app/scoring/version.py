@@ -79,6 +79,29 @@ def comparable(a: str | None, b: str | None) -> bool:
     return bool(a) and bool(b) and a == b
 
 
+#: How an absent id is stated. A grade taken before the identifier existed carries
+#: none, and the reader must be told that plainly rather than shown a blank: a
+#: missing field reads as "nothing to say here", when what it means is "this number
+#: may not be compared with the one next to it".
+NO_ID_PHRASE = ("not recorded {dash} predates scoring-config tracking, so this score is "
+                "{b}not directly comparable{b_}to one carrying an id")
+
+
+def describe_identity(composite: str | None, *, html: bool = False) -> str:
+    """One sentence naming the scoring configuration a grade was computed under.
+
+    Shared by every surface that shows it -- the certificate verification page and
+    the per-agent scorecard -- because it is a claim about comparability made to a
+    buyer, and two hand-written copies of such a claim drift on whichever page
+    nobody re-reads. Exactly the reason the conflict disclosure has one definition.
+    """
+    if composite:
+        return f"<code>{composite}</code>" if html else composite
+    if html:
+        return NO_ID_PHRASE.format(dash="&mdash;", b="<b>", b_="</b> ")
+    return NO_ID_PHRASE.format(dash="-", b="", b_=" ")
+
+
 def describe() -> str:
     """One line for a report header or a page footer."""
     inputs = scoring_fingerprint_inputs()

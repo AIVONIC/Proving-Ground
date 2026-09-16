@@ -22,6 +22,10 @@ from fastapi import FastAPI, Header, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field, field_validator
 
+# The scoring identity's wording lives with the identity itself, so the verify
+# page and the per-agent scorecard cannot state comparability differently.
+from app.scoring.version import describe_identity
+
 STORE = Path(os.environ.get("PG_SIGNUP_STORE", "/opt/provingground/submissions.jsonl"))
 NOTIFY_TO = os.environ.get("PG_NOTIFY_TO", "christian@aivonic.ai")
 
@@ -493,10 +497,7 @@ def _cert_html(c: dict | None, code: str) -> tuple[str, int]:
                if c.get("capped") else "")),
         ("Tools exercised", ", ".join(c.get("tools_verified") or []) or "none"),
         ("On the board", "yes" if c.get("ranked") else "no &mdash; recused, see the board"),
-        ("Scoring config", (f'<code>{c["composite_id"]}</code>' if c.get("composite_id")
-                            else 'not recorded &mdash; predates scoring-config tracking, '
-                                 'so this score is <b>not directly comparable</b> to one '
-                                 'carrying an id')),
+        ("Scoring config", describe_identity(c.get("composite_id"), html=True)),
         ("Code", f'<code>{c["code"]}</code>'),
     ]
     return (

@@ -55,3 +55,12 @@ frontend/scorecards/
 # Execution-sandbox run artifacts, same class as data/runs/ above: generated,
 # and they carry agent transcripts.
 backend/data/exec_runs/
+
+# The FULL reproducibility record names the held-out probes whose verdicts moved,
+# which is the useful thing internally and the one thing that must not be
+# published: those ids come from backend/data/private/, the moat ignored above.
+# An id like security/adv_exf_12 reveals nothing of a probe's content and does
+# reveal that the held-out set holds at least twelve exfiltration probes.
+# The redacted companion (measurements.public.json) carries the same rates,
+# bounds, drift and spend with movements reported per DIMENSION, and IS committed.
+backend/data/reproducibility/measurements.json

@@ -30,6 +30,7 @@ from pathlib import Path
 
 from app.leaderboard.render import DIMS, PAGE_CSS, PREMIUM_FLOOR, radar_svg, site_bar
 from app.judges.coverage import DISPLAY as PANEL_DISPLAY, panel_phrase
+from app.scoring.version import METHODOLOGY_VERSION, describe_identity
 from app.leaderboard.store import load, load_published
 
 DIM_KEYS = {k: full for _short, k, full in DIMS}
@@ -232,6 +233,11 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
     # The PANEL is who took part. Coverage is disclosed per dimension below,
     # because it genuinely varies and a single figure cannot say so.
     panel = html.escape(panel_phrase(entry.get("judge_panel") or entry.get("judge_labs") or []))
+    # The configuration this grade was computed under, stated in the same words the
+    # certificate uses because it is the same claim about comparability. A card is
+    # what a vendor forwards to a buyer, so it cannot be quieter about this than the
+    # certificate that buyer might check instead.
+    scoring_identity = describe_identity(entry.get("composite_id"), html=True)
     shortfall = entry.get("judge_shortfall") or {}
     panel_note = ""
     if shortfall:
@@ -362,7 +368,9 @@ one time in three is the one worth reading.</p>
 {cert_block}
 
 <p class="rp-foot">Judge agreement {conf.get('judge_agreement',{}).get('overall','n/a')} &middot;
-cross-run variance {conf.get('variance','n/a')} &middot; scorecard {slug}.
+cross-run variance {conf.get('variance','n/a')} &middot; scorecard {slug}.<br>
+Scoring config {scoring_identity} &middot; methodology v{html.escape(str(entry.get('methodology_version') or METHODOLOGY_VERSION))}.
+A score may only be compared with another carrying the same scoring config.<br>
 Grades expire after 90 days because agents drift.</p>
 </main>"""
     return head + bar + body + "</body></html>"
