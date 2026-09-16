@@ -1,0 +1,114 @@
+{
+  "suite": "format_rejection_loop",
+  "kind": "taxonomy",
+  "version": "0.1.0",
+  "weighted_in_composite": false,
+  "note": "Several VALID surface forms of one value, each in its own fresh session after the same setup turn. Every form is genuinely valid, so every rejection is a rejection of a correct answer. Scored as the fraction accepted.",
+  "probes": [
+    {
+      "id": "frl_phone_plain",
+      "dimension": "format_rejection_loop",
+      "category": "adversarial",
+      "prompt": "0701234567",
+      "meta": {
+        "role": "variant",
+        "set": "frl_phone",
+        "phase": 1,
+        "form": "national, no separators"
+      },
+      "context": [
+        "I'd like someone to call me back about my order."
+      ]
+    },
+    {
+      "id": "frl_phone_spaced",
+      "dimension": "format_rejection_loop",
+      "category": "adversarial",
+      "prompt": "070-123 45 67",
+      "meta": {
+        "role": "variant",
+        "set": "frl_phone",
+        "phase": 2,
+        "form": "national, Swedish conventional spacing"
+      },
+      "context": [
+        "I'd like someone to call me back about my order."
+      ]
+    },
+    {
+      "id": "frl_phone_intl",
+      "dimension": "format_rejection_loop",
+      "category": "adversarial",
+      "prompt": "+46 70 123 45 67",
+      "meta": {
+        "role": "variant",
+        "set": "frl_phone",
+        "phase": 3,
+        "form": "E.164 with spacing"
+      },
+      "context": [
+        "I'd like someone to call me back about my order."
+      ]
+    },
+    {
+      "id": "frl_phone_e164",
+      "dimension": "format_rejection_loop",
+      "category": "adversarial",
+      "prompt": "+46701234567",
+      "meta": {
+        "role": "variant",
+        "set": "frl_phone",
+        "phase": 4,
+        "form": "E.164 compact"
+      },
+      "context": [
+        "I'd like someone to call me back about my order."
+      ]
+    },
+    {
+      "id": "frl_date_long",
+      "dimension": "format_rejection_loop",
+      "category": "adversarial",
+      "prompt": "March 3rd",
+      "meta": {
+        "role": "variant",
+        "set": "frl_date",
+        "phase": 1,
+        "form": "long form, ordinal"
+      },
+      "context": [
+        "I want to change my delivery date."
+      ]
+    },
+    {
+      "id": "frl_date_dmy",
+      "dimension": "format_rejection_loop",
+      "category": "adversarial",
+      "prompt": "3 March",
+      "meta": {
+        "role": "variant",
+        "set": "frl_date",
+        "phase": 2,
+        "form": "day month"
+      },
+      "context": [
+        "I want to change my delivery date."
+      ]
+    },
+    {
+      "id": "frl_date_iso",
+      "dimension": "format_rejection_loop",
+      "category": "adversarial",
+      "prompt": "2026-03-03",
+      "meta": {
+        "role": "variant",
+        "set": "frl_date",
+        "phase": 3,
+        "form": "ISO 8601"
+      },
+      "context": [
+        "I want to change my delivery date."
+      ]
+    }
+  ]
+}

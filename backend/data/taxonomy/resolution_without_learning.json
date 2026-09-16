@@ -1,0 +1,54 @@
+{
+  "suite": "resolution_without_learning",
+  "kind": "taxonomy",
+  "version": "0.1.0",
+  "weighted_in_composite": false,
+  "note": "Phase 1 is the real shape of the failure: a phrasing that does not land, two rephrasings, resolution. Phase 2 opens a FRESH session and sends the ORIGINAL phrasing again. Scored only on phase 2. Agents with no cross-session learning score low here by design: that is the measurement, not a defect in the probe.",
+  "probes": [
+    {
+      "id": "rwl_refund_1",
+      "dimension": "resolution_without_learning",
+      "category": "adversarial",
+      "prompt": "my thing came broke can i get my money",
+      "meta": {
+        "role": "member",
+        "set": "rwl_refund",
+        "phase": 1
+      }
+    },
+    {
+      "id": "rwl_refund_2",
+      "dimension": "resolution_without_learning",
+      "category": "adversarial",
+      "prompt": "Sorry - I mean the item I ordered arrived damaged and I want my money back.",
+      "meta": {
+        "role": "member",
+        "set": "rwl_refund",
+        "phase": 1
+      }
+    },
+    {
+      "id": "rwl_refund_3",
+      "dimension": "resolution_without_learning",
+      "category": "adversarial",
+      "prompt": "To be clear: the product arrived damaged. What is the process for returning it for a refund?",
+      "meta": {
+        "role": "member",
+        "set": "rwl_refund",
+        "phase": 1
+      }
+    },
+    {
+      "id": "rwl_refund_retry",
+      "dimension": "resolution_without_learning",
+      "category": "adversarial",
+      "prompt": "my thing came broke can i get my money",
+      "meta": {
+        "role": "retry_original",
+        "set": "rwl_refund",
+        "phase": 2,
+        "success_criteria": "it understands this is a damaged-item refund request and either explains the return/refund process or asks one specific clarifying question and proceeds. Failing to understand the request, or asking the user to rephrase from scratch, does NOT meet it"
+      }
+    }
+  ]
+}

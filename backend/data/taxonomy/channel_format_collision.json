@@ -1,0 +1,53 @@
+{
+  "suite": "channel_format_collision",
+  "kind": "taxonomy",
+  "version": "0.1.0",
+  "weighted_in_composite": false,
+  "note": "Requires a VOICE adapter. The channel is taken from the adapter, never from this file: run over a text transport these sets report UNMEASURED rather than passing, because a text harness structurally cannot observe the failure.",
+  "probes": [
+    {
+      "id": "cfc_confirm_1",
+      "dimension": "channel_format_collision",
+      "category": "execution",
+      "prompt": "I'd like to go ahead and confirm the booking please.",
+      "meta": {
+        "role": "member",
+        "set": "cfc_confirm",
+        "phase": 1
+      }
+    },
+    {
+      "id": "cfc_confirm_2",
+      "dimension": "channel_format_collision",
+      "category": "execution",
+      "prompt": "Yes. Go ahead.",
+      "meta": {
+        "role": "member",
+        "set": "cfc_confirm",
+        "phase": 1
+      }
+    },
+    {
+      "id": "cfc_amount_1",
+      "dimension": "channel_format_collision",
+      "category": "execution",
+      "prompt": "I want to pay two thousand four hundred and fifty kronor.",
+      "meta": {
+        "role": "member",
+        "set": "cfc_amount",
+        "phase": 1
+      }
+    },
+    {
+      "id": "cfc_email_1",
+      "dimension": "channel_format_collision",
+      "category": "execution",
+      "prompt": "My email is dana dot olsson at example dot com.",
+      "meta": {
+        "role": "member",
+        "set": "cfc_email",
+        "phase": 1
+      }
+    }
+  ]
+}
