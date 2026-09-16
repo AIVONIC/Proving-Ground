@@ -189,6 +189,24 @@ def compare(a: ArmResult, b: ArmResult) -> dict:
     }
 
 
+def flip_rate_upper_bound(flips: int, n: int) -> float | None:
+    """95% upper bound on the true flip rate. None when n is 0.
+
+    A measured rate of 0.00% is not a claim that the rate IS zero -- it is a claim
+    that it is below what this many observations can resolve. Publishing the point
+    estimate without the bound invites a reader to take "0.00%" as "never happens",
+    which the sample does not support at any size. Zero events uses the rule of
+    three (3/n); anything else uses a normal approximation, which is adequate at
+    the sample sizes this runs at and is labelled so nobody mistakes it for exact.
+    """
+    if n <= 0:
+        return None
+    if flips == 0:
+        return round(3.0 / n, 4)
+    p = flips / n
+    return round(min(1.0, p + 1.96 * (p * (1 - p) / n) ** 0.5), 4)
+
+
 def summarise(control: dict, loaded: dict, *, concurrency: int) -> dict:
     """The reportable quantity: load effect NET of baseline judge nondeterminism."""
     if control.get("flip_rate") is None or loaded.get("flip_rate") is None:
@@ -201,6 +219,8 @@ def summarise(control: dict, loaded: dict, *, concurrency: int) -> dict:
     return {
         "baseline_flip_rate": control["flip_rate"],
         "loaded_flip_rate": loaded["flip_rate"],
+        "loaded_flip_rate_ci95_upper": flip_rate_upper_bound(loaded["flips"], loaded["n"]),
+        "baseline_flip_rate_ci95_upper": flip_rate_upper_bound(control["flips"], control["n"]),
         "concurrency_effect": effect,
         "concurrency": concurrency,
         "n_probes": loaded["n"],
@@ -243,6 +263,10 @@ def format_report(result: dict) -> str:
         f"  baseline flip rate  {_pct(s.get('baseline_flip_rate'))}   (A vs A', no load: judge nondeterminism)",
         f"  loaded flip rate    {_pct(s.get('loaded_flip_rate'))}   (A vs B, under concurrency)",
         f"  concurrency effect  {_pct(s.get('concurrency_effect'))}   <- the reportable number",
+        f"  95% upper bounds    loaded <= {_pct(s.get('loaded_flip_rate_ci95_upper'))}   "
+        f"control <= {_pct(s.get('baseline_flip_rate_ci95_upper'))}",
+        "                      (a measured 0.00% means 'below what this many probes can",
+        "                       resolve', never 'never happens')",
         "",
         f"  score drift         mean {result['loaded']['mean_abs_score_drift']}  "
         f"max {result['loaded']['max_abs_score_drift']}  "
@@ -252,6 +276,9 @@ def format_report(result: dict) -> str:
         "",
         f"  {s.get('verdict')}",
     ]
+    if result.get("spend", {}).get("usd_total") is not None:
+        lines.append(f"  measurement cost    ${result['spend']['usd_total']:.2f} across "
+                     f"{sum(v['calls'] for v in result['spend']['by_model'].values())} judge calls")
     if result["loaded"].get("flipped_probes"):
         lines.append(f"  flipped under load: {', '.join(result['loaded']['flipped_probes'][:8])}")
     return "\n".join(lines)
@@ -291,6 +318,8 @@ async def main_async(args) -> int:
 
     control = compare(arm_a, arm_ctl)
     loaded = compare(arm_a, arm_b)
+    from app.judges.judge import SPEND
+    spend = SPEND.summary()
     result = {
         "measured_on": date.today().isoformat(),
         "artifact": Path(args.artifact).name,
@@ -301,6 +330,7 @@ async def main_async(args) -> int:
         "control": control,
         "loaded": loaded,
         "summary": summarise(control, loaded, concurrency=args.concurrency),
+        "spend": spend,
         "note": args.note or "",
     }
     print(format_report(result))
