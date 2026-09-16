@@ -72,8 +72,14 @@ def test_the_cohort_page_states_the_number_it_actually_shows():
     if not p.exists():
         pytest.skip("cohort not generated")
     s = p.read_text(errors="replace")
-    names = ("Dify", "Typebot", "CrewAI", "Flowise", "Onyx", "SPARK")
-    shown = sum(1 for n in names if re.search(rf"\b{n}\b", s))
+    # ⛔ DERIVED, NOT LISTED. This was a hardcoded tuple of six names, and the day
+    # Langflow was promoted it counted four and demanded the page say "four" while
+    # the page correctly said "five". A test written to catch a stale literal,
+    # failing because of its own stale literal.
+    from app.leaderboard.store import load
+    names = [e["name"] for e in load()]
+    assert names, "no entries; this check cannot see its subject"
+    shown = sum(1 for n in names if re.search(rf"\b{re.escape(n)}\b", s))
     words = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six"}
     assert shown, "no platform columns found; the check cannot see the page"
     w = words[shown]
