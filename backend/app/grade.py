@@ -17,6 +17,7 @@ import dataclasses
 import json
 import os
 import time
+import sys
 from pathlib import Path
 
 from app.adapters.aivonic import aivonic_adapter

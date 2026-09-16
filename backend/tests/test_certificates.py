@@ -302,3 +302,24 @@ def test_the_certificate_says_when_a_score_is_not_comparable(client):
         assert "not directly comparable" in page, (
             "a grade with no scoring id must SAY it is not comparable, not stay silent")
     assert "comparable only when they carry the same scoring config" in page
+
+
+def test_grade_publishes_spend_and_can_actually_call_it():
+    """⛔ The cost page went eleven days stale because the push had no trigger.
+    grade.py publishes at the end of a run now - and this asserts the call can
+    RESOLVE, not just that the line exists. sys.executable was referenced with no
+    `import sys`, which compiles and imports fine and raises only at runtime,
+    after a three-hour grade has already completed."""
+    import ast
+    import inspect
+    from app import grade as g
+    src = inspect.getsource(g)
+    assert "publish_spend.py" in src, "grade.py does not publish spend"
+    names = {n.name for node in ast.walk(ast.parse(src))
+             if isinstance(node, ast.Import) for n in node.names}
+    for used in ("sys", "subprocess"):
+        if f"{used}." in src.split("publish_spend.py")[0][-800:]:
+            assert used in names or f"import {used}" in src, f"{used} used but not imported"
+    from pathlib import Path
+    assert (Path(inspect.getfile(g)).resolve().parents[1] / "scripts" / "publish_spend.py").exists(), \
+        "grade.py points at a publisher that does not exist"
