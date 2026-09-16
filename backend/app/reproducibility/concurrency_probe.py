@@ -181,6 +181,26 @@ def compare(a: ArmResult, b: ArmResult) -> dict:
         "flips": len(flips),
         "flip_rate": round(len(flips) / len(shared), 4),
         "flipped_probes": flips[:25],
+        # The SCORES on both sides of every flip, not just which probe flipped.
+        #
+        # Added after the first published measurement could not explain itself. It
+        # recorded three flipped probes and nothing about them, so the obvious
+        # hypothesis -- that an unstable probe is one sitting on the 0.6 pass
+        # threshold -- could not be tested against the run that produced it. It was
+        # tested against the ORIGINAL graded scores instead and turned out to be
+        # false for three of the four: they scored 0.75 to 0.95, comfortably
+        # passing, and still flipped. Which is a more interesting result than the
+        # hypothesis would have been, and the instrument could not see it.
+        #
+        # A measurement that records a rate but not the observations behind it can
+        # report that something happened and never why.
+        "flip_detail": [
+            {"probe": pid,
+             "a": {"score": round(a.verdicts[pid].score, 4), "passed": a.verdicts[pid].passed},
+             "b": {"score": round(b.verdicts[pid].score, 4), "passed": b.verdicts[pid].passed},
+             "delta": round(b.verdicts[pid].score - a.verdicts[pid].score, 4)}
+            for pid in flips[:25]
+        ],
         "critical_flips": len(crit),
         "mean_abs_score_drift": round(statistics.mean(drift), 4),
         "max_abs_score_drift": round(max(drift), 4),
@@ -233,6 +253,37 @@ def summarise(control: dict, loaded: dict, *, concurrency: int) -> dict:
 # ------------------------------------------------------------------- report
 
 MEASUREMENTS = BACKEND / "data" / "reproducibility" / "measurements.json"
+#: The redacted series that is published. See ``_redact`` for what comes out.
+PUBLIC_MEASUREMENTS = BACKEND / "data" / "reproducibility" / "measurements.public.json"
+
+
+def _redact(result: dict) -> dict:
+    """Strip held-out probe identity, keep everything that carries meaning.
+
+    The full record names the probes that flipped, which is the useful thing
+    internally and is exactly what must not be published: those ids come from the
+    PRIVATE suite, and the private suites are the moat this benchmark rests on. An
+    id like ``security/adv_exf_12`` does not reveal a probe's content, but it does
+    reveal that the held-out set contains at least twelve exfiltration probes, and
+    a graded vendor should learn nothing about the suite from a page about
+    reproducibility.
+
+    What survives is the DIMENSION each flip fell in, which is the part a reader
+    can act on -- it says where this pipeline is least stable without saying what
+    it asks. Rates, counts, bounds, drift and spend are unaffected.
+    """
+    import copy
+
+    out = copy.deepcopy(result)
+    for arm in ("control", "loaded"):
+        block = out.get(arm) or {}
+        flipped = block.pop("flipped_probes", []) or []
+        block.pop("flip_detail", None)
+        dims: dict[str, int] = {}
+        for pid in flipped:
+            dims[pid.split("/")[0]] = dims.get(pid.split("/")[0], 0) + 1
+        block["flipped_by_dimension"] = dict(sorted(dims.items()))
+    return out
 
 
 def record(result: dict, path: Path = MEASUREMENTS) -> Path:
@@ -248,6 +299,13 @@ def record(result: dict, path: Path = MEASUREMENTS) -> Path:
     series = json.loads(path.read_text()) if path.exists() else []
     series.append(result)
     path.write_text(json.dumps(series, indent=2) + "\n")
+
+    # The published series is written in the same call, from the same object. Two
+    # files updated by two commands drift the moment somebody runs one of them.
+    pub = path.parent / (path.stem + ".public.json")
+    pub_series = json.loads(pub.read_text()) if pub.exists() else []
+    pub_series.append(_redact(result))
+    pub.write_text(json.dumps(pub_series, indent=2) + "\n")
     return path
 
 
@@ -320,6 +378,14 @@ async def main_async(args) -> int:
     loaded = compare(arm_a, arm_b)
     from app.judges.judge import SPEND
     spend = SPEND.summary()
+    # Name the panel from the models that were actually BILLED, not from the class
+    # name of the wrapper. The first published run recorded its panel as
+    # "EnsembleJudge", which is the name of the object and tells a reader nothing
+    # about which labs graded it -- and the independence of the panel is the whole
+    # basis of the grade. The spend ledger records each model at the point of call,
+    # so it cannot claim a lab that never answered.
+    if spend.get("by_model"):
+        panel = sorted(spend["by_model"])
     result = {
         "measured_on": date.today().isoformat(),
         "artifact": Path(args.artifact).name,

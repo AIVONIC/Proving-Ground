@@ -35,7 +35,7 @@ from pathlib import Path
 
 from app.dimensions.taxonomy_catalog import describe_all
 from app.leaderboard.disclosure import DISCLOSURE_PARAGRAPHS, DISCLOSURE_TITLE, as_html, as_markdown
-from app.reproducibility.concurrency_probe import MEASUREMENTS
+from app.reproducibility.concurrency_probe import PUBLIC_MEASUREMENTS as MEASUREMENTS
 from app.scoring.version import METHODOLOGY_VERSION, composite_id
 
 BACKEND = Path(__file__).resolve().parents[2]
@@ -100,6 +100,20 @@ def _strip_own_measurement(text: str) -> str:
     return text[:i] + (text[j:] if j > 0 else "")
 
 
+def html_to_prose(html: str) -> str:
+    """Visible prose only: style and script CONTENTS removed, then tags stripped.
+
+    Stripping tags alone leaves the CSS inside <style> as text, and a stylesheet is
+    full of things shaped exactly like a rate -- width:100%, flex-basis:50%. The
+    gate read those as published frequency claims and refused a perfectly clean
+    page. The gate was right about what it was given; it was being given the
+    wrong thing. Nobody reads a stylesheet as a claim about deployments.
+    """
+    html = re.sub(r"(?is)<style\b.*?</style>", " ", html)
+    html = re.sub(r"(?is)<script\b.*?</script>", " ", html)
+    return re.sub(r"<[^>]+>", " ", html)
+
+
 def check_no_frequencies(text: str, *, gate_own_measurement: bool = False) -> list[str]:
     """Return every prohibited frequency claim. Empty list means clean.
 
@@ -153,13 +167,19 @@ def _measurement_lines(meas: dict) -> list[str]:
     out = []
     for m in meas["series"]:
         s = m.get("summary", {})
+        # Leads with the baseline, because that is the finding. Leading with the
+        # concurrency effect would put a 0.00% first and let a reader take away
+        # "reproducible", when what was measured is that a published verdict does
+        # not always survive a re-run of the identical input with nothing else
+        # happening. The unflattering half is the half that goes first.
         out.append(
-            f"{m['measured_on']}: verdict flip rate under concurrency "
-            f"{_pct(s.get('loaded_flip_rate'))} against a no-load control of "
-            f"{_pct(s.get('baseline_flip_rate'))} "
-            f"(net {_pct(s.get('concurrency_effect'))}), "
-            f"{s.get('n_probes', '?')} probes at concurrency {s.get('concurrency', '?')}, "
-            f"panel {', '.join(m.get('panel', []))}. {s.get('verdict', '')}"
+            f"{m['measured_on']}: {_pct(s.get('baseline_flip_rate'))} of verdicts changed "
+            f"between two identical sequential re-runs of the same fixed inputs, with no load "
+            f"at all (95% upper bound {_pct(s.get('baseline_flip_rate_ci95_upper'))}). Under "
+            f"concurrency {s.get('concurrency', '?')} the rate was "
+            f"{_pct(s.get('loaded_flip_rate'))}, a net concurrency effect of "
+            f"{_pct(s.get('concurrency_effect'))}: {s.get('verdict', '')}. "
+            f"{s.get('n_probes', '?')} probes, panel {', '.join(m.get('panel', []))}."
         )
     return out
 
@@ -379,7 +399,7 @@ def main() -> int:
     md = render_markdown()
     html = render_html(Path(args.lander).read_text())
 
-    for label, text in (("markdown", md), ("html", re.sub(r"<[^>]+>", " ", html))):
+    for label, text in (("markdown", md), ("html", html_to_prose(html))):
         bad = check_no_frequencies(text)
         if bad:
             raise SystemExit(
