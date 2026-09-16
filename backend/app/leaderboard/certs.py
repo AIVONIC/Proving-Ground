@@ -117,6 +117,12 @@ def build(entries: list[dict]) -> dict:
             "cap": CRITICAL_CAP if capped_from is not None else None,
             "capped_from": capped_from,
             "graded_at": e["graded_at"],
+            # ⛔ TWO SCORES ARE COMPARABLE ONLY UNDER THE SAME SCORING CONFIG, and a
+            # certificate is exactly where someone puts two numbers side by side.
+            # None means the grade predates the identifier: that reads as "not
+            # comparable", never as a match.
+            "composite_id": e.get("composite_id"),
+            "methodology_version": e.get("methodology_version"),
             "validity_days": VALIDITY_DAYS,
             "ranked": bool(e.get("ranked", True)),
             "tools_verified": e.get("tools_verified") or [],

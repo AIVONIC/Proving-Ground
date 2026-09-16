@@ -57,6 +57,13 @@ def entry_from_run(run: dict, meta: dict) -> dict:
         "tier": g["tier"],
         "subscores": {k: round(float(v), 2) for k, v in subs.items()},
         "critical_failures": int(g.get("critical_failures", 0)),
+        # Carried from the artifact, never recomputed here: recomputing would
+        # stamp today's configuration onto a measurement taken under another one,
+        # which is precisely the false equivalence the id exists to prevent.
+        # Absent on grades taken before the id existed, and that reads as "not
+        # comparable" rather than as a match.
+        "composite_id": g.get("composite_id"),
+        "methodology_version": g.get("methodology_version"),
         "runs": int(conf.get("runs", 1)),
         "ci95": [conf.get("ci95_low"), conf.get("ci95_high")],
         "graded_at": meta["graded_at"],

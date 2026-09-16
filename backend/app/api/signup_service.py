@@ -421,6 +421,10 @@ def _cert_html(c: dict | None, code: str) -> tuple[str, int]:
         f'<p>Machine-readable: <a href="{_BASE}/verify/{code}.json">{code}.json</a> '
         f'&middot; <a href="{_BASE}/methodology">how grading works</a> '
         f'&middot; <a href="{_BASE}/leaderboard/">the board</a></p>'
+        '<p>Two grades are comparable only when they carry the same scoring config id. '
+        'It is computed from the dimension set, the weights, the critical cap and the tier '
+        'gates, so any change that could move a published number changes it &mdash; nobody '
+        'has to remember to update it.</p>'
         '<p>A grade never expires; it is a dated measurement. What expires is the claim to be '
         'current, 90 days after the grade, because an agent changes and a stale number stops '
         'describing it. This page is generated when you load it, so it cannot go on asserting '
@@ -489,6 +493,10 @@ def _cert_html(c: dict | None, code: str) -> tuple[str, int]:
                if c.get("capped") else "")),
         ("Tools exercised", ", ".join(c.get("tools_verified") or []) or "none"),
         ("On the board", "yes" if c.get("ranked") else "no &mdash; recused, see the board"),
+        ("Scoring config", (f'<code>{c["composite_id"]}</code>' if c.get("composite_id")
+                            else 'not recorded &mdash; predates scoring-config tracking, '
+                                 'so this score is <b>not directly comparable</b> to one '
+                                 'carrying an id')),
         ("Code", f'<code>{c["code"]}</code>'),
     ]
     return (

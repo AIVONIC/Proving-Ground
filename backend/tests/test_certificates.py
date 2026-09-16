@@ -268,3 +268,37 @@ def test_the_alias_names_the_build_not_the_vendor(client):
         assert alias.lower() != vendor_word, (
             f"reference build {e['name']} has alias {alias!r}, which reads as a "
             f"claim about the vendor's own product")
+
+
+def test_a_grade_records_which_scoring_config_produced_it(client):
+    """⛔ scoring/version.py was written, committed, described as landed - and
+    imported by NOTHING. Every grade produced since carried no scoring identity,
+    so comparable() could never return anything but unknown. A version nobody
+    stamps does not exist.
+
+    The id belongs on the ARTIFACT at scoring time: that is the only moment the
+    configuration that produced the number is unambiguously the one in force.
+    Stamping it at promote time would record whatever the config happens to be
+    then, which is the false equivalence it exists to prevent.
+    """
+    import inspect
+    from app import grade as grade_mod
+    src = inspect.getsource(grade_mod)
+    assert "composite_id()" in src, (
+        "grade.py does not stamp composite_id; the identifier is inert and every "
+        "grade it writes is uncomparable by construction")
+    from app.leaderboard import promote
+    assert "composite_id" in inspect.getsource(promote), "promote drops the id"
+
+
+def test_the_certificate_says_when_a_score_is_not_comparable(client):
+    """A certificate is exactly where two numbers get put side by side."""
+    page = client.get(f"/verify/{client.valid}").text
+    j = client.get(f"/verify/{client.valid}.json").json()
+    assert "composite_id" in j, "certificate JSON omits the scoring config"
+    if j.get("composite_id"):
+        assert j["composite_id"] in page
+    else:
+        assert "not directly comparable" in page, (
+            "a grade with no scoring id must SAY it is not comparable, not stay silent")
+    assert "comparable only when they carry the same scoring config" in page

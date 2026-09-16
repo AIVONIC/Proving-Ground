@@ -23,6 +23,7 @@ from app.adapters.aivonic import aivonic_adapter
 from app.adapters import RestApiAdapter
 from app.adapters.config import RestAdapterConfig
 from app.pregrade import check_adapter
+from app.scoring.version import METHODOLOGY_VERSION, composite_id
 from app.adapters.socketio_adapter import aivonic_socketio_adapter
 from app.dimensions.catalog import REGISTRY
 from app.judges.coverage import judge_coverage, shortfall
@@ -141,7 +142,22 @@ def _write_run(agent: str, grade, all_dim_results) -> Path:
     ]
     path.write_text(json.dumps({
         "agent": agent,
-        "grade": dataclasses.asdict(grade),
+        # ⛔ STAMP THE SCORING IDENTITY ONTO THE MEASUREMENT ITSELF.
+        #
+        # scoring/version.py computes an id from the dimension set, the weights,
+        # the critical cap and the tier gates, so two composites are comparable if
+        # and only if they carry the same one. It was written, committed and
+        # described as landed - and imported by NOTHING, so every grade produced
+        # since carried no identity at all and the comparability check could never
+        # return anything but "unknown". A version nobody stamps is a version that
+        # does not exist.
+        #
+        # It goes on the ARTIFACT, at the moment of scoring, because that is the
+        # only place the configuration that produced the number is unambiguously
+        # the configuration in force. Adding it later at promote time would stamp
+        # whatever the config happens to be then.
+        "grade": {**dataclasses.asdict(grade), "composite_id": composite_id(),
+                  "methodology_version": METHODOLOGY_VERSION},
         "reliability": {
             "pass_k": pass_k_curve(all_dim_results),
             "by_difficulty": difficulty_breakdown(all_dim_results),
