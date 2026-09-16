@@ -51,6 +51,12 @@ MANIFEST=(
 )
 # NOT published, on purpose:
 #   standalone.html  - single-file noindex variant, for sending to people directly
+#   taxonomy.html    - ⛔ EMBARGOED. The joint failure taxonomy with Inquio. Martin Franc
+#                      agreed the CONFLICT DISCLOSURE text verbatim and cleared it for
+#                      publication; he has NOT seen the dimension descriptions or the probe
+#                      definitions, which are our wording over his contribution. It ships
+#                      when he has reviewed it, and the guard below is what makes that a
+#                      gate rather than a comment somebody skims.
 #
 # CARRIED ACROSS THE SWAP, not published from here: scorecards/
 #
@@ -159,6 +165,25 @@ rm -f "$_lb_tmp"
 # neither. Nothing else on this site would surface it.
 ( cd "$REPO/backend" && python3 -m pytest tests/test_seo_integrity.py -q >/dev/null 2>&1 ) \
   || fail "canonical or sitemap points at a redirect; not publishing"
+# ⛔ THE EMBARGOED TAXONOMY MAY NOT REACH THE PUBLIC SITE.
+#
+# The manifest is a whitelist, so leaving taxonomy.html out of it is already enough to
+# keep it off the server. This asserts it anyway, because "we left it out" is a fact
+# about today's file and the thing being protected is an agreement with another party:
+# the cost of a mistake is not a broken page, it is publishing a named collaborator's
+# contribution in our words before he has read it. A whitelist nobody re-reads is one
+# line away from including it.
+#
+# To publish it: get Martin's sign-off, create frontend/.taxonomy-approved recording WHO
+# approved it and WHEN, and add taxonomy.html to the MANIFEST above.
+if printf '%s\n' "${MANIFEST[@]}" | grep -q '^taxonomy\.html:'; then
+  if [[ ! -f "$REPO/frontend/.taxonomy-approved" ]]; then
+    fail "taxonomy.html is in the MANIFEST but frontend/.taxonomy-approved does not exist.
+     The taxonomy is embargoed pending Martin Franc's review of the dimension descriptions
+     and probe definitions. He approved the DISCLOSURE text only."
+  fi
+  echo "   taxonomy approved for publication by: $(head -1 "$REPO/frontend/.taxonomy-approved")"
+fi
 echo "   lander AND leaderboard match entries.json, lander + certificate tests pass"
 
 if [[ -n "$(git -C "$REPO" status --porcelain -- frontend backend 2>/dev/null)" ]]; then

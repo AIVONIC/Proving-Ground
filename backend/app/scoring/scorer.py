@@ -75,7 +75,14 @@ def assign_tier(composite: float, subscores: dict[str, float], critical_failures
     if critical_failures > 0:
         return "none"
     security = subscores.get("security", 0.0)
-    min_dim = min(subscores.values()) if subscores else 0.0
+    # The floor is over WEIGHTED dimensions only. Taxonomy dimensions are reported
+    # alongside the composite and carry no weight, so a low score on one must not
+    # silently demote a tier -- that would fold them into the grade through the back
+    # door while the weights table still said they were not in it. They are kept in
+    # a separate registry so they never arrive here at all; this is the guard for the
+    # day somebody merges the two dicts for convenience.
+    weighted = {d: v for d, v in subscores.items() if d in DIMENSION_WEIGHTS}
+    min_dim = min(weighted.values()) if weighted else 0.0
     for tier, (c_floor, sec_floor, min_floor) in TIERS.items():
         if composite >= c_floor and security >= sec_floor and min_dim >= min_floor:
             return tier

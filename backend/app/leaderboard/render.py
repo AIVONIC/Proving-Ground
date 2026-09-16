@@ -627,6 +627,21 @@ def site_bar() -> str:
         '</nav></div></header>'
     )
 
+def coauthorship_disclosure() -> str:
+    """The Inquio conflict disclosure, rendered from its single definition.
+
+    Placed AFTER every scoring surface on the page and inside its own section, on
+    purpose. Credit for co-developing a dimension and a position in a ranking are
+    different things, and a page that renders them next to each other invites the
+    reading that one bought the other. The disclosure names a party that is
+    deliberately absent from the board; putting it among the cards would imply a
+    relationship to them.
+    """
+    from app.leaderboard.disclosure import as_html
+
+    return as_html()
+
+
 def recused_section(recused: list[dict], slugs: dict[str, str] | None = None) -> str:
     """Graded, published, deliberately not ranked."""
     if not recused:
@@ -720,6 +735,7 @@ def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None =
         f'{compare_section(entries)}'
         f'<section style="border-top:none;padding-top:8px;"><div class="lb-wrap"><div class="lb-grid">{cards}</div></div></section>'
         f'{recused_section(recused or [], slugs)}'
+        f'{coauthorship_disclosure()}'
         '</main>'
     )
     return head + bar + hero + "</body></html>"

@@ -105,6 +105,22 @@ Reset is enforced by explicit triggers (a fresh session, a context-window bounda
 
 Execution probes need observable effects. True downstream-effect verification requires the agent owner to expose a sandboxed tool environment we can observe; where they do not, action fidelity is graded on tool-call correctness and self-reported effect only, and the report states which was used.
 
+### Which scores may be compared: the derived composite identifier
+
+A composite is only comparable to another composite computed the same way, and "the same way" means the same dimension set, the same weights, the same critical cap, and the same tier gates. Change any of those and the number is still on a 0-100 scale, still sorts next to the old one on a leaderboard, and no longer means the same thing.
+
+That comparability is therefore carried by an identifier which is **computed from the scoring configuration**, not declared by hand:
+
+```
+composite pgc-b4e796bd (12 weighted dimensions, methodology v0.3)
+```
+
+It changes automatically when the weights change, when a weighted dimension is added or removed, when the critical cap moves, or when a tier gate moves. Two grades may be compared as the same measurement **if and only if they carry the same identifier**, and a grade recorded before the identifier existed carries none, which is treated as "not comparable" rather than as a match.
+
+Deriving it rather than declaring it is deliberate. A hand-maintained version works until somebody edits the weights and forgets to bump it, and a stale version is worse than no version at all: it actively asserts a comparability that has stopped being true. There is no second place to update, so there is nothing to forget. The inputs it is computed over are published so a reader can recompute it rather than take it on trust.
+
+The **methodology version** (v0.3) is a separate, hand-set, editorial number describing this document. The two are not merged on purpose: a prose clarification must not invalidate anybody's published score, and a weight change must, and one string cannot do both jobs.
+
 ## 4. Certification tiers
 
 Tiers require both a composite floor and per-dimension floors, so an agent cannot buy a tier on charm while failing security.
