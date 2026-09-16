@@ -1,6 +1,6 @@
 {
   "name": "langflow-northwind",
-  "endpoint": "http://localhost:3500/api/v1/run/6aa68e9f-f03d-455e-8775-3e3692a60e1c?stream=false",
+  "endpoint": "http://localhost:3500/api/v1/run/605f8618-157e-49b6-bd18-4e4c55ff9991?stream=false",
   "method": "POST",
   "body_template": {
     "input_value": "{{message}}",

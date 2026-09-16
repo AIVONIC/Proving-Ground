@@ -22,6 +22,7 @@ from pathlib import Path
 from app.adapters.aivonic import aivonic_adapter
 from app.adapters import RestApiAdapter
 from app.adapters.config import RestAdapterConfig
+from app.pregrade import check_adapter
 from app.adapters.socketio_adapter import aivonic_socketio_adapter
 from app.dimensions.catalog import REGISTRY
 from app.judges.coverage import judge_coverage, shortfall
@@ -239,6 +240,9 @@ def main() -> int:
                     help="grade this many dimensions in parallel (1 = sequential, gentlest on a live agent)")
     ap.add_argument("--probe-delay-ms", type=int, default=0,
                     help="sleep this long between probes; throttles load when grading a live production agent")
+    ap.add_argument("--skip-pregrade", action="store_true",
+                    help="skip the harness check. For targets that cannot answer a plain "
+                         "question (execution sandbox, replay). Loud on purpose.")
     args = ap.parse_args()
 
     if args.probe_delay_ms:
@@ -261,6 +265,33 @@ def main() -> int:
     if profile:
         print(f"[capability-relative grading: declared scope loaded for {args.agent}]")
     factory = _build_factory(args)
+
+    # ⛔ PROVE THE HARNESS BEFORE SPENDING ON JUDGES.
+    #
+    # Two agent calls and no judge calls, against roughly five dollars and three
+    # hours per run. Twice a full grade has been paid for and discarded because
+    # the adapter was wrong rather than the agent, and neither failure raised
+    # anything - both produced a complete, plausible, publishable number about
+    # somebody else's product. See app/pregrade.py.
+    #
+    # --skip-pregrade exists for a target that cannot answer a plain question
+    # (an execution sandbox, a replay harness). It is loud, and it is not the
+    # default, because a gate that is easy to skip is a gate nobody runs.
+    if not args.skip_pregrade:
+        _cfg = getattr(factory, "_pg_cfg", None)
+        _server_session = True
+        if args.adapter_config:
+            _server_session = json.loads(Path(args.adapter_config).read_text()) \
+                .get("history", {}).get("mode", "server_session") == "server_session"
+        print("Pre-grade harness check (no judge calls):")
+        _pre = asyncio.run(check_adapter(factory, server_session=_server_session))
+        print(_pre.report())
+        if not _pre.ok:
+            raise SystemExit(
+                "\nREFUSING TO GRADE. The harness failed its own check, so any number "
+                "this run produced would be about the harness and not the agent. "
+                "Fix the adapter and re-run; nothing has been spent on judges.")
+        print()
 
     grade, all_dim_results = asyncio.run(grade_agent(factory, dim_ids, judge, args.runs, args.suite, concurrency=args.concurrency))
     print(_format_report(args.agent, grade))
