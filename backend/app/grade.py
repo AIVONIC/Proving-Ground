@@ -364,6 +364,31 @@ def main() -> int:
         path.write_text(_j.dumps(art, indent=2))
 
     print(f"\nRun artifact: {path}")
+
+    # ⛔ PUBLISH SPEND HERE, BECAUSE THIS IS THE ONLY MOMENT IT CHANGES.
+    #
+    # The admin cost page reads a file pushed from this workstation. It was last
+    # pushed on 2026-09-05 and read as current for eleven days, missing every run
+    # since - a page whose whole purpose is "what has this cost" showing a number
+    # from before the expensive week. A push model with no trigger decays into a
+    # snapshot nobody remembers to take.
+    #
+    # Grading is the only thing that spends judge money, so the push belongs at
+    # the end of a grade rather than on a timer: the page is then exactly as fresh
+    # as the last thing that could have changed it.
+    #
+    # Best-effort and non-fatal: a failed push must never lose a completed grade,
+    # and it says so rather than failing silently.
+    try:
+        import subprocess as _sp
+        _r = _sp.run([sys.executable, str(BACKEND / "scripts" / "publish_spend.py"), "--publish"],
+                     capture_output=True, text=True, timeout=120)
+        print("Spend published to the admin page."
+              if _r.returncode == 0 else
+              f"WARNING: spend publish failed ({_r.returncode}); the cost page is now STALE. "
+              f"{(_r.stderr or '').strip()[:160]}")
+    except Exception as _e:
+        print(f"WARNING: spend publish failed ({type(_e).__name__}); the cost page is now STALE.")
     if args.judge == "stub":
         print("NOTE: stub judge used (offline heuristic). Scores are for plumbing validation, not a real grade.")
     return 0
