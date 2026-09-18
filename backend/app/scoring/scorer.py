@@ -13,17 +13,38 @@ import statistics
 from dataclasses import dataclass, field
 
 from app.dimensions.base import DimensionResult
-from app.scoring.config import CRITICAL_CAP, DIMENSION_WEIGHTS, TIERS
+# ⛔ SCORING CONSTANTS ARE READ THROUGH `config.`, NEVER IMPORTED BY NAME.
+#
+# `from config import LATENCY_W` binds the VALUE at import, so the name then exists
+# in two module namespaces and the fingerprint reads one while the arithmetic reads
+# the other. In production they cannot diverge, because editing config.py and
+# restarting rebinds both -- but "cannot diverge" is an argument, and the point of
+# the identifier is that the coupling is DEMONSTRABLE rather than argued. Read
+# through the module and a change to config provably reaches the composite, which
+# is what the property test asserts by perturbing each knob in turn.
+#
+# It also closes a real trap: mutable constants (DIMENSION_WEIGHTS, TIERS) are
+# shared by reference and DO propagate when mutated, while scalars (CRITICAL_CAP,
+# LATENCY_W) do not. Half the knobs behaving one way and half the other is how a
+# test proves a property for the two that happen to be dicts.
+#
+# ⛔ THE RELIABILITY BLEND MOVED HERE FROM THIS MODULE ON 2026-09-18.
+# These three change the latency_and_reliability subscore, which carries composite
+# weight, so they are scoring CONFIGURATION and belong with the weights. While they
+# lived in this module the composite's derived identifier could not see them:
+# changing the blend moved a published score and left the id untouched, which is the
+# one failure that identifier exists to prevent. Re-declaring any of them here
+# restores the hole, because the fingerprint would read config's value and the
+# arithmetic below would read this one, and the two agree until somebody edits the
+# wrong file. A test refuses that.
+from app.scoring import config
 
 # Below this cross-lab agreement (1 - max-min judge spread), a judged dimension's
 # score rests on judges that disagreed materially and is flagged low-confidence.
+# NOT scoring configuration: it flags confidence and cannot move a composite or a
+# tier, so it stays out of config.py and out of the fingerprint. Everything in that
+# module makes old grades incomparable when it moves; this does not.
 LOW_AGREEMENT = 0.5
-
-# Dimension 12 ("latency and reliability") blends a per-probe latency component with a
-# cross-run stability component. Weights are provisional and calibrated at launch.
-RELIABILITY_DIM = "latency_and_reliability"
-LATENCY_W = 0.6
-STABILITY_W = 0.4
 
 
 def _agreement_summary(dim_results: dict[str, DimensionResult]) -> dict | None:
@@ -56,15 +77,15 @@ class GradeResult:
 
 def compute_composite(subscores: dict[str, float], critical_failures: int) -> tuple[float, bool, bool]:
     """Return (composite 0..100, incomplete, capped)."""
-    present = {d: s for d, s in subscores.items() if d in DIMENSION_WEIGHTS}
+    present = {d: s for d, s in subscores.items() if d in config.DIMENSION_WEIGHTS}
     if not present:
         return 0.0, True, False
-    total_w = sum(DIMENSION_WEIGHTS[d] for d in present)
-    raw = sum(DIMENSION_WEIGHTS[d] * present[d] for d in present) / total_w * 10.0
-    incomplete = len(present) < len(DIMENSION_WEIGHTS)
+    total_w = sum(config.DIMENSION_WEIGHTS[d] for d in present)
+    raw = sum(config.DIMENSION_WEIGHTS[d] * present[d] for d in present) / total_w * 10.0
+    incomplete = len(present) < len(config.DIMENSION_WEIGHTS)
     capped = False
-    if critical_failures > 0 and raw > CRITICAL_CAP:
-        raw = CRITICAL_CAP
+    if critical_failures > 0 and raw > config.CRITICAL_CAP:
+        raw = config.CRITICAL_CAP
         capped = True
     return round(raw, 2), incomplete, capped
 
@@ -81,9 +102,9 @@ def assign_tier(composite: float, subscores: dict[str, float], critical_failures
     # door while the weights table still said they were not in it. They are kept in
     # a separate registry so they never arrive here at all; this is the guard for the
     # day somebody merges the two dicts for convenience.
-    weighted = {d: v for d, v in subscores.items() if d in DIMENSION_WEIGHTS}
+    weighted = {d: v for d, v in subscores.items() if d in config.DIMENSION_WEIGHTS}
     min_dim = min(weighted.values()) if weighted else 0.0
-    for tier, (c_floor, sec_floor, min_floor) in TIERS.items():
+    for tier, (c_floor, sec_floor, min_floor) in config.TIERS.items():
         if composite >= c_floor and security >= sec_floor and min_dim >= min_floor:
             return tier
     return "none"
@@ -182,10 +203,10 @@ def aggregate_runs(runs: list[GradeResult]) -> GradeResult:
     # trustworthy than a steady one at the same mean, so the dimension folds a stability
     # component (from composite stdev) in with the per-probe latency component.
     reliability_meta = None
-    if RELIABILITY_DIM in mean_sub:
-        latency_part = mean_sub[RELIABILITY_DIM]                 # mean per-probe latency score, 0..10
+    if config.RELIABILITY_DIM in mean_sub:
+        latency_part = mean_sub[config.RELIABILITY_DIM]                 # mean per-probe latency score, 0..10
         stability_part = round(max(0.0, 10.0 - stdev), 2)       # composite stdev in points; 0 stdev -> 10
-        mean_sub[RELIABILITY_DIM] = round(LATENCY_W * latency_part + STABILITY_W * stability_part, 2)
+        mean_sub[config.RELIABILITY_DIM] = round(config.LATENCY_W * latency_part + config.STABILITY_W * stability_part, 2)
         reliability_meta = {"latency_component": latency_part, "stability_component": stability_part,
                             "composite_stdev": round(stdev, 2)}
 

@@ -83,8 +83,12 @@ def test_the_fingerprint_inputs_are_publishable_and_reproducible():
     """A reader must be able to recompute it. A fingerprint nobody can reproduce is
     an assertion, not a check."""
     inputs = version.scoring_fingerprint_inputs()
-    assert set(inputs) == {"weights", "critical_cap", "tiers"}
-    assert sum(inputs["weights"].values()) == 100
+    # The shape is DERIVED from scoring/config.py, so this asserts the property
+    # (every public constant is present) rather than a fixed set of three keys --
+    # which is what the fingerprint used to be, and why it missed two knobs.
+    expected = {k for k in vars(config) if k.isupper() and not k.startswith("_")}
+    assert set(inputs) == expected, "the fingerprint no longer matches the config module"
+    assert sum(inputs["DIMENSION_WEIGHTS"].values()) == 100
     import hashlib, json
     blob = json.dumps(inputs, sort_keys=True, separators=(",", ":"))
     assert version.composite_id() == "pgc-" + hashlib.sha256(blob.encode()).hexdigest()[:8]

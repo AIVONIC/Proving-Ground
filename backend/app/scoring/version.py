@@ -40,24 +40,60 @@ from __future__ import annotations
 import hashlib
 import json
 
-from app.scoring.config import CRITICAL_CAP, DIMENSION_WEIGHTS, TIERS
+from app.scoring import config
 
 # Editorial version of METHODOLOGY.md. Prose only. Bumping this does NOT make an
 # old grade incomparable, and must never be used to claim that it does.
 METHODOLOGY_VERSION = "0.3"
 
 
+def _normalise(value):
+    """Make a config value deterministically comparable, or REFUSE it.
+
+    Tuples and lists are the same thing for this purpose, and dict ordering must
+    not matter, so both are canonicalised. Anything that cannot be represented
+    raises instead of being skipped -- a constant quietly dropped from the
+    fingerprint is precisely the hole this sweep exists to close, and a silent
+    skip would reopen it in the one place nobody would look.
+    """
+    if isinstance(value, dict):
+        return {str(k): _normalise(value[k]) for k in sorted(value, key=str)}
+    if isinstance(value, (list, tuple)):
+        return [_normalise(v) for v in value]
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    raise TypeError(
+        f"scoring config holds a value the fingerprint cannot represent: {type(value).__name__}. "
+        f"Give it a JSON-representable form, or move it out of scoring/config.py if it is not "
+        f"scoring configuration. Do NOT special-case it here: a constant excluded from the "
+        f"fingerprint can move a published composite invisibly."
+    )
+
+
 def scoring_fingerprint_inputs() -> dict:
     """Exactly what the fingerprint is computed over, in a stable order.
+
+    ⛔ DERIVED FROM THE MODULE, NOT FROM A LIST MAINTAINED HERE.
+
+    This used to name three inputs: DIMENSION_WEIGHTS, CRITICAL_CAP and TIERS. That
+    was a hand-maintained list, and a value derived from a hand-maintained list is
+    still hand-maintained -- it simply moves the thing you must remember one step
+    further away, where the word "derived" makes it look safe. It failed exactly as
+    a hand-bumped version fails: LATENCY_W and STABILITY_W lived in scorer.py,
+    changed the composite through the reliability subscore, and were invisible here.
+
+    So every public constant in ``scoring/config.py`` is swept. A new scoring knob
+    added to that module is covered with nobody having to register it, which is the
+    only version of this that survives contact with a future contributor.
 
     Returned rather than kept private so the site can publish it: a reader who
     wants to know whether two scores are comparable can recompute this, and a
     fingerprint nobody can reproduce is an assertion rather than a check.
     """
     return {
-        "weights": {d: DIMENSION_WEIGHTS[d] for d in sorted(DIMENSION_WEIGHTS)},
-        "critical_cap": CRITICAL_CAP,
-        "tiers": {t: list(TIERS[t]) for t in sorted(TIERS)},
+        name: _normalise(getattr(config, name))
+        for name in sorted(vars(config))
+        if name.isupper() and not name.startswith("_")
     }
 
 
@@ -107,6 +143,6 @@ def describe() -> str:
     inputs = scoring_fingerprint_inputs()
     return (
         f"composite {composite_id()} "
-        f"({len(inputs['weights'])} weighted dimensions, "
+        f"({len(config.DIMENSION_WEIGHTS)} weighted dimensions, "
         f"methodology v{METHODOLOGY_VERSION})"
     )

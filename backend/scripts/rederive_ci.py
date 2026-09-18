@@ -23,8 +23,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.scoring.scorer import (LATENCY_W, RELIABILITY_DIM, STABILITY_W,
-                                GradeResult, aggregate_runs, compute_composite)
+# The reliability blend moved to scoring/config.py on 2026-09-18 so the composite's
+# derived identifier can see it; scorer.py reads it through the module now.
+from app.scoring.config import LATENCY_W, RELIABILITY_DIM, STABILITY_W
+from app.scoring.scorer import GradeResult, aggregate_runs, compute_composite
 
 BACKEND = Path(__file__).resolve().parents[1]
 

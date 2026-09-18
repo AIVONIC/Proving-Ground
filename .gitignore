@@ -69,3 +69,11 @@ backend/data/reproducibility/measurements.json
 # data/private/. Same reason data/runs/ and data/private/ are ignored: the repo
 # is public and the held-out split is what stops a vendor training on the test.
 backend/data/judge_canary_baseline.json
+
+# Reference-build RUNTIME STATE. A graded reference stack runs in place here, so
+# these directories hold a live redis dump, weaviate databases and a postgres
+# pgdata - the working state of a system we graded, in a PUBLIC repo. Today a
+# `git add -A` aborts on permission-denied rather than committing them, which is
+# luck rather than design: chown the tree or run as root and it stages. The
+# curated docker-compose.pg-ref.yml stays TRACKED; it is the reproducible part.
+backend/reference_agents/stacks/*/volumes/
