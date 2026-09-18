@@ -20,7 +20,24 @@ forgetting impossible: there is no second place to update.
     methodology   "0.3"            editorial, hand-set, describes the DOCUMENT
 
 Those two are deliberately separate. The methodology version tracks prose that a
-reader cites; the composite id tracks whether two numbers may be compared. A
+reader cites; the composite id tracks whether two numbers may be compared.
+
+⛔ WHEN TO BUMP, AND THE TEST IS NOT "DID BEHAVIOUR CHANGE". Sharpened with
+aivonic-48 on 2026-09-18:
+
+    BUMP when a change makes old grades INCOMPARABLE - unrepairable from what the
+    artifact stores, so the only remedy is re-grading. A change to how a judge is
+    PROMPTED is the clear case: nothing in the artifact lets you recompute it.
+
+    DO NOT BUMP when a change makes them merely WRONG - repairable by re-derivation
+    from stored data, which is free. A corrected dispersion statistic recomputes
+    from per-run probe scores already in the artifact, so an old grade is corrected
+    rather than invalidated.
+
+The operative question is "can the old number be repaired without spending money",
+not "is the old number still right". Bumping for every correction would leave no
+two grades ever comparable and the mechanism useless. It is also why storing
+inputs matters: what you can re-derive, you never have to re-measure. A
 prose clarification must not invalidate a score, and a weight change must, and a
 single version string cannot do both jobs. (One name, two jobs, is its own entry
 in the taxonomy.)
@@ -97,11 +114,59 @@ def scoring_fingerprint_inputs() -> dict:
     }
 
 
+def fingerprint_of(inputs: dict) -> str:
+    """Hash an arbitrary set of fingerprint inputs. Factored out so a RECORDED
+    configuration can be re-hashed and checked against the id stored beside it."""
+    blob = json.dumps(inputs, sort_keys=True, separators=(",", ":"))
+    return "pgc-" + hashlib.sha256(blob.encode()).hexdigest()[:8]
+
+
 def composite_id() -> str:
     """Stable id for the current scoring configuration. Two grades are comparable
     if and only if they carry the same one."""
-    blob = json.dumps(scoring_fingerprint_inputs(), sort_keys=True, separators=(",", ":"))
-    return "pgc-" + hashlib.sha256(blob.encode()).hexdigest()[:8]
+    return fingerprint_of(scoring_fingerprint_inputs())
+
+
+def poolable(config_a: dict | None, config_b: dict | None) -> tuple[bool, str]:
+    """Decide whether two runs may be pooled, from their STORED VALUES.
+
+    The id alone cannot answer this. On 2026-09-18 a coverage-only widening of the
+    fingerprint changed every id while no configured value moved, so five merges
+    were refused for runs that had been computed identically, and the only way to
+    establish that was reconstructing both configs from git. An artifact that
+    stores its values answers it mechanically and keeps answering it after the
+    branch is gone.
+
+    Returns (poolable, reason). A missing config is NOT poolable: absence is not
+    evidence of sameness, and a grade recorded before values were stored cannot
+    support the claim either way.
+    """
+    if not config_a or not config_b:
+        return False, ("one or both runs record no scoring configuration, so poolability "
+                       "cannot be established from the artifacts")
+    if config_a == config_b:
+        return True, "scoring configuration identical"
+    keys = sorted(set(config_a) | set(config_b))
+    diffs = [f"{k}: {config_a.get(k, '<absent>')!r} vs {config_b.get(k, '<absent>')!r}"
+             for k in keys if config_a.get(k) != config_b.get(k)]
+    return False, "scoring configuration differs -> " + "; ".join(diffs)
+
+
+def verify_recorded_identity(recorded_id: str | None, recorded_config: dict | None) -> tuple[bool, str]:
+    """Does an artifact's stored id match its stored values?
+
+    A record that disagrees with itself is worth catching loudly: it means the id
+    was written under one configuration and the values under another, or one of
+    them was edited afterwards. Re-stamping an artifact to make a tool happy is the
+    exact move this refuses to let pass silently.
+    """
+    if recorded_id is None or recorded_config is None:
+        return False, "artifact does not record both an id and a configuration"
+    actual = fingerprint_of(recorded_config)
+    if actual == recorded_id:
+        return True, f"id matches the recorded configuration ({actual})"
+    return False, (f"artifact records id {recorded_id} but its stored configuration hashes "
+                   f"to {actual} - the record disagrees with itself")
 
 
 def comparable(a: str | None, b: str | None) -> bool:

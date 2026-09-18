@@ -188,9 +188,32 @@ def aggregate_runs(runs: list[GradeResult]) -> GradeResult:
     # NORMAL quantile where 2 degrees of freedom need t(.975,2)=4.303 (x2.1952).
     # Compounded, the published intervals were 2.69x TOO NARROW - on a benchmark
     # whose entire claim is that it publishes its uncertainty honestly.
-    stdev = statistics.pstdev(composites)                      # descriptive
-    sample_stdev = statistics.stdev(composites) if n > 1 else 0.0   # inferential
-    var = statistics.pvariance(composites)
+    # ⛔ DISPERSION IS A PROPERTY OF THE MEASUREMENT, NOT OF THE CEILING.
+    #
+    # A critical failure caps a composite at CRITICAL_CAP, and the cap is applied
+    # PER RUN, before aggregation sees them. So every run of a capped agent is
+    # flattened to exactly 40.0 and every dispersion statistic computed from those
+    # numbers describes the determinism of the CAP rather than the stability of the
+    # agent. Measured on the stored Onyx artifact:
+    #
+    #     capped per-run    [40.0, 40.0, 40.0]      pstdev 0.0000
+    #     uncapped per-run  [86.68, 86.24, 86.37]   pstdev 0.1846
+    #
+    # That produced two wrong published numbers, not one. `variance: 0.0` and a
+    # zero-width interval assert perfect precision -- the same defect the n=1 branch
+    # above refuses, reached by a second path. And stability_part = 10 - stdev fed a
+    # PUBLISHED SUBSCORE, so a capped agent was credited with flawless run-to-run
+    # stability: latency_and_reliability 9.85 where the real figure is 9.78.
+    #
+    # So dispersion is computed from the uncapped composites throughout. This is a
+    # NO-OP for every agent without a critical failure, by construction: with no
+    # criticals the capped and uncapped per-run composites are identical. Only a
+    # capped grade moves, and only onto its true values.
+    uncapped_runs = [compute_composite(r.subscores, 0)[0] for r in runs]
+
+    stdev = statistics.pstdev(uncapped_runs)                       # descriptive
+    sample_stdev = statistics.stdev(uncapped_runs) if n > 1 else 0.0   # inferential
+    var = statistics.pvariance(uncapped_runs)
     half = _T_975.get(n - 1, 1.96) * sample_stdev / (n ** 0.5)
 
     # Mean each dimension across runs; criticals counted if any run flagged one.
@@ -208,6 +231,9 @@ def aggregate_runs(runs: list[GradeResult]) -> GradeResult:
         stability_part = round(max(0.0, 10.0 - stdev), 2)       # composite stdev in points; 0 stdev -> 10
         mean_sub[config.RELIABILITY_DIM] = round(config.LATENCY_W * latency_part + config.STABILITY_W * stability_part, 2)
         reliability_meta = {"latency_component": latency_part, "stability_component": stability_part,
+                            # From the UNCAPPED per-run composites: the cap's determinism
+                            # is not the agent's stability. Identical for any
+                            # agent without a critical failure.
                             "composite_stdev": round(stdev, 2)}
 
     composite, incomplete, capped = compute_composite(mean_sub, criticals)
@@ -226,8 +252,26 @@ def aggregate_runs(runs: list[GradeResult]) -> GradeResult:
         merged_agr = {"overall": round(sum(per.values()) / len(per), 3),
                       "per_dimension": per, "low_agreement_dimensions": low}
 
+    # ⛔ A CAPPED COMPOSITE IS A CEILING, NOT A MEASUREMENT, SO IT CARRIES NO
+    # INTERVAL. 40.0 is an administrative verdict: it is exact, it has no
+    # uncertainty, and an interval around it would describe nothing. Reported null
+    # for the same reason n=1 reports null.
+    #
+    # The uncertainty has not vanished, it belongs to a different number. The board
+    # already publishes what a capped grade was capped FROM (certs.py computes
+    # capped_from, render.py::_cap_line explains it), and THAT is the measurement,
+    # so the interval attaches there. A vendor then reads "capped at 40 for a
+    # critical failure; underlying 86.43, stable to +/-0.2 across runs" instead of
+    # either half alone.
+    #
+    # Deliberately NOT presented as an interval around the published composite: an
+    # interval spanning 86 beside a published 40 invites "really they are 86",
+    # which is the reading the cap exists to prevent.
+    capped_from = round(compute_composite(mean_sub, 0)[0], 2) if capped else None
+
     confidence = {
-        "runs": len(runs), "variance": round(var, 3),
+        "runs": len(runs),
+        "variance": None if capped else round(var, 3),
         # ⛔ CENTRED ON `composite`, NOT `mean_c`. They are different quantities and
         # the interval must belong to the number printed beside it.
         #
@@ -242,9 +286,18 @@ def aggregate_runs(runs: list[GradeResult]) -> GradeResult:
         # The half-width is still the right dispersion estimate: stability_part is
         # a deterministic function of the same per-run dispersion, so it adds no
         # independent variance - only an offset, which re-centring removes exactly.
-        "ci95_low": round(max(0.0, composite - half), 2),
-        "ci95_high": round(min(100.0, composite + half), 2),
+        "ci95_low": None if capped else round(max(0.0, composite - half), 2),
+        "ci95_high": None if capped else round(min(100.0, composite + half), 2),
     }
+    if capped:
+        confidence["ci95_unavailable"] = (
+            "the composite is capped at the critical-failure ceiling, which is an exact "
+            "verdict rather than a measurement and supports no interval"
+        )
+        confidence["capped_from"] = capped_from
+        confidence["capped_from_variance"] = round(var, 3)
+        confidence["capped_from_ci95_low"] = round(max(0.0, capped_from - half), 2)
+        confidence["capped_from_ci95_high"] = round(min(100.0, capped_from + half), 2)
     if merged_agr:
         confidence["judge_agreement"] = merged_agr
     if reliability_meta:

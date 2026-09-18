@@ -85,7 +85,13 @@ def sync(html: str, entry: dict) -> str:
 
 def _substitutions(entry: dict):
     comp = f"{float(entry['composite']):.0f}"
-    lo, hi = entry["ci95"]
+    # ⛔ AN ABSENT INTERVAL IS A REAL STATE, NOT A MALFORMED ENTRY. A single run
+    # supports no interval, and a composite capped at the critical-failure ceiling
+    # is an exact verdict rather than a measurement, so both report None. This
+    # unpacked directly and raised TypeError, inside the function that renders the
+    # hero scorecard, which deploy.sh runs as a publish preflight.
+    ci = entry.get("ci95") or [None, None]
+    lo, hi = ci[0], ci[1]
     runs = entry.get("runs", 1)
     kind = "self-operated" if entry.get("self_operated") else "reference build"
     scores = ", ".join(f"{s:g}" for s in scores_list(entry))
@@ -123,7 +129,10 @@ def _substitutions(entry: dict):
          lambda m: f"{m.group(1)}{comp}{m.group(2)}"),
         ("sc-foot run/CI line",
          r'(<div class="mono" style="font-size:12px;color:var\(--muted\)">).*?(</div>)',
-         lambda m: f"{m.group(1)}{runs}-run avg &middot; CI {lo:.0f}&ndash;{hi:.0f}{m.group(2)}"),
+         lambda m: f"{m.group(1)}{runs}-run avg &middot; "
+                   + (f"CI {lo:.0f}&ndash;{hi:.0f}" if lo is not None and hi is not None
+                      else "no interval")
+                   + f"{m.group(2)}"),
         ("sc-note", r'(<div class="sc-note">)(.*?)(</div>)', _note),
         ("SCORES array",
          r'(var SCORES = \[)[^\]]*(\])',

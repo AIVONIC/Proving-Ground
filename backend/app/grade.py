@@ -24,7 +24,8 @@ from app.adapters.aivonic import aivonic_adapter
 from app.adapters import RestApiAdapter
 from app.adapters.config import RestAdapterConfig
 from app.pregrade import check_adapter
-from app.scoring.version import METHODOLOGY_VERSION, composite_id
+from app.scoring.version import (METHODOLOGY_VERSION, composite_id,
+                                 scoring_fingerprint_inputs)
 from app.adapters.socketio_adapter import aivonic_socketio_adapter
 from app.dimensions.catalog import REGISTRY
 from app.judges.coverage import judge_coverage, shortfall
@@ -157,8 +158,11 @@ def _write_run(agent: str, grade, all_dim_results) -> Path:
         # only place the configuration that produced the number is unambiguously
         # the configuration in force. Adding it later at promote time would stamp
         # whatever the config happens to be then.
+        # The id is the fast path; scoring_config is what makes a disagreement
+        # about poolability resolvable from the artifact alone, without git.
         "grade": {**dataclasses.asdict(grade), "composite_id": composite_id(),
-                  "methodology_version": METHODOLOGY_VERSION},
+                  "methodology_version": METHODOLOGY_VERSION,
+                  "scoring_config": scoring_fingerprint_inputs()},
         "reliability": {
             "pass_k": pass_k_curve(all_dim_results),
             "by_difficulty": difficulty_breakdown(all_dim_results),
