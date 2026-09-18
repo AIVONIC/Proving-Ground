@@ -37,7 +37,7 @@ def _median_latency_ms(run: dict) -> float | None:
     return round((lats[n // 2] if n % 2 else (lats[n // 2 - 1] + lats[n // 2]) / 2), 1)
 
 
-def entry_from_run(run: dict, meta: dict) -> dict:
+def entry_from_run(run: dict, meta: dict, prev: dict | None = None) -> dict:
     g = run["grade"]
     subs = g.get("subscores", {})
     if len(subs) < len(REGISTRY) or g.get("incomplete"):
@@ -74,6 +74,30 @@ def entry_from_run(run: dict, meta: dict) -> dict:
                  else None),
         "graded_at": meta["graded_at"],
         "self_operated": bool(meta.get("self_operated", False)),
+        # ⛔ RANKED IS CONSUMED BY render.py AND WAS NEVER WRITTEN HERE. It splits the
+        # board into ranked entries and RECUSED ones, and its absence reads as True
+        # (`e.get("ranked", True)`). So a re-promote silently dropped the field and
+        # would have placed SPARK - our OWN agent - into the public ranking it had been
+        # deliberately recused from. Caught on the n=5 promotion, before any deploy.
+        #
+        # A self-operated agent is recused BY DEFAULT: we built it, we grade it, and a
+        # benchmark that ranks its author's own product has spent the only asset it
+        # has. An explicit value on the existing entry still wins, so a deliberate
+        # choice is never overwritten by this inference.
+        "ranked": bool((prev or {}).get("ranked",
+                                        not meta.get("self_operated", False))),
+        # ⛔ AND `published` IS THE SAME DEFECT WITH A WORSE BLAST RADIUS. Also
+        # consumed (store.load_published, certs.py) and also never written here, so a
+        # re-promote dropped it and `e.get("published", True)` turned a DELIBERATELY
+        # WITHHELD grade public. Onyx is withheld pending vendor disclosure; the n=5
+        # re-promote silently un-withheld it and it was caught by checking the flag
+        # rather than by anything failing.
+        #
+        # Both fields share a shape worth naming: a property that lives ONLY in the
+        # stored entry, is read with a permissive default, and is written by nothing.
+        # Every re-promote silently reverts it, and the default is the unsafe value in
+        # both cases - ranked into the board, published to the world.
+        "published": bool((prev or {}).get("published", True)),
         "reference": bool(meta.get("reference", False)),
         # The exact platform build the agent was made on. A reference cohort whose
         # platform versions are not written down is not reproducible: Flowise 1.8.2
@@ -154,7 +178,11 @@ def main() -> int:
         "tools": [t.strip() for t in a.tools.split(",") if t.strip()],
         "tools_verified": [t.strip() for t in a.tools_verified.split(",") if t.strip()],
     }
-    board = upsert(entry_from_run(run, meta))
+    # Read the entry being replaced so a deliberate choice on it - `ranked`, chiefly -
+    # survives a re-promote instead of being silently dropped back to its default.
+    from app.leaderboard.store import load as _load_board
+    prev = next((e for e in _load_board() if e.get("id") == a.id), None)
+    board = upsert(entry_from_run(run, meta, prev))
     g = run["grade"]
     print(f"promoted {a.id}: {g['composite']} {g['tier']} -> {len(board)} on the board")
     return 0

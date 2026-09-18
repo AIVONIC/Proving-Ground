@@ -179,6 +179,10 @@ def main() -> int:
     ap.add_argument("--n", type=int, default=30)
     ap.add_argument("--seed", type=int, default=20260918)
     ap.add_argument("--baseline", action="store_true", help="write the sample as a new baseline")
+    ap.add_argument("--need-resolution", type=float, metavar="POINTS",
+                    help="the composite-point difference this run must be able to "
+                         "resolve. Exits 2 rather than rendering a verdict it "
+                         "cannot support.")
     a = ap.parse_args()
 
     cat = _catalog()
@@ -266,6 +270,55 @@ def main() -> int:
     if not drift:
         print("\n   UNRELIABLE: no judge produced a comparable score. Not an all-clear.")
         return 2
+
+    # ⛔ AN INSTRUMENT THAT CANNOT STATE ITS OWN RESOLUTION WILL EVENTUALLY REPORT A
+    # CONFIDENT ANSWER TO A QUESTION IT COULD NOT RESOLVE.
+    #
+    # On 2026-09-18 this canary was raised from n=30 to n=100 specifically to get its
+    # bound under the smallest gap the board publishes (0.23 points). It came back at
+    # 0.47 - the sizing had used the per-JUDGE sd where the ensemble drift's sd is
+    # larger - and the discrepancy was only caught by hand afterwards. Had the run
+    # come back CLEAN, "clean" would have been a statement about the sample size
+    # rather than about the judges, and nothing in the output would have said so.
+    #
+    # So it now computes the bound it actually achieved, compares it to the
+    # resolution the caller needs, and refuses to render a verdict it cannot support.
+    # Raised independently by aivonic-52, whose canary carried the same defect at
+    # 6x (threshold 0.015, bound 0.091).
+    ens = []
+    for p in sample:
+        was = [v for v in p["stored"].values() if isinstance(v, (int, float))]
+        now = [v for v in (p.get("now") or {}).values() if isinstance(v, (int, float))]
+        if len(was) >= 2 and len(now) >= 2:
+            ens.append(statistics.mean(now) - statistics.mean(was))
+    if len(ens) > 1:
+        e_sd = statistics.stdev(ens)
+        e_half = _T_975.get(len(ens) - 1, 1.96) * e_sd / (len(ens) ** 0.5)
+        e_mean = statistics.mean(ens)
+        # ⛔ TWO DIFFERENT QUANTITIES, AND I CONFLATED THEM BY HAND BEFORE WRITING THIS.
+        #   RESOLUTION          = the half-width. The smallest shift this run could
+        #                         DETECT. Answers "how sharp is the instrument".
+        #   NOT-EXCLUDED        = the far edge of the interval. The largest drift still
+        #                         CONSISTENT with the data. Answers "what could be true
+        #                         and I would not have seen it".
+        # They differ whenever the mean is not zero: at n=100 the half-width was 0.27
+        # points while the interval's edge sat at 0.47, and the decision "is the board
+        # safe" depends on the SECOND. Reporting only the first would understate the
+        # risk by the size of the point estimate, which is precisely the error this
+        # whole check exists to prevent.
+        not_excluded = max(abs(e_mean - e_half), abs(e_mean + e_half))
+        print(f"\n   ENSEMBLE drift {e_mean:+.4f}  95% CI "
+              f"[{e_mean-e_half:+.4f}, {e_mean+e_half:+.4f}]   (n={len(ens)})")
+        print(f"      resolution   +/-{10*e_half:.2f} composite points  (smallest detectable)")
+        print(f"      NOT EXCLUDED  {10*not_excluded:.2f} composite points  "
+              f"(largest drift consistent with this data)")
+        if a.need_resolution is not None and 10 * not_excluded > a.need_resolution:
+            need_n = int((_T_975.get(199, 1.96) * e_sd * 10 / a.need_resolution) ** 2) + 1
+            print(f"   ⛔ CANNOT CLEAR {a.need_resolution:.2f} POINTS. A drift of "
+                  f"{10*not_excluded:.2f} points is consistent with this sample, so a "
+                  f"verdict here would describe the sample size, not the judges.")
+            print(f"      re-run with --n >= {need_n} to exclude a shift that small.")
+            return 2
     # ALWAYS persist. Re-analysing a $0.67 sample must never require re-paying
     # for it - that is how a measurement gets repeated instead of re-read.
     if True:
