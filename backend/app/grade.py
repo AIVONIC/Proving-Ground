@@ -265,6 +265,23 @@ def main() -> int:
     if args.probe_delay_ms:
         os.environ["PROVING_GROUND_PROBE_DELAY_MS"] = str(args.probe_delay_ms)
 
+    # ⛔ LOAD PG_ENV_FILE HERE, NOT ONLY IN THE grade_*.py WRAPPERS. Those wrappers
+    # each carry their own loader, so `python -m app.grade` - the path that grades the
+    # board - had none, and build_ensemble raised "no frontier judge API key
+    # available" for a machine where all four keys are present. It fails loudly and
+    # costs nothing, which is the only reason this was cheap; the same omission in
+    # scripts/audit_harness.py produced a FALSE 401 that read as a broken agent and
+    # cost twenty minutes of investigating a healthy stack.
+    #
+    # Loaded inside main() rather than at import, so importing this module for its
+    # functions never mutates a caller's environment.
+    _env = Path(os.environ.get("PG_ENV_FILE", BACKEND / ".env"))
+    if _env.exists():
+        for _line in _env.read_text().splitlines():
+            if "=" in _line and not _line.strip().startswith("#"):
+                _k, _, _v = _line.partition("=")
+                os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+
     dim_ids = [d.strip() for d in args.dimensions.split(",") if d.strip()]
     unknown = [d for d in dim_ids if d not in REGISTRY]
     if unknown:

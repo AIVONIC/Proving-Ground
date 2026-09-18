@@ -83,6 +83,10 @@ def main() -> int:
     ap.add_argument("--base", required=True, help="existing artifact to extend")
     ap.add_argument("--extra", required=True, help="artifact holding the additional runs")
     ap.add_argument("--out", required=True)
+    ap.add_argument("--allow-scoring-config-change", metavar="REASON",
+                    help="pool across differing composite_ids, recording REASON "
+                         "in the merged artifact. For a coverage-only widening "
+                         "where no configured value moved.")
     a = ap.parse_args()
 
     base = json.loads(Path(a.base).read_text())
@@ -92,11 +96,46 @@ def main() -> int:
     # produce a plausible composite for an agent that was never graded that way.
     if base["agent"] != extra["agent"]:
         sys.exit(f"REFUSING: different agents ({base['agent']} vs {extra['agent']})")
+    # ⛔ THE FINGERPRINT GUARD, AND WHY IT HAS AN OVERRIDE RATHER THAN AN EXCEPTION.
+    #
+    # Two runs scored under different rules are not poolable, so a differing
+    # composite_id refuses. That is correct and it fired for real: the n=5 board
+    # straddles the 2026-09-18 fingerprint change, every agent carrying b4e796bd on
+    # its 3-run file and 9c569e75 on its 2-run file, and this guard would have
+    # refused all five AFTER the grading money was spent.
+    #
+    # It was a false positive IN SUBSTANCE. Both configs were reconstructed from git
+    # and diffed by VALUE rather than by hash: CRITICAL_CAP, LATENCY_W, STABILITY_W,
+    # RELIABILITY_DIM, DIMENSION_WEIGHTS and TIERS all identical. The fingerprint's
+    # COVERAGE widened; no configured value moved. The ids differ because the input
+    # SET grew, not because the scoring did.
+    #
+    # Two repairs were rejected, and the second is the tempting one:
+    #   - weakening the gate. A mechanism that says "not comparable" beside a tool
+    #     that ignores it is worse than having neither.
+    #   - re-stamping the older artifacts with the new id. That asserts they were
+    #     computed under a configuration that did not exist when they ran - falsifying
+    #     provenance to pass a check.
+    #
+    # So: an EXPLICIT, RECORDED override. The merged artifact carries BOTH ids and the
+    # reason, so the straddle is published with the number instead of being invisible
+    # in it. A genuine value change still refuses, and no reason string makes it pass
+    # quietly, because the reason travels with the grade.
+    #
+    # This exists because the artifacts store the fingerprint HASH and not the VALUES
+    # it was computed from, so poolability is undecidable from the artifacts alone -
+    # the same defect as a verdict stored without its rubric inputs. grade.py now
+    # records the values (aivonic-8f), which makes the NEXT straddle decidable
+    # mechanically. It cannot help here: these artifacts predate it.
     bid = base["grade"].get("composite_id")
     eid = extra["grade"].get("composite_id")
-    if bid != eid:
-        sys.exit(f"REFUSING: different scoring config ({bid} vs {eid}). "
-                 "Runs scored under different rules are not poolable.")
+    if bid != eid and not a.allow_scoring_config_change:
+        sys.exit(f"REFUSING: different scoring config ({bid} vs {eid}). Runs scored "
+                 "under different rules are not poolable.\n\n"
+                 "If the ids differ only because the fingerprint's COVERAGE widened - "
+                 "verify by diffing the configs' VALUES, not their hashes - re-run with\n"
+                 '  --allow-scoring-config-change "<why you established they are poolable>"\n'
+                 "The reason is written into the merged artifact and published with it.")
 
     # ⛔ POOLABILITY GATE. Merging assumes the later runs were drawn under the same
     # conditions as the earlier ones. A judge that moved in between makes them
@@ -149,6 +188,12 @@ def main() -> int:
     merged["merged"] = {"base_runs": len(base["runs"]), "added_runs": len(extra["runs"]),
                         "base_artifact": Path(a.base).name,
                         "extra_artifact": Path(a.extra).name}
+    if bid != eid:
+        # Published WITH the grade: a reader auditing poolability gets the
+        # real answer rather than silence.
+        merged["merged"]["scoring_config_straddle"] = {
+            "base_composite_id": bid, "extra_composite_id": eid,
+            "reason": a.allow_scoring_config_change}
 
     Path(a.out).write_text(json.dumps(merged, indent=2) + "\n")
     c = new.confidence

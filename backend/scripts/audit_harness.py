@@ -15,10 +15,28 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+BACKEND = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(BACKEND))
+
+# ⛔ LOAD THE SAME ENV THE GRADE SCRIPTS LOAD, OR THIS GATE LIES. Without it the
+# adapter tokens are unset, every authenticated adapter sends an empty bearer, and
+# the audit reports a 401 that says nothing about the agent. It reported exactly
+# that for dify on 2026-09-18 and I spent the next twenty minutes investigating a
+# healthy stack. A pre-flight check that fails for a reason internal to itself is
+# worse than none: it trains you to discount the one time it is right.
+_ENV = Path(os.environ.get("PG_ENV_FILE", BACKEND / ".env"))
+if _ENV.exists():
+    for _line in _ENV.read_text().splitlines():
+        if "=" in _line and not _line.strip().startswith("#"):
+            _k, _, _v = _line.partition("=")
+            os.environ.setdefault(_k.strip(), _v.strip().strip('"').strip("'"))
+else:
+    print(f"WARNING: no env file at {_ENV} - adapter tokens will be unset and "
+          "authenticated adapters will fail for that reason, not for theirs.")
 
 from app.adapters import RestApiAdapter
 from app.adapters.config import RestAdapterConfig
