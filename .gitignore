@@ -77,3 +77,23 @@ backend/data/judge_canary_baseline.json
 # luck rather than design: chown the tree or run as root and it stages. The
 # curated docker-compose.pg-ref.yml stays TRACKED; it is the reproducible part.
 backend/reference_agents/stacks/*/volumes/
+
+# The GENERATED Dify compose for the reference stack. 967 lines, 69 secret-ish
+# keys, and 56 of them are `${VAR:-<literal>}` - an env reference with a default
+# BAKED INTO THE FILE. 35 of those defaults are substantial (>=12 chars).
+#
+# ⛔ I PREVIOUSLY REPORTED THIS FILE CLEAN AND THAT WAS WRONG. The check treated
+# any value starting with "${" as a safe env reference, which discards exactly the
+# dangerous case: the text after `:-` is a literal that ships with the file. It
+# reported zero findings, and zero was the answer I was hoping for. No positive
+# control was run, so nothing established the probe could find a secret at all.
+#
+# Whether those defaults are Dify's published placeholders or this stack's real
+# credentials is UNRESOLVED: upstream has since moved these into .env, so a
+# hash comparison against it returns "not comparable" rather than a verdict, and
+# shape alone cannot tell a vendor default from a provisioned password. The safe
+# action does not depend on the answer. Found by a third session after mine
+# passed it.
+#
+# docker-compose.pg-ref.yml is the curated, reproducible one and stays TRACKED.
+backend/reference_agents/stacks/*/docker-compose.yaml
