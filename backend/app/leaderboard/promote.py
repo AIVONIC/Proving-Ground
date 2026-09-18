@@ -65,7 +65,13 @@ def entry_from_run(run: dict, meta: dict) -> dict:
         "composite_id": g.get("composite_id"),
         "methodology_version": g.get("methodology_version"),
         "runs": int(conf.get("runs", 1)),
-        "ci95": [conf.get("ci95_low"), conf.get("ci95_high")],
+        # None when the grade was a single run, which supports no interval. Carried
+        # as null rather than coerced to [composite, composite]: a zero-width
+        # interval asserts perfect precision and no consumer can tell it from a
+        # genuinely tight one.
+        "ci95": ([conf["ci95_low"], conf["ci95_high"]]
+                 if conf.get("ci95_low") is not None and conf.get("ci95_high") is not None
+                 else None),
         "graded_at": meta["graded_at"],
         "self_operated": bool(meta.get("self_operated", False)),
         "reference": bool(meta.get("reference", False)),

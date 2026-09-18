@@ -64,3 +64,8 @@ backend/data/exec_runs/
 # The redacted companion (measurements.public.json) carries the same rates,
 # bounds, drift and spend with movements reported per DIMENSION, and IS committed.
 backend/data/reproducibility/measurements.json
+
+# Canary baseline records HELD-OUT probe ids (and per-judge scores) from
+# data/private/. Same reason data/runs/ and data/private/ are ignored: the repo
+# is public and the held-out split is what stops a vendor training on the test.
+backend/data/judge_canary_baseline.json

@@ -102,6 +102,14 @@ def score_single_run(dim_results: dict[str, DimensionResult]) -> GradeResult:
     )
 
 
+# Two-sided 95% Student's t by degrees of freedom. A table rather than a
+# dependency: scipy is not installed here, and a CI formula is not worth a new
+# runtime dependency. df >= 30 is within 2% of the normal, so 1.96 is the floor.
+_T_975 = {1: 12.706, 2: 4.303, 3: 3.182, 4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365,
+          8: 2.306, 9: 2.262, 10: 2.228, 11: 2.201, 12: 2.179, 15: 2.131,
+          20: 2.086, 25: 2.060, 30: 2.042}
+
+
 def aggregate_runs(runs: list[GradeResult]) -> GradeResult:
     """Combine multiple runs into a variance-aware grade (methodology section 3)."""
     if not runs:
@@ -109,16 +117,60 @@ def aggregate_runs(runs: list[GradeResult]) -> GradeResult:
     if len(runs) == 1:
         r = runs[0]
         agr = r.confidence.get("judge_agreement")
-        r.confidence = {"runs": 1, "variance": 0.0, "ci95_low": r.composite, "ci95_high": r.composite}
+        # ⛔ NULL, NOT A ZERO-WIDTH INTERVAL. [x, x] asserts PERFECT precision, and
+        # nothing downstream can tell that claim from a genuinely tight measurement
+        # - a success signal that cannot represent failure. One run supports no
+        # interval at all, so it reports none and every consumer must handle the
+        # absence rather than read a false certainty.
+        #
+        # ⛔ AND [40.0, 40.0] ELSEWHERE ON THIS BOARD IS THE SAME DEFECT BY A SECOND
+        # PATH - NOT, as an earlier version of this very comment claimed, a genuine
+        # zero. That grade is 3 runs all hitting the critical-failure cap, and the
+        # cap flattens them to exactly 40.0 BEFORE aggregation sees them. Measured on
+        # the stored Onyx artifact: the uncapped per-run composites are 86.68 / 86.24
+        # / 86.37, spread 0.1846. So the reported variance of 0.0 is the determinism
+        # of the CAP, not the stability of the agent - and `variance: 0.0` is the
+        # worse half, because it is the smallest number on the board and presents a
+        # capped agent as the MOST consistent thing we publish.
+        #
+        # Left unfixed deliberately: it needs a choice between reporting null (as
+        # here) and reporting the UNCAPPED interval clearly labelled, which is a
+        # presentation decision about someone's published grade rather than a
+        # tidy-up. Onyx is withheld and nothing capped is published, so it keeps.
+        #
+        # The wrong parenthetical sat here for a day, inside the comment arguing
+        # against this exact class of false precision, and would have licensed the
+        # defect to the next reader. Caught by aivonic-8f.
+        r.confidence = {"runs": 1, "variance": None, "ci95_low": None, "ci95_high": None,
+                        "ci95_unavailable": "a single run supports no interval"}
         if agr:
             r.confidence["judge_agreement"] = agr
         return r
 
     composites = [r.composite for r in runs]
     mean_c = statistics.mean(composites)
+    n = len(composites)
+
+    # ⛔ TWO DIFFERENT STANDARD DEVIATIONS, ON PURPOSE. One name was doing both
+    # jobs and only one of them was wrong.
+    #
+    # DESCRIPTIVE (pstdev, divides by n): how far apart the runs we ACTUALLY HAVE
+    # sit. That is a property of these three numbers, not an estimate of anything
+    # wider, and pstdev is correct for it. It feeds stability_part below, which
+    # feeds the PUBLISHED COMPOSITE - so changing it here would silently move
+    # every grade on the board. Measured: Langflow -0.03, Dify -0.02, Typebot and
+    # CrewAI -0.01. Four of five visible at two decimals. Left alone deliberately.
+    #
+    # INFERENTIAL (sample stdev + Student's t): the CI infers the spread of the
+    # population these runs are drawn from, and both of the old terms understated
+    # it. pstdev divides by n rather than n-1 (x1.2247 at n=3) and 1.96 is the
+    # NORMAL quantile where 2 degrees of freedom need t(.975,2)=4.303 (x2.1952).
+    # Compounded, the published intervals were 2.69x TOO NARROW - on a benchmark
+    # whose entire claim is that it publishes its uncertainty honestly.
+    stdev = statistics.pstdev(composites)                      # descriptive
+    sample_stdev = statistics.stdev(composites) if n > 1 else 0.0   # inferential
     var = statistics.pvariance(composites)
-    stdev = statistics.pstdev(composites)
-    half = 1.96 * stdev / (len(composites) ** 0.5)
+    half = _T_975.get(n - 1, 1.96) * sample_stdev / (n ** 0.5)
 
     # Mean each dimension across runs; criticals counted if any run flagged one.
     dims = runs[0].subscores.keys()
@@ -155,7 +207,22 @@ def aggregate_runs(runs: list[GradeResult]) -> GradeResult:
 
     confidence = {
         "runs": len(runs), "variance": round(var, 3),
-        "ci95_low": round(max(0.0, mean_c - half), 2), "ci95_high": round(min(100.0, mean_c + half), 2),
+        # ⛔ CENTRED ON `composite`, NOT `mean_c`. They are different quantities and
+        # the interval must belong to the number printed beside it.
+        #
+        # `composite` comes from compute_composite(mean_sub), and mean_sub's
+        # reliability dimension contains stability_part = 10 - stdev - a CROSS-RUN
+        # term that cannot exist in any single run's composite, and therefore
+        # cannot exist in mean_c. So the published score sat outside its own
+        # published interval whenever that term was large enough: SPARK, 2026-09-18,
+        # composite 88.49 against CI [87.89, 88.36], outside by +0.13. A reviewer
+        # checking "is the score inside its own CI" finds that in ten seconds.
+        #
+        # The half-width is still the right dispersion estimate: stability_part is
+        # a deterministic function of the same per-run dispersion, so it adds no
+        # independent variance - only an offset, which re-centring removes exactly.
+        "ci95_low": round(max(0.0, composite - half), 2),
+        "ci95_high": round(min(100.0, composite + half), 2),
     }
     if merged_agr:
         confidence["judge_agreement"] = merged_agr

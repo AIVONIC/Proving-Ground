@@ -77,7 +77,11 @@ def build(entries: list[dict]) -> dict:
         # number the board is withholding, at a different URL.
         if not e.get("published", True):
             continue
-        ci = e.get("ci95") or [e["composite"], e["composite"]]
+        # ⛔ NEVER FABRICATE [composite, composite]. That was the fallback here, and
+        # it manufactures the exact false claim the n=1 fix removed upstream: a
+        # zero-width interval asserting perfect precision, on a CERTIFICATE, which
+        # is the one artefact a buyer checks. None means none.
+        ci = e.get("ci95")
         # ⛔ THE CAP MUST TRAVEL WITH THE GRADE. The board explains a capped
         # composite in full (render.py::_cap_line) because publishing 40 beside
         # subscores of 8-9 is a damaging claim by omission. A certificate is the
@@ -108,7 +112,7 @@ def build(entries: list[dict]) -> dict:
             "vendor": e.get("vendor", ""),
             "platform_version": e.get("platform_version") or "",
             "composite": e["composite"],
-            "ci95": ci,
+            "ci95": ci,          # null when the grade supports no interval
             "tier": e.get("tier", "none"),
             "runs": e.get("runs"),
             "judge_labs": e.get("judge_labs") or [],

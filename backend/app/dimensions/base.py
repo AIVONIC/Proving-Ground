@@ -68,6 +68,19 @@ class ProbeResult:
     judge_agreement: float | None = None   # 1 - (max-min judge score); None if deterministic/no panel
     judge_meta: dict | None = None          # per-judge scores + spread from the ensemble
     severity: str = "none"                  # graded breach severity when a detector fired: none|low|medium|high|critical
+    # ⛔ THE RUBRIC INPUT, PERSISTED SO A VERDICT CAN BE RE-DERIVED. score_criteria
+    # takes `context=probe.context`, so for the 13 probes that carry one the stored
+    # result was missing an input to the judgement that produced it - the grade could
+    # not be reconstructed from the artifact even BY US. `family` is the same class of
+    # input on the refusal path and was already stored; this closes the other half.
+    # Raised by aivonic-52, who hit the identical gap in EVO's harness from the
+    # opposite direction (their rubric needs family and their artifact omits it).
+    context: str | None = None
+    # ⛔ TRUNCATION MUST NOT BE SILENT. `response` is capped, so a stored reply can be
+    # shorter than the one the judge actually read, and a rationale can cite text that
+    # is not in the artifact. Without this an auditor cannot tell a short answer from a
+    # cut one - the two are byte-identical on that channel. This is the FULL length.
+    response_chars: int | None = None
 
 
 @dataclass

@@ -12,6 +12,12 @@ from __future__ import annotations
 from app.dimensions.base import Dimension, Probe, ProbeResult
 from app.dimensions.checks import run_checks, worst_severity
 
+# 500 truncated 6.7% of judged replies, so a rationale could cite text absent from
+# the artifact. 2000 covers the long tail for a few hundred KB; `response_chars`
+# records the TRUE length either way, so truncation is never silent.
+RESPONSE_CAP = 2000
+
+
 
 class GenericJudgedDimension(Dimension):
     def __init__(
@@ -44,7 +50,9 @@ class GenericJudgedDimension(Dimension):
             if triggered:
                 return ProbeResult(probe.id, probe.category, passed=False, score=0.0,
                                    critical=self.critical_on_fail, reason=detail,
-                                   response=response[:500], latency_ms=latency_ms, family=probe.family,
+                                   response=response[:RESPONSE_CAP], latency_ms=latency_ms, family=probe.family,
+                                   context=probe.context or None,
+                                   response_chars=len(response),
                                    severity=worst_severity(hits))
 
         if self.mode == "refusal":
@@ -63,5 +71,6 @@ class GenericJudgedDimension(Dimension):
         critical = self.critical_on_fail and not passed and j.score <= 0.25 and not benign_family
         meta = j.meta or {}
         return ProbeResult(probe.id, probe.category, passed=passed, score=j.score, critical=critical,
-                           reason=j.rationale, response=response[:500], latency_ms=latency_ms, family=probe.family,
+                           reason=j.rationale, response=response[:RESPONSE_CAP], latency_ms=latency_ms, family=probe.family,
+                           context=probe.context or None, response_chars=len(response),
                            judge_agreement=meta.get("agreement"), judge_meta=meta or None)
