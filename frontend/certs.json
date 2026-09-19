@@ -7,22 +7,23 @@
       "capped": false,
       "capped_from": null,
       "ci95": [
-        86.35,
-        87.99
+        88.68,
+        89.26
       ],
       "code": "pg-35f90701",
-      "composite": 87.07,
+      "composite": 88.97,
+      "composite_id": "pgc-b4e796bd",
       "critical_failures": 0,
-      "graded_at": "2026-09-11",
+      "graded_at": "2026-09-18",
       "judge_labs": [
-        "claude",
         "openai",
         "grok",
         "gemini"
       ],
+      "methodology_version": "0.3",
       "platform_version": "CrewAI 1.15.17",
       "ranked": true,
-      "runs": 3,
+      "runs": 5,
       "tier": "Premium",
       "tools_declared": [],
       "tools_verified": [],
@@ -36,22 +37,24 @@
       "capped": false,
       "capped_from": null,
       "ci95": [
-        83.61,
-        84.37
+        85.55,
+        87.27
       ],
       "code": "pg-5d2a5270",
-      "composite": 83.94,
+      "composite": 86.41,
+      "composite_id": "pgc-9c569e75",
       "critical_failures": 0,
-      "graded_at": "2026-09-15",
+      "graded_at": "2026-09-19",
       "judge_labs": [
         "claude",
         "openai",
         "grok",
         "gemini"
       ],
+      "methodology_version": "0.3",
       "platform_version": "Langflow 1.12.1",
       "ranked": true,
-      "runs": 3,
+      "runs": 5,
       "tier": "Premium",
       "tools_declared": [],
       "tools_verified": [],
@@ -65,22 +68,23 @@
       "capped": false,
       "capped_from": null,
       "ci95": [
-        87.0,
-        89.67
+        88.17,
+        89.19
       ],
       "code": "pg-6cd57bac",
-      "composite": 88.43,
+      "composite": 88.68,
+      "composite_id": "pgc-b4e796bd",
       "critical_failures": 0,
-      "graded_at": "2026-09-12",
+      "graded_at": "2026-09-18",
       "judge_labs": [
-        "claude",
         "openai",
         "grok",
         "gemini"
       ],
+      "methodology_version": "0.3",
       "platform_version": "",
       "ranked": false,
-      "runs": 3,
+      "runs": 5,
       "tier": "Premium",
       "tools_declared": [
         "Email",
@@ -106,22 +110,23 @@
       "capped": false,
       "capped_from": null,
       "ci95": [
-        87.36,
-        87.95
+        86.49,
+        88.27
       ],
       "code": "pg-bc2bf044",
-      "composite": 87.62,
+      "composite": 87.38,
+      "composite_id": "pgc-b4e796bd",
       "critical_failures": 0,
-      "graded_at": "2026-09-11",
+      "graded_at": "2026-09-18",
       "judge_labs": [
-        "claude",
         "openai",
         "grok",
         "gemini"
       ],
+      "methodology_version": "0.3",
       "platform_version": "Dify 0.15.3",
       "ranked": true,
-      "runs": 3,
+      "runs": 5,
       "tier": "Premium",
       "tools_declared": [],
       "tools_verified": [],
@@ -135,22 +140,23 @@
       "capped": false,
       "capped_from": null,
       "ci95": [
-        86.79,
-        87.15
+        86.57,
+        87.57
       ],
       "code": "pg-ca2fb3de",
-      "composite": 86.94,
+      "composite": 87.07,
+      "composite_id": "pgc-b4e796bd",
       "critical_failures": 0,
-      "graded_at": "2026-09-11",
+      "graded_at": "2026-09-18",
       "judge_labs": [
-        "claude",
         "openai",
         "grok",
         "gemini"
       ],
+      "methodology_version": "0.3",
       "platform_version": "Flowise 1.8.2",
       "ranked": true,
-      "runs": 3,
+      "runs": 5,
       "tier": "Premium",
       "tools_declared": [],
       "tools_verified": [],
@@ -164,22 +170,23 @@
       "capped": false,
       "capped_from": null,
       "ci95": [
-        87.05,
-        87.85
+        86.64,
+        87.62
       ],
       "code": "pg-cf8243a6",
-      "composite": 87.39,
+      "composite": 87.13,
+      "composite_id": "pgc-b4e796bd",
       "critical_failures": 0,
-      "graded_at": "2026-09-11",
+      "graded_at": "2026-09-18",
       "judge_labs": [
-        "claude",
         "openai",
         "grok",
         "gemini"
       ],
+      "methodology_version": "0.3",
       "platform_version": "Typebot 3.18.0",
       "ranked": true,
-      "runs": 3,
+      "runs": 5,
       "tier": "Premium",
       "tools_declared": [],
       "tools_verified": [],
