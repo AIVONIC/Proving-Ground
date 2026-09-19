@@ -116,7 +116,18 @@ def test_head_to_head_discloses_zero_tools_and_the_tie():
     assert "0 to 10" in cap, "the axis range must be stated; outlines sit in the outer quarter"
     assert "not how they compare" in cap.replace("&mdash;", "").replace("  ", " "), \
         "the radar must say it shows level, not comparison"
-    assert "that close" in cap, "the clustered field must still be stated in words"
+    # ⛔ ASSERT THE PROPERTY, NOT THE PROSE. This line used to pin the literal string
+    # "that close", which was part of the sentence "the field really is that close".
+    # That sentence was true at n=3 (span under a point) and FALSE at n=5 (span 2.56
+    # with the top entry separable), so the test was holding a stale public claim in
+    # place: correcting the page broke the test, and the test named the wording as the
+    # thing to preserve. The property worth protecting is that the tie is DISCLOSED in
+    # words - however it is phrased.
+    low = cap.lower()
+    assert "tie" in low or "ties" in low, \
+        "the tie must be stated in words, not left to the reader to infer from numbers"
+    assert "supported by the measurement" in low or "statistical tie" in low, \
+        "the caption must say how much of the ordering the measurement actually supports"
     if all(len(x.get("tools_verified") or x.get("tools") or []) == 0 for x in e):
         assert "zero executing tools" in cap
         assert "HANDLED" in cap, "Task must not read as 'completes tasks' for a tool-less agent"

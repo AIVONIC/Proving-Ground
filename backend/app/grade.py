@@ -134,6 +134,16 @@ def _format_report(agent: str, grade) -> str:
     return "\n".join(lines)
 
 
+_PROFILE_USED = ""
+
+
+def _profile_digest(s: str) -> str | None:
+    """None for an absent profile - distinct from the digest of an empty string, which
+    would make 'no profile' look like a recorded value."""
+    import hashlib
+    return hashlib.sha256(s.encode()).hexdigest()[:16] if s else None
+
+
 def _write_run(agent: str, grade, all_dim_results) -> Path:
     out_dir = BACKEND / "data/runs"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -149,6 +159,20 @@ def _write_run(agent: str, grade, all_dim_results) -> Path:
         # from the artifact instead of reconstructed from surviving mtimes. See
         # app/graded_env.py for the incident that produced it.
         "graded_env": graded_env.capture(agent),
+        # ⛔ RECORD THE SCOPE THE JUDGE GRADED AGAINST. Scope-relative dimensions grade
+        # against the capability profile, so two runs of the same agent under different
+        # profiles are different measurements - and until 2026-09-19 nothing in the
+        # artifact said which one had been used. When the profile turned out to
+        # CONTRADICT the system prompt, telling "the agent cannot do X" apart from "the
+        # judge was told not to expect X" depended on git history and file timestamps
+        # rather than on the record itself.
+        #
+        # A parallel estate hit the identical thing the same week: their artifacts did
+        # not record whether a system prefix had been applied, and they nearly could not
+        # separate a capability failure from a prompt that never asked for the
+        # capability. Same family as `context` and `response_chars`: the input that
+        # produced the judgement, discarded the moment after it was used.
+        "graded_profile": {"text": _PROFILE_USED, "sha256_16": _profile_digest(_PROFILE_USED)},
         # ⛔ STAMP THE SCORING IDENTITY ONTO THE MEASUREMENT ITSELF.
         #
         # scoring/version.py computes an id from the dimension set, the weights,
@@ -359,6 +383,7 @@ def main() -> int:
         raise SystemExit(f"unknown dimensions: {unknown}. available: {sorted(REGISTRY)}")
 
     profile = _load_profile(args.agent, args.profile)
+    globals()['_PROFILE_USED'] = profile
     if args.judge == "ensemble":
         judge = build_ensemble(profile)
     elif args.judge == "claude":

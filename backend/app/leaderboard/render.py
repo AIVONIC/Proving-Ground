@@ -332,10 +332,23 @@ def _radar_cap(entries: list[dict]) -> str:
             "how they compare."]
     if len(ranked) >= 2:
         comps = sorted(e["composite"] for e in ranked)
-        bits.append(f"The outlines overlap because the field really is that close: {len(ranked)} of "
-                    f"these agents sit within <b>{comps[-1] - comps[0]:.2f} points</b> of each "
-                    f"other. A clustered field makes a radar unreadable as a comparison, which is "
-                    f"what the panel beside it is for.")
+        bands, pairs = tie_structure(ranked)
+        span = comps[-1] - comps[0]
+        total = len(ranked) * (len(ranked) - 1) // 2
+        big = max(bands, key=len)
+        if len(big) > 1:
+            names = ", ".join(b["name"] for b in big[:-1]) + f" and {big[-1]['name']}"
+            shape = (f"<b>{names} are a statistical tie</b> &mdash; their composites sit within "
+                     f"{max(b['composite'] for b in big) - min(b['composite'] for b in big):.2f} "
+                     f"points and their intervals overlap, so this board does not rank them "
+                     f"against each other. ")
+        else:
+            shape = ""
+        bits.append(f"The field spans <b>{span:.2f} points</b>. {shape}"
+                    f"Of {total} possible orderings between these {len(ranked)} agents, "
+                    f"<b>{pairs} are supported by the measurement</b>; the rest are ties. "
+                    f"Overlapping outlines are what a partly-tied field looks like, which is "
+                    f"why the panel beside this is the comparison and the radar is not.")
     if all(len(e.get("tools_verified") or e.get("tools") or []) == 0 for e in entries):
         bits.append("<b>Every agent plotted here has zero executing tools</b> &mdash; they can only "
                     "converse. <b>Task</b> therefore scores how well a task is HANDLED (scoping it, "
@@ -345,6 +358,58 @@ def _radar_cap(entries: list[dict]) -> str:
                     "separately. None of these agents reaches Elite, which needs a composite of 90 "
                     "with every dimension at 8.0 or above.")
     return " ".join(bits)
+
+
+
+# ⛔ DERIVE THE FIELD'S SHAPE, NEVER ASSERT IT. The prose here read "the field really
+# is that close" beside a computed span. That was true at n=3 when the span was under
+# a point. At n=5 the span is 2.56 with the top entry separable from every other, so
+# the sentence became A FALSE PUBLIC CLAIM while the number beside it stayed correct -
+# a measurement going stale underneath the document quoting it.
+#
+# Two conditions, both required, matching scripts/tie_band.py:
+#   significance - the gap must exceed what run-to-run variation explains
+#   drift bound  - and exceed the judge drift we could not exclude (0.47 points),
+#                  because a difference smaller than our own uncertainty is not
+#                  publishable however significant it is.
+DRIFT_NOT_EXCLUDED = 0.47
+_T5 = 2.776   # t(.975, 4): entries carry n=5 intervals
+
+
+def _se(e: dict) -> float | None:
+    lo, hi = (e.get("ci95") or [None, None])
+    if lo is None or hi is None:
+        return None
+    return (hi - lo) / 2 / _T5
+
+
+def tie_structure(entries: list[dict]) -> tuple[list[list[dict]], int]:
+    """Group ranked entries into bands of mutually indistinguishable agents.
+
+    Returns (bands, distinct_pair_count). A band of more than one is a TIE and must
+    be rendered as one - a numbered list through a tie asserts an ordering the
+    measurement does not support.
+    """
+    ranked = sorted([e for e in entries if e.get("composite") is not None],
+                    key=lambda e: -e["composite"])
+
+    def distinct(a, b) -> bool:
+        gap = abs(a["composite"] - b["composite"])
+        if gap <= DRIFT_NOT_EXCLUDED:
+            return False
+        sa, sb = _se(a), _se(b)
+        if sa is None or sb is None:      # no interval -> cannot claim a difference
+            return False
+        return gap > _T5 * ((sa ** 2 + sb ** 2) ** 0.5)
+
+    bands: list[list[dict]] = []
+    for e in ranked:
+        if bands and not distinct(bands[-1][0], e):
+            bands[-1].append(e)
+        else:
+            bands.append([e])
+    pairs = sum(1 for i, x in enumerate(ranked) for y in ranked[i + 1:] if distinct(x, y))
+    return bands, pairs
 
 
 def compare_section(entries: list[dict]) -> str:
@@ -383,10 +448,23 @@ def compare_section(entries: list[dict]) -> str:
 
 
 def _conf_line(e: dict) -> str:
+    """⛔ TWO DECIMALS, NOT ZERO. An interval rounded coarser than the differences it
+    exists to qualify cannot qualify them. At `.0f` this board printed "CI 89-89" for
+    an interval of [88.68, 89.26] - a ZERO-WIDTH interval on the page, asserting
+    perfect precision, which is the exact defect corrected in the data the week
+    before and then reintroduced in the rendering. The gaps being qualified run from
+    0.07 to 1.53 points; whole numbers cannot speak to any of them.
+
+    A recused entry gets the same line as a ranked one. Its figure is on the page, so
+    the uncertainty on it must be too - otherwise the single number published without
+    error bars is the operator's own."""
     runs = e.get("runs", 1)
     lo, hi = (e.get("ci95") or [None, None])
     if runs and runs > 1 and lo is not None and hi is not None:
-        return f"{runs}-run avg &middot; CI {lo:.0f}&ndash;{hi:.0f}"
+        return f"{runs}-run avg &middot; 95% CI {lo:.2f}&ndash;{hi:.2f}"
+    if runs and runs > 1:
+        # capped grades carry no interval: the ceiling is administrative, not measured
+        return f"{runs}-run avg &middot; no interval (capped)"
     return "single run"
 
 
