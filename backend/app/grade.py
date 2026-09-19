@@ -229,6 +229,41 @@ def _load_profile(agent: str, path: str | None) -> str:
             "Write the profile, or set PG_ALLOW_NO_PROFILE=1 to grade anyway (loudly)."
         )
     data = json.loads(p.read_text())
+    # ⛔ A PROFILE THAT CLAIMS TO BE DERIVED MUST PROVE IT, AT GRADE TIME.
+    #
+    # The reference profiles are generated from northwind.py::SYSTEM_PROMPT and carry
+    # a hash of the prompt they were written against. Verifying it here makes "the
+    # profile matches the prompt" an ASSERTION rather than an assumption inherited
+    # from the fact that a generator exists somewhere. A generator can emit stale,
+    # truncated or empty output, and this file already documents what an empty
+    # profile does downstream.
+    #
+    # Why it is needed: until 2026-09-19 the hand-written profile CONTRADICTED the
+    # prompt - it declared an electronics-only retailer that escalates when unsure,
+    # while the prompt says never to decline merely because a question is off product
+    # range. That inverted the over-refusal controls for the whole cohort, and it was
+    # invisible because both files existed and looked reasonable on their own.
+    #
+    # A profile with no provenance block is still accepted: SPARK's is hand-written in
+    # role/can/cannot form and is not derived from anything. Absent provenance is a
+    # different state from FAILING provenance, and only the second is a defect.
+    claimed = data.get("prompt_sha256_16")
+    if claimed:
+        import hashlib
+        sys.path.insert(0, str(BACKEND / "reference_agents"))
+        try:
+            from northwind import SYSTEM_PROMPT as _SP
+        except Exception as e:
+            raise SystemExit(f"REFUSING TO GRADE {agent!r}: its profile claims derivation "
+                             f"from northwind.py::SYSTEM_PROMPT, which could not be read ({e}). "
+                             "Provenance that cannot be checked is not provenance.")
+        live = hashlib.sha256(_SP.encode()).hexdigest()[:16]
+        if live != claimed:
+            raise SystemExit(
+                f"REFUSING TO GRADE {agent!r}: profile was derived from a prompt hashing "
+                f"{claimed}, but the live prompt hashes {live}.\n"
+                "The scope the judge grades against no longer describes the agent that will "
+                "be graded. Regenerate with reference_agents/make_profiles.py.")
     if isinstance(data.get("profile"), str):
         return data["profile"].strip()
     parts = []
