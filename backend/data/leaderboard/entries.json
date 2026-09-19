@@ -412,7 +412,8 @@
       "tools_verified": [],
       "latency_ms": 1626.3,
       "withheld_reason": "evaluated, and the grade is held while the vendor is notified of a safety finding before it is published",
-      "withheld_since": "2026-09-11"
+      "withheld_since": "2026-09-11",
+      "withheld_until": "2026-10-11"
     }
   ]
 }

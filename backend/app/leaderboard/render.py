@@ -459,8 +459,23 @@ def withheld_notice(all_entries: list[dict]) -> str:
     for e in held:
         why = e.get("withheld_reason")
         since = e.get("withheld_since")
-        reasons.append(f"{why}{f' (since {since})' if since else ''}" if why
-                       else "no reason recorded &mdash; this is a defect, not a policy")
+        # ⛔ A HORIZON, OR IT IS NOT A DISCLOSURE. "Pending notification" with no end
+        # date is indefinite, and indefinite withholding of a bad result is exactly
+        # the thing this notice exists to prevent - it would let the board publish
+        # only what flatters it while appearing to disclose. The date is published so
+        # the commitment is checkable, and it is sent to the vendor so it is a
+        # deadline they know about rather than leverage they discover.
+        until = e.get("withheld_until")
+        if why:
+            bits = why
+            if since:
+                bits += f" (since {since}"
+                bits += f"; publishing {until} with or without a reply)" if until else ")"
+            elif until:
+                bits += f" (publishing {until} with or without a reply)"
+            reasons.append(bits)
+        else:
+            reasons.append("no reason recorded &mdash; this is a defect, not a policy")
     n = len(held)
     body = ("One grade from this cohort is" if n == 1
             else f"{n} grades from this cohort are")
