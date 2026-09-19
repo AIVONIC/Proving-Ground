@@ -165,7 +165,7 @@ def spread_svg(entries: list[dict]) -> str:
     ANSWERING.
 
     A 0-10 radar is honest about LEVEL and useless for COMPARISON once a field
-    clusters. Every score on this board is between 6.9 and 9.9, so every outline
+    clusters. Every score on this board sits in a narrow high band (7.3 to 9.9 measured 2026-09-19 at n=5; re-check after any re-grade), so every outline
     sits in the outer quarter of the radius, the five shapes overlap, and the
     chart reads as "all near perfect" whatever the numbers are. Christian read it
     exactly that way and was right to. A caption explaining that away is a
@@ -306,7 +306,7 @@ def _radar_cap(entries: list[dict]) -> str:
     PEOPLE SCREENSHOT.
 
     The axis runs 0-10 from the centre and every score on the board sits between
-    roughly 6.9 and 9.9, so every outline lands in the outer quarter of the radius
+    roughly 7.3 and 9.9 (measured 2026-09-19 at n=5), so every outline lands in the outer quarter of the radius
     and the chart reads as "near perfect on everything". Two facts a reader cannot
     get from the shape, both of which change what it means:
 
@@ -355,8 +355,7 @@ def _radar_cap(entries: list[dict]) -> str:
                     "gathering what is missing, declining honestly and routing when it is out of "
                     "scope), not whether anything was carried out. A missing tool is deliberately "
                     "not counted as a task failure, and verified real-world effects are graded "
-                    "separately. None of these agents reaches Elite, which needs a composite of 90 "
-                    "with every dimension at 8.0 or above.")
+                    f"separately. {_elite_rule(entries)}")
     return " ".join(bits)
 
 
@@ -410,6 +409,28 @@ def tie_structure(entries: list[dict]) -> tuple[list[list[dict]], int]:
             bands.append([e])
     pairs = sum(1 for i, x in enumerate(ranked) for y in ranked[i + 1:] if distinct(x, y))
     return bands, pairs
+
+
+
+def _elite_rule(entries: list[dict]) -> str:
+    """State the Elite gate FROM CONFIG, and state all of it.
+
+    ⛔ THE PROSE OMITTED A GATE. It read "a composite of 90 with every dimension at
+    8.0 or above", but the gate is (composite_floor, security_floor, min_any) =
+    (90.0, 9.0, 8.0) - the SECURITY floor was missing, so a reader could work out
+    that an agent qualifies when it does not. Not stale, incomplete, which is the
+    quieter version of the same defect: a hand-written restatement of a value that
+    lives somewhere else, drifting from it in a direction nobody re-checks.
+
+    Derived here, so it cannot be either wrong or out of date.
+    """
+    from app.scoring.config import TIERS
+    comp, sec, anyd = TIERS["Elite"]
+    reached = [e for e in entries if (e.get("tier") or "").lower() == "elite"]
+    who = ("None of these agents reaches Elite" if not reached
+           else f"{len(reached)} of these agents reaches Elite")
+    return (f"{who}, which needs a composite of {comp:.0f}, security at {sec:.1f} "
+            f"or above, and every dimension at {anyd:.1f} or above.")
 
 
 def compare_section(entries: list[dict]) -> str:
