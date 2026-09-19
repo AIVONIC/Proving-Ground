@@ -433,6 +433,46 @@ def _elite_rule(entries: list[dict]) -> str:
             f"or above, and every dimension at {anyd:.1f} or above.")
 
 
+
+def withheld_notice(all_entries: list[dict]) -> str:
+    """Disclose that a grade is withheld, and why, on the page itself.
+
+    ⛔ AN UNDISCLOSED OMISSION IS ITSELF A CLAIM, AND THIS PAGE MADE THE CLAIM
+    EXPLICITLY. The only occurrence of "withheld" in the published copy was SPARK's
+    "recused, NOT withheld" - a contrast that tells a reader nothing is being held
+    back, while a grade was. Silence would have been an omission; that phrasing made
+    it an assertion.
+
+    The pattern a hostile reader sees without this: the operator's own agent is
+    displayed at 88.68, the agent at 40.00 is invisible, and the operator made both
+    calls. Each decision may be sound on its own; together they need saying out loud.
+
+    The COUNT and the REASON are read from the entries, so a grade that is later
+    published, or withheld for a different reason, cannot leave a stale sentence
+    behind. If a reason does not survive being written down in public, that is worth
+    discovering before publication rather than after someone asks.
+    """
+    held = [e for e in all_entries if not e.get("published", True)]
+    if not held:
+        return ""
+    reasons = []
+    for e in held:
+        why = e.get("withheld_reason")
+        since = e.get("withheld_since")
+        reasons.append(f"{why}{f' (since {since})' if since else ''}" if why
+                       else "no reason recorded &mdash; this is a defect, not a policy")
+    n = len(held)
+    body = ("One grade from this cohort is" if n == 1
+            else f"{n} grades from this cohort are")
+    return (
+        '<div class="lb-withheld"><b>Disclosed omission.</b> '
+        f'{body} not shown here: {"; ".join(reasons)}. '
+        'The agents above are the whole of what was graded and published &mdash; '
+        'a withheld grade is counted here so that the absence is visible rather than '
+        'inferred.</div>'
+    )
+
+
 def compare_section(entries: list[dict]) -> str:
     """The comparison band shown above the cards once two or more agents exist."""
     if len(entries) < 2:
@@ -647,7 +687,7 @@ PAGE_CSS = """
   .sc-badge.tier-elite{border-color:var(--tier-elite);color:var(--tier-elite);}
   .sc-badge.tier-none{border-color:var(--hair-strong);color:var(--muted);}
   .lb-note{font-family:var(--mono);font-size:12px;color:var(--muted);margin:10px 0 0;line-height:1.6;}
-  .lb-empty{padding:60px 0;color:var(--muted);font-family:var(--mono);}
+  .lb-withheld{margin:26px 0 0;padding:12px 14px;border-radius:8px;background:rgba(189,81,66,.06);border:1px solid rgba(189,81,66,.24);font-size:12.5px;line-height:1.6;color:var(--ink);} .lb-empty{padding:60px 0;color:var(--muted);font-family:var(--mono);}
   .lb-dims{display:grid;grid-template-columns:1fr;gap:1px 0;margin-top:16px;padding-top:14px;border-top:1px solid var(--hair);}
   .lb-dim{display:grid;grid-template-columns:112px 1fr 30px;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;padding:3.5px 0;}
   .lb-dl{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -760,7 +800,7 @@ def recused_section(recused: list[dict], slugs: dict[str, str] | None = None) ->
 
 
 def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None = None,
-           recused: list[dict] | None = None) -> str:
+           recused: list[dict] | None = None, all_entries: list[dict] | None = None) -> str:
     """`entries` are RANKED. `recused` are graded and published but not ranked.
 
     The operator's own agent is recused rather than removed: its scorecard, its URL
@@ -834,6 +874,9 @@ def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None =
         f'{compare_section(entries)}'
         f'<section style="border-top:none;padding-top:8px;"><div class="lb-wrap"><div class="lb-grid">{cards}</div></div></section>'
         f'{recused_section(recused or [], slugs)}'
+        # Disclosed AFTER the cards: a reader has seen what IS here before being
+        # told what is not, which is the honest order for an omission.
+        f'<section><div class="lb-wrap">{withheld_notice(all_entries or entries)}</div></section>'
         f'{coauthorship_disclosure()}'
         '</main>'
     )
@@ -879,7 +922,8 @@ def main() -> int:
         print(f"   WITHHELD from the board: {e['name']} "
               f"(composite {e.get('composite')}, {e.get('critical_failures')} critical) "
               f"- scorecard still generated, no public certificate")
-    html = render(Path(a.lander).read_text(), ranked_entries, slugs, recused)
+    html = render(Path(a.lander).read_text(), ranked_entries, slugs, recused,
+                  all_entries=entries)
     Path(a.out).write_text(html)
     print(f"rendered {len(ranked_entries)} ranked + {len(recused)} recused "
           f"-> {a.out} ({len(html)} bytes)")
