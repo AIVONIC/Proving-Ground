@@ -531,8 +531,14 @@ METHOD_DEPENDENT = {("crewai-northwind", "dify-northwind"): "distinct on a re-ru
 def robust_claim(entries: list[dict]) -> str:
     name = {e["id"]: e["name"] for e in entries}
     ids = set(name)
-    rob = [(a, b) for a, b in ROBUST_ORDERINGS if a in ids and b in ids]
-    dep = [(k, why) for k, why in METHOD_DEPENDENT.items() if k[0] in ids and k[1] in ids]
+    # ⛔ SORT. ROBUST_ORDERINGS is a set, so iterating it renders in hash order, which
+    # differs between Python processes. The deploy preflight re-renders the page and
+    # diffs it against the committed one; two renders of identical data came out in
+    # different orders and the gate refused a correct page. A render that is not
+    # reproducible turns every preflight into a coin flip, and a check that fails at
+    # random is a check that gets disabled.
+    rob = sorted((a, b) for a, b in ROBUST_ORDERINGS if a in ids and b in ids)
+    dep = sorted(((k, why) for k, why in METHOD_DEPENDENT.items() if k[0] in ids and k[1] in ids))
     if not rob and not dep:
         return ""
     r = "; ".join(f"<b>{name[a]}</b> above <b>{name[b]}</b>" for a, b in rob)
