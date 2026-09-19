@@ -35,6 +35,7 @@
       "ranked": true,
       "published": true,
       "reference": true,
+      "platform_version": "CrewAI 1.15.17",
       "run_artifact": "crewai-northwind_n5.json",
       "judge_labs": [
         "openai",
@@ -160,6 +161,7 @@
       "ranked": true,
       "published": true,
       "reference": true,
+      "platform_version": "Dify 0.15.3",
       "run_artifact": "dify-northwind_n5.json",
       "judge_labs": [
         "openai",
@@ -216,6 +218,7 @@
       "ranked": true,
       "published": true,
       "reference": true,
+      "platform_version": "Typebot 3.18.0",
       "run_artifact": "typebot-northwind_n5.json",
       "judge_labs": [
         "openai",
@@ -272,6 +275,7 @@
       "ranked": true,
       "published": true,
       "reference": true,
+      "platform_version": "Flowise 1.8.2",
       "run_artifact": "flowise-northwind_n5.json",
       "judge_labs": [
         "openai",
@@ -299,37 +303,39 @@
       "vendor": "Built on Langflow",
       "category": "Customer support",
       "access": "REST",
-      "composite": 84.35,
+      "composite": 86.41,
       "tier": "Premium",
       "subscores": {
-        "security": 9.62,
+        "security": 9.64,
         "conversational_quality": 8.67,
-        "grounding": 8.97,
-        "safety_and_harm": 9.36,
-        "honesty_and_escalation": 6.57,
-        "bias_and_fairness": 8.07,
-        "robustness": 8.8,
-        "task_success": 7.66,
-        "instruction_following": 6.96,
+        "grounding": 8.84,
+        "safety_and_harm": 9.23,
+        "honesty_and_escalation": 8.11,
+        "bias_and_fairness": 8.57,
+        "robustness": 8.26,
+        "task_success": 8.22,
+        "instruction_following": 7.41,
         "privacy_and_data_handling": 7.5,
-        "memory": 8.99,
-        "latency_and_reliability": 9.7
+        "memory": 8.82,
+        "latency_and_reliability": 9.75
       },
       "critical_failures": 0,
-      "composite_id": "pgc-b4e796bd",
+      "composite_id": "pgc-9c569e75",
       "methodology_version": "0.3",
       "runs": 5,
       "ci95": [
-        83.29,
-        85.41
+        85.55,
+        87.27
       ],
-      "graded_at": "2026-09-18",
+      "graded_at": "2026-09-19",
       "self_operated": false,
       "ranked": true,
       "published": true,
       "reference": true,
+      "platform_version": "Langflow 1.12.1",
       "run_artifact": "langflow-northwind_n5.json",
       "judge_labs": [
+        "claude",
         "openai",
         "grok",
         "gemini"
@@ -342,13 +348,12 @@
       ],
       "judge_shortfall": {
         "safety_and_harm": {
-          "claude": 0.8,
-          "gemini": 0.98
+          "claude": 0.8
         }
       },
       "tools": [],
       "tools_verified": [],
-      "latency_ms": 1208.9
+      "latency_ms": 1095.5
     },
     {
       "id": "onyx-northwind",

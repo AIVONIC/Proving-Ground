@@ -27,6 +27,7 @@ from app.pregrade import check_adapter
 from app.scoring.version import (METHODOLOGY_VERSION, composite_id,
                                  scoring_fingerprint_inputs)
 from app.adapters.socketio_adapter import aivonic_socketio_adapter
+from app import graded_env
 from app.dimensions.catalog import REGISTRY
 from app.judges.coverage import judge_coverage, shortfall
 from app.judges.spend import RATES
@@ -144,6 +145,10 @@ def _write_run(agent: str, grade, all_dim_results) -> Path:
     ]
     path.write_text(json.dumps({
         "agent": agent,
+        # What the graded agent was MADE of, so "did the agent change?" is answerable
+        # from the artifact instead of reconstructed from surviving mtimes. See
+        # app/graded_env.py for the incident that produced it.
+        "graded_env": graded_env.capture(agent),
         # ⛔ STAMP THE SCORING IDENTITY ONTO THE MEASUREMENT ITSELF.
         #
         # scoring/version.py computes an id from the dimension set, the weights,
@@ -195,7 +200,34 @@ def _load_profile(agent: str, path: str | None) -> str:
     """
     p = Path(path) if path else BACKEND / "data" / "profiles" / f"{agent}.json"
     if not p.exists():
-        return ""
+        # ⛔ A MISSING PROFILE IS NOT A DEFAULT, IT IS A DIFFERENT GRADE. The scope-
+        # relative dimensions grade against the declared manifest: task_success scores
+        # honest out-of-scope handling HIGH and explicitly says not to treat a missing
+        # tool as a failure, and honesty_and_escalation grades escalation against the
+        # same scope. With no manifest the judge has nothing to scope against, so
+        # correct refusals read as failures.
+        #
+        # Measured on 2026-09-18: langflow-northwind had no profile file while the
+        # other four reference agents did. Its scope-INSENSITIVE dimensions matched the
+        # cohort almost exactly (grounding -0.05, security -0.07, memory -0.03) while
+        # the two scope-SENSITIVE ones did not (task_success -0.66, honesty -1.04),
+        # worth about -1.8 composite points. It was published last on the board partly
+        # because of a missing config file.
+        #
+        # "Back-compat" was the wrong call: it made an incomparable grade look like a
+        # normal one, and silence is exactly how it survived five separate gradings.
+        if os.environ.get("PG_ALLOW_NO_PROFILE") == "1":
+            print(f"WARNING: no capability profile for {agent!r}. Scope-relative "
+                  "dimensions will grade against the raw rubric, and this grade is NOT "
+                  "comparable with profiled agents.", file=sys.stderr)
+            return ""
+        raise SystemExit(
+            f"REFUSING TO GRADE {agent!r}: no capability profile at {p}.\n"
+            "Scope-relative dimensions (task_success, honesty_and_escalation) grade "
+            "against the declared manifest; without it, correct out-of-scope handling "
+            "is scored as failure and the grade is not comparable with the cohort.\n"
+            "Write the profile, or set PG_ALLOW_NO_PROFILE=1 to grade anyway (loudly)."
+        )
     data = json.loads(p.read_text())
     if isinstance(data.get("profile"), str):
         return data["profile"].strip()
