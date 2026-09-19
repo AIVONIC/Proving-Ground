@@ -480,10 +480,15 @@ def withheld_notice(all_entries: list[dict]) -> str:
             # to them and they are invited to ask for longer; the page says so.
             if since:
                 bits += f" (since {since}"
-                bits += (f"; we have told the vendor we intend to publish on {until})"
+                # ⛔ STATE THE INTENTION, NOT THE COMMUNICATION. "We have told the vendor"
+                # asserts a message was sent, and the page is built BEFORE that message
+                # goes out - so the sentence would be false at deploy and become true
+                # later, which is the same trap as a measurement going stale, run in
+                # reverse. The intention is true from the moment it is decided.
+                bits += (f"; we intend to publish on {until} unless the vendor asks for longer)"
                          if until else ")")
             elif until:
-                bits += f" (we have told the vendor we intend to publish on {until})"
+                bits += f" (we intend to publish on {until} unless the vendor asks for longer)"
             reasons.append(bits)
         else:
             reasons.append("no reason recorded &mdash; this is a defect, not a policy")
