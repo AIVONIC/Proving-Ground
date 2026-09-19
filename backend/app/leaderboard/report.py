@@ -33,6 +33,8 @@ from app.judges.coverage import DISPLAY as PANEL_DISPLAY, panel_phrase
 from app.scoring.version import METHODOLOGY_VERSION, describe_identity
 from app.leaderboard.store import load, load_published
 
+BACKEND = Path(__file__).resolve().parents[2]
+
 DIM_KEYS = {k: full for _short, k, full in DIMS}
 MAX_PROBES_PER_DIM = 6   # worst-first; the rest are counted, never silently dropped
 RESPONSE_CLIP = 900
@@ -494,11 +496,42 @@ def main() -> int:
         raise SystemExit(f"no promoted entry with id {a.id!r}; promote the run first")
     data = json.loads(Path(a.run).read_text())
     slug = slug_for(entry, a.run)
-    out = Path(a.out_dir) / f"{slug}.html"
+
+    # ⛔ A WITHHELD CARD MUST NOT BE WRITTEN WHERE A DEPLOY CAN REACH IT.
+    #
+    # This module already knew the card should not be DISCOVERABLE - it is excluded
+    # from the index, from the leaderboard and from certs.json. It was still written
+    # into frontend/scorecards/, which deploy.sh carries across the docroot swap, and
+    # nginx serves /var/www/html/pg by path with no authorization. So Onyx's card sat
+    # publicly retrievable for three days at a 78KB URL containing the model's
+    # keycard-cloning output verbatim, while every index correctly hid it.
+    #
+    # "Not linked" is not "not published". The three exclusions were each correct and
+    # none of them was the one that mattered, because the file was still on disk in a
+    # served directory.
+    #
+    # The separation is now STRUCTURAL rather than a matter of passing the right
+    # --out-dir: an unpublished entry is routed out of the deploy tree by the code,
+    # and the path is printed so the operator knows where the vendor's copy is.
+    out_dir = Path(a.out_dir)
+    if not entry.get("published", True):
+        out_dir = BACKEND / "data" / "withheld-scorecards"
+        print(f"WITHHELD: {entry['name']} is published:false - its card is NOT written to "
+              f"{a.out_dir} (deploy-reachable). Writing outside the deploy tree instead.")
+    out = out_dir / f"{slug}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(render_report(Path(a.lander).read_text(), entry, data, slug))
     print(f"scorecard {entry['name']} -> {out} ({out.stat().st_size} bytes)")
-    print(f"URL when deployed: https://theprovingground.io/scorecards/{slug}")
+    # ⛔ DO NOT PRINT A PUBLIC URL FOR A CARD THAT WILL NOT BE PUBLISHED. The line
+    # below is the one an operator copies into an email. For a withheld card that URL
+    # is false - it 404s - and printing it is how a withheld grade gets sent as though
+    # it were live, or worse, how someone concludes it must be reachable and puts it
+    # back in the docroot to make the link work.
+    if entry.get("published", True):
+        print(f"URL when deployed: https://theprovingground.io/scorecards/{slug}")
+    else:
+        print("NOT deployed and no public URL: this card is withheld. Send the FILE, "
+              "and it 404s on the site by design.")
     return 0
 
 

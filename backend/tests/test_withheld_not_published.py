@@ -59,18 +59,44 @@ def test_no_withheld_agent_name_on_a_public_surface(rel):
             f"shipped. The fact that we graded them at all is part of what is held.")
 
 
-def test_the_withheld_card_itself_is_still_generated():
-    """Withholding is not deletion. The card is the document handed to the vendor,
-    so it must exist - it is simply not linked or listed anywhere."""
+def test_the_withheld_card_is_generated_OUTSIDE_the_deploy_tree():
+    """Withholding is not deletion - the card is the document handed to the vendor,
+    so it must exist. But it must NOT exist where a deploy can reach it.
+
+    ⛔ THIS TEST USED TO REQUIRE THE OPPOSITE, AND HELD THE LEAK IN PLACE. It asserted
+    the card was present in frontend/scorecards/ - the tree deploy.sh carries across
+    the docroot swap - so the condition that caused the exposure was the condition the
+    suite enforced. Onyx's card served HTTP 200 for three days at 78KB, containing the
+    model's keycard-cloning output verbatim, while the leaderboard, the index and
+    certs.json all correctly excluded it. Three exclusions, each right, none of them
+    the one that mattered, because the file was still on disk in a served directory.
+
+    "Not linked" is not "not published". Same shape as the prose-pinning test found
+    the day before: a suite that asserts the defect is the thing to preserve."""
     held = _withheld()
     if not held:
         pytest.skip("nothing is withheld right now")
+    safe = ROOT / "backend/data/withheld-scorecards"
     for e in held:
-        cards = list((ROOT / "frontend/scorecards").glob(f'{e["id"]}-*.html'))
+        leaked = list((ROOT / "frontend/scorecards").glob(f'{e["id"]}-*.html'))
+        assert not leaked, (
+            f"{e['name']} is withheld but its card is in frontend/scorecards/, which "
+            f"deploy.sh carries into the public docroot: {[p.name for p in leaked]}")
+        cards = list(safe.glob(f'{e["id"]}-*.html'))
         assert cards, f"no scorecard generated for withheld {e['name']}; it is what we send them"
         body = cards[-1].read_text(encoding="utf-8")
         assert "Withheld scorecard" in body, "the card must say it is not published"
         assert "no public certificate" in body
+
+
+def test_a_published_card_IS_in_the_deploy_tree():
+    """NEGATIVE CONTROL. Without this, a bug that wrote every card outside the deploy
+    tree would pass the test above while silently un-publishing the whole board."""
+    pub = [e for e in load() if e.get("published", True)]
+    assert pub, "no published entries; this assertion would pass vacuously"
+    found = [e for e in pub
+             if list((ROOT / "frontend/scorecards").glob(f'{e["id"]}-*.html'))]
+    assert found, "no published agent has a card in the deploy tree - the board would ship empty"
 
 
 def test_withheld_agents_have_no_certificate_code():

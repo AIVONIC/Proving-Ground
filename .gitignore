@@ -97,3 +97,9 @@ backend/reference_agents/stacks/*/volumes/
 #
 # docker-compose.pg-ref.yml is the curated, reproducible one and stays TRACKED.
 backend/reference_agents/stacks/*/docker-compose.yaml
+
+# Withheld scorecards: a graded vendor's full card, including the agent's own
+# harmful output verbatim, held back pending disclosure. This repo is PUBLIC.
+# Committing one would be a worse exposure than the docroot leak that created
+# this directory, because git history is not revocable.
+backend/data/withheld-scorecards/
