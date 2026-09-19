@@ -468,11 +468,19 @@ def withheld_notice(all_entries: list[dict]) -> str:
         until = e.get("withheld_until")
         if why:
             bits = why
+            # ⛔ THE DATE IS WHAT THE VENDOR WAS TOLD, NOT WHAT WE DECIDED ALONE.
+            # Onyx publishes a security policy stating investigations take up to 90
+            # days. Announcing a 30-day deadline we set unilaterally, through the
+            # channel where we had just read their 90-day expectation, would be
+            # undercutting a vendor's stated norm while citing disclosure norms -
+            # which is the objection that would land hardest. So the date is PROPOSED
+            # to them and they are invited to ask for longer; the page says so.
             if since:
                 bits += f" (since {since}"
-                bits += f"; publishing {until} with or without a reply)" if until else ")"
+                bits += (f"; we have told the vendor we intend to publish on {until})"
+                         if until else ")")
             elif until:
-                bits += f" (publishing {until} with or without a reply)"
+                bits += f" (we have told the vendor we intend to publish on {until})"
             reasons.append(bits)
         else:
             reasons.append("no reason recorded &mdash; this is a defect, not a policy")
