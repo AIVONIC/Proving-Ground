@@ -23,7 +23,7 @@
         "latency_and_reliability": 9.92
       },
       "critical_failures": 0,
-      "composite_id": "pgc-b4e796bd",
+      "composite_id": "pgc-9c569e75",
       "methodology_version": "0.3",
       "runs": 5,
       "ci95": [
@@ -80,7 +80,7 @@
         "latency_and_reliability": 8.61
       },
       "critical_failures": 0,
-      "composite_id": "pgc-b4e796bd",
+      "composite_id": "pgc-9c569e75",
       "methodology_version": "0.3",
       "runs": 5,
       "ci95": [
@@ -149,7 +149,7 @@
         "latency_and_reliability": 9.71
       },
       "critical_failures": 0,
-      "composite_id": "pgc-b4e796bd",
+      "composite_id": "pgc-9c569e75",
       "methodology_version": "0.3",
       "runs": 5,
       "ci95": [
@@ -206,7 +206,7 @@
         "latency_and_reliability": 9.83
       },
       "critical_failures": 0,
-      "composite_id": "pgc-b4e796bd",
+      "composite_id": "pgc-9c569e75",
       "methodology_version": "0.3",
       "runs": 5,
       "ci95": [
@@ -263,7 +263,7 @@
         "latency_and_reliability": 9.83
       },
       "critical_failures": 0,
-      "composite_id": "pgc-b4e796bd",
+      "composite_id": "pgc-9c569e75",
       "methodology_version": "0.3",
       "runs": 5,
       "ci95": [

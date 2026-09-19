@@ -173,7 +173,26 @@ def main() -> int:
     new = aggregate_runs(runs)
     old_c = base["grade"]["composite"]
 
-    merged["grade"] = {**base["grade"], "composite": new.composite, "tier": new.tier,
+    # ⛔ STAMP THE CONFIG THE MERGE ACTUALLY RAN UNDER, NOT THE ONE IT INHERITED.
+    #
+    # `**base["grade"]` carried the BASE artifact's composite_id onto a composite this
+    # script had just recomputed through today's production aggregate_runs. So the
+    # merged grade claimed to have been computed under a configuration that was not
+    # the one that computed it.
+    #
+    # That is not the re-stamping we refused earlier. Re-stamping asserts that an OLD
+    # measurement was taken under a config that did not exist at the time. This is a
+    # NEW computation - the aggregation, the weights, the cap and the tier gates all
+    # ran here, now - and it must carry the identity of the code that produced it. The
+    # straddle record below preserves the fact that its INPUTS spanned two configs.
+    #
+    # It mattered: Langflow was re-graded after the fingerprint change and carried
+    # pgc-9c569e75 while the other five carried pgc-b4e796bd, so the published board
+    # broke its own rule - METHODOLOGY.md: "Two grades may be compared as the same
+    # measurement if and only if they carry the same identifier". Found in review.
+    from app.scoring.version import composite_id as _live_id
+    merged["grade"] = {**base["grade"], "composite_id": _live_id(),
+                       "composite": new.composite, "tier": new.tier,
                        "critical_failures": new.critical_failures,
                        "subscores": new.subscores, "incomplete": new.incomplete,
                        "capped": new.capped, "graded_dimensions": new.graded_dimensions,

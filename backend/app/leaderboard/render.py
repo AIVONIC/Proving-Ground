@@ -344,11 +344,14 @@ def _radar_cap(entries: list[dict]) -> str:
                      f"against each other. ")
         else:
             shape = ""
+        rc = robust_claim(ranked)
         bits.append(f"The field spans <b>{span:.2f} points</b>. {shape}"
                     f"Of {total} possible orderings between these {len(ranked)} agents, "
                     f"<b>{pairs} are supported by the measurement</b>; the rest are ties. "
                     f"Overlapping outlines are what a partly-tied field looks like, which is "
                     f"why the panel beside this is the comparison and the radar is not.")
+        if rc:
+            bits.append(rc)
     if all(len(e.get("tools_verified") or e.get("tools") or []) == 0 for e in entries):
         bits.append("<b>Every agent plotted here has zero executing tools</b> &mdash; they can only "
                     "converse. <b>Task</b> therefore scores how well a task is HANDLED (scoping it, "
@@ -493,6 +496,49 @@ def withheld_notice(all_entries: list[dict]) -> str:
         'The agents above are the whole of what was graded and published &mdash; '
         'a withheld grade is counted here so that the absence is visible rather than '
         'inferred.</div>'
+    )
+
+
+
+# ⛔ TWO QUESTIONS, TWO ANSWERS, AND THE READER SUBSTITUTES ONE FOR THE OTHER.
+#
+# The run-to-run interval answers "would these scores differ on a RE-RUN of the
+# same probes?" - what the board claims. A bootstrap over probe ids answers "would
+# this ranking hold on DIFFERENT probes?" - a generalisation claim, and the one a
+# reader silently asks. They disagree here on 1 of 10 pairs and one more flips
+# with the random seed (distinct in 8 of 12 seeds - a coin with a bias, not a
+# result). Publishing only the first without naming it misleads by default while
+# being literally true, which is worse than a wrong number: nothing is false, so
+# no correction is ever triggered. So the question goes in the sentence beside
+# the number, not in a methodology footnote. Raised by aivonic-52.
+#
+# ROBUST_ORDERINGS is the intersection: distinct under BOTH methods AND stable
+# across 12 seeds. Measured 2026-09-19 at n=5 by scripts/tie_band.py (Welch) and
+# scripts/paired_agent_test.py with 12 seeds. It is a MEASURED SET and goes stale
+# on the next re-grade - which is why it is asserted against the live data by
+# tests/test_rendered_numbers_are_derived.py rather than trusted.
+ROBUST_ORDERINGS = {("crewai-northwind", "typebot-northwind"),
+                    ("crewai-northwind", "langflow-northwind")}
+METHOD_DEPENDENT = {("crewai-northwind", "dify-northwind"): "distinct on a re-run, a tie across probe sets",
+                    ("crewai-northwind", "flowise-northwind"): "distinct in 8 of 12 random seeds"}
+
+
+def robust_claim(entries: list[dict]) -> str:
+    name = {e["id"]: e["name"] for e in entries}
+    ids = set(name)
+    rob = [(a, b) for a, b in ROBUST_ORDERINGS if a in ids and b in ids]
+    dep = [(k, why) for k, why in METHOD_DEPENDENT.items() if k[0] in ids and k[1] in ids]
+    if not rob and not dep:
+        return ""
+    r = "; ".join(f"<b>{name[a]}</b> above <b>{name[b]}</b>" for a, b in rob)
+    d = "; ".join(f"{name[a]} above {name[b]} ({why})" for (a, b), why in dep)
+    return (
+        f"<b>Which question this answers.</b> The intervals here say whether a score would "
+        f"move on a <i>re-run of the same probes</i>. A reader usually wants a different "
+        f"question: would the ranking hold on <i>different</i> probes? Those two tests agree "
+        f"on most pairs and not all. Orderings that hold under <b>both</b>, and across twelve "
+        f"random seeds: {r}. Orderings that depend on which question you ask: {d}. "
+        f"Everything else is a tie under both."
     )
 
 

@@ -104,3 +104,75 @@ def test_no_hand_written_score_range_in_prose():
     cap = _text(_radar_cap(_ranked()))
     assert not re.search(r"between \d+\.\d+ and \d+\.\d+", cap), \
         "a literal score range in prose: derive it or drop it"
+
+
+def test_robust_orderings_are_still_robust_against_the_live_data():
+    """ROBUST_ORDERINGS is a MEASURED SET written into the renderer, which is the
+    exact shape of claim this file exists to police. It must be re-derived from the
+    artifacts on every run: any ordering it publishes as "holds under both methods"
+    must still be distinct under Welch on the live per-run composites AND under a
+    paired bootstrap over probe ids, on every seed tried. A reduced bootstrap keeps
+    the test fast; the direction that matters - claiming an ordering that has
+    stopped being robust - is caught at any resolution."""
+    import glob, json, math, random, statistics
+    from collections import defaultdict
+    from pathlib import Path
+    from app.leaderboard.render import ROBUST_ORDERINGS, DRIFT_NOT_EXCLUDED
+    from app.scoring.scorer import compute_composite
+    BACKEND = Path(__file__).resolve().parents[1]
+    _T = {4: 2.776, 5: 2.571, 6: 2.447, 7: 2.365, 8: 2.306}
+
+    def runs_of(f):
+        out = []
+        for run in json.loads(Path(f).read_text())["runs"]:
+            subs, crit = {}, 0
+            for dim, ps in run.items():
+                if not isinstance(ps, list) or not ps:
+                    continue
+                v = [p["score"] for p in ps if isinstance(p, dict) and p.get("score") is not None]
+                crit += sum(1 for p in ps if isinstance(p, dict) and p.get("critical"))
+                if v:
+                    subs[dim] = round(statistics.mean(v) * 10, 2)
+            out.append(compute_composite(subs, crit)[0])
+        return out
+
+    def probe_tbl(f):
+        acc, dim_of = defaultdict(list), {}
+        for run in json.loads(Path(f).read_text())["runs"]:
+            for dim, ps in run.items():
+                if not isinstance(ps, list):
+                    continue
+                for p in ps:
+                    if isinstance(p, dict) and p.get("score") is not None:
+                        acc[p["probe_id"]].append(p["score"]); dim_of[p["probe_id"]] = dim
+        return {k: (dim_of[k], statistics.mean(v)) for k, v in acc.items()}
+
+    def comp(tbl, ids):
+        by = defaultdict(list)
+        for i in ids:
+            d, s = tbl[i]; by[d].append(s)
+        return compute_composite({d: round(statistics.mean(v) * 10, 2) for d, v in by.items() if v}, 0)[0]
+
+    arts = {json.loads(Path(f).read_text())["agent"]: f
+            for f in glob.glob(str(BACKEND / "data/runs/merged/*_n5.json"))}
+    for a, b in ROBUST_ORDERINGS:
+        assert a in arts and b in arts, f"{a} or {b} has no merged artifact"
+        # Welch on per-run composites
+        x, y = runs_of(arts[a]), runs_of(arts[b])
+        mx, my = statistics.mean(x), statistics.mean(y)
+        se = math.sqrt(statistics.variance(x) / len(x) + statistics.variance(y) / len(y))
+        df = (statistics.variance(x)/len(x) + statistics.variance(y)/len(y)) ** 2 / (
+            (statistics.variance(x)/len(x))**2/(len(x)-1) + (statistics.variance(y)/len(y))**2/(len(y)-1))
+        gap = mx - my
+        assert gap > _T.get(int(round(df)), 1.96) * se and gap > DRIFT_NOT_EXCLUDED, \
+            f"{a} > {b} is published as robust but no longer distinct under Welch"
+        # paired bootstrap, 6 seeds x 600 resamples - every seed must be distinct
+        ta, tb = probe_tbl(arts[a]), probe_tbl(arts[b])
+        shared = sorted(set(ta) & set(tb))
+        for s in range(6):
+            r = random.Random(500 + s)
+            d = sorted(comp(ta, smp) - comp(tb, smp)
+                       for smp in ([shared[r.randrange(len(shared))] for _ in shared] for _ in range(600)))
+            lo = d[int(0.025 * len(d))]
+            assert lo > 0, (f"{a} > {b} is published as robust across seeds but seed {500+s} "
+                            f"gives a bootstrap CI-low of {lo:+.2f}")
