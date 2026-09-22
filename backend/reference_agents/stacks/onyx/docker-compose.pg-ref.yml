@@ -19,6 +19,10 @@ name: onyx
 services:
   api_server:
     ports: ["127.0.0.1:8390:8080"]
+    depends_on:
+      minio:
+        condition: service_healthy
+        required: false
   relational_db:
     ports: ["127.0.0.1:5437:5432"]
   web_server:
@@ -27,3 +31,38 @@ services:
     profiles: ["ui"]
   code-interpreter:
     profiles: ["code-interpreter"]
+
+  # ⛔ MINIO: TWO UPSTREAM FACTS COMBINE TO MAKE THE STACK UNSTARTABLE.
+  #
+  # 1. minio sits behind `profiles: ["s3-filestore"]` while the app defaults to
+  #    FILE_STORE_BACKEND=s3 and S3_ENDPOINT_URL=http://minio:9000, and
+  #    api_server's dependency on it is `required: false`. With the profile
+  #    inactive that dependency passes VACUOUSLY and the API dies at startup:
+  #    EndpointConnectionError on http://minio:9000, exit 3. The profile is
+  #    activated in .env via COMPOSE_PROFILES.
+  #
+  # 2. minio/minio ON DOCKER HUB IS NO LONGER PUBLICLY PULLABLE. Measured
+  #    2026-09-22: denied for the pinned tag, for RELEASE.2025-07-23T15-54-02Z
+  #    and for :latest, while hello-world:latest and redis:7-alpine pulled fine
+  #    from the same machine - so Hub is reachable and MinIO specifically is not.
+  #    quay.io carries the same release. BASE_IMAGE_REGISTRY cannot be used: it
+  #    is global, and postgres, opensearch and nginx resolve through it to
+  #    docker.io. The tag drops `-cpuv1`, which is the non-AVX build.
+  #
+  # ⛔ AND THIS BELONGS HERE RATHER THAN IN docker-compose.override.yml. That
+  # filename is MAGIC: compose loads it automatically, which silently replaced
+  # the explicit `-f docker-compose.yml -f docker-compose.pg-ref.yml` invocation
+  # and dropped this overlay - and with it the 127.0.0.1:8390 port binding the
+  # grading adapter connects to. The stack came up healthy and unreachable.
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-07-23T15-54-02Z
+
+  # minio HAS a healthcheck (`mc ready local`); api_server waits only for
+  # service_started, which returns before :9000 is bound. `alembic upgrade head`
+  # usually covers the gap, and "usually" is what makes a grading run flaky
+  # rather than failed.
+  background:
+    depends_on:
+      minio:
+        condition: service_healthy
+        required: false
