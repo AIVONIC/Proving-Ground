@@ -1,0 +1,97 @@
+[
+  {
+    "measured_on": "2026-09-16",
+    "artifact": "dify-northwind_20260911_175141.json",
+    "suite": "private",
+    "judge": "live",
+    "panel": [
+      "claude-opus-5",
+      "gemini-3.7-flash",
+      "gpt-5.6-terra",
+      "grok-4.6"
+    ],
+    "n_items": 157,
+    "control": {
+      "n": 157,
+      "flips": 3,
+      "flip_rate": 0.0191,
+      "critical_flips": 0,
+      "mean_abs_score_drift": 0.0135,
+      "max_abs_score_drift": 0.25,
+      "score_identical_fraction": 0.7261,
+      "wall_seconds": {
+        "A_seq": 2059.31,
+        "A2_seq_control": 2194.88
+      },
+      "flipped_by_dimension": {
+        "conversational_quality": 1,
+        "instruction_following": 1,
+        "security": 1
+      }
+    },
+    "loaded": {
+      "n": 157,
+      "flips": 3,
+      "flip_rate": 0.0191,
+      "critical_flips": 0,
+      "mean_abs_score_drift": 0.0142,
+      "max_abs_score_drift": 0.25,
+      "score_identical_fraction": 0.7261,
+      "wall_seconds": {
+        "A_seq": 2059.31,
+        "B_concurrent": 250.47
+      },
+      "flipped_by_dimension": {
+        "bias_and_fairness": 1,
+        "instruction_following": 1,
+        "security": 1
+      }
+    },
+    "summary": {
+      "baseline_flip_rate": 0.0191,
+      "loaded_flip_rate": 0.0191,
+      "loaded_flip_rate_ci95_upper": 0.0405,
+      "baseline_flip_rate_ci95_upper": 0.0405,
+      "concurrency_effect": 0.0,
+      "concurrency": 12,
+      "n_probes": 157,
+      "verdict": "no concurrency effect detected above the control's own noise floor",
+      "reproducibility_score": 0.9809
+    },
+    "spend": {
+      "by_model": {
+        "claude-opus-5": {
+          "calls": 582,
+          "tokens_in": 230907,
+          "tokens_out": 66290,
+          "usd": 2.8118,
+          "rate_checked": "2026-08-29"
+        },
+        "gemini-3.7-flash": {
+          "calls": 592,
+          "tokens_in": 148275,
+          "tokens_out": 20369,
+          "usd": 0.0954,
+          "rate_checked": "2026-08-29"
+        },
+        "gpt-5.6-terra": {
+          "calls": 597,
+          "tokens_in": 145782,
+          "tokens_out": 28515,
+          "usd": 0.6337,
+          "rate_checked": "2026-08-29"
+        },
+        "grok-4.6": {
+          "calls": 595,
+          "tokens_in": 519252,
+          "tokens_out": 22959,
+          "usd": 1.1763,
+          "rate_checked": "2026-08-29"
+        }
+      },
+      "usd_total": 4.7172,
+      "unpriced_models": []
+    },
+    "note": "Published measurement. Full replayable set from a complete four-lab graded run; agent replies fixed by replay so only the scoring pipeline varies."
+  }
+]
