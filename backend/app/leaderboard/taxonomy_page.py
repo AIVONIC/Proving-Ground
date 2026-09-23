@@ -327,7 +327,32 @@ def _entry_md(n: int, d: dict) -> list[str]:
 def render_html(lander_html: str) -> str:
     dims = describe_all()
     meas = load_own_measurement()
-    style = re.search(r"<style>.*?</style>", lander_html, re.DOTALL).group(0)
+    # ⛔ ALL of the lander's style blocks, not the first one.
+    #
+    # This was re.search(...).group(0), which takes the FIRST match. The lander
+    # carries two blocks and `.lb-wrap{max-width:1240px;margin:0 auto}` -- the
+    # container that centres every section on this site -- is in the SECOND. So
+    # the taxonomy page rendered six `<div class="lb-wrap">` with no rule for
+    # them: content ran the full width of the viewport while every other page on
+    # the site was centred and measured. It inherited the design TOKENS (colours,
+    # type, hairlines) and none of the LAYOUT, which is exactly why it read as a
+    # loose artefact rather than as part of the site.
+    #
+    # Nothing errors when a class has no rule, which is why this survived review:
+    # the page looked deliberate, just wrong.
+    # The site header, taken FROM THE LANDER rather than retyped here. A second
+    # copy of the nav is a second copy to keep in step, and this page existing
+    # without any header at all is what made it read as a loose artefact: no
+    # brand, no way back to the site, just content on a bare background.
+    _bar = re.search(r'<header class="bar".*?</header>', lander_html, re.DOTALL)
+    bar = _bar.group(0) if _bar else ""
+
+    blocks = re.findall(r"<style>.*?</style>", lander_html, re.DOTALL)
+    if not blocks:
+        raise SystemExit("REFUSING to render: no <style> block found in the lander. "
+                         "The taxonomy page takes its design from the lander, and "
+                         "without it the page would publish unstyled.")
+    style = "".join(blocks)
     prod = [d for d in dims if d["origin"] == "production"]
     pre = [d for d in dims if d["origin"] == "pre_deployment"]
 
@@ -367,6 +392,7 @@ def render_html(lander_html: str) -> str:
         f'{style}{TAXONOMY_CSS}</head><body>'
     )
     body = (
+        f'{bar}'
         '<main><section class="hero"><div class="lb-wrap">'
         '<span class="eyebrow">Joint taxonomy &middot; Aivonic Labs and Inquio</span>'
         '<h1 style="font-size:clamp(2rem,4vw,3rem);margin:0 0 18px;">Failures that pass every test.</h1>'
@@ -415,7 +441,8 @@ TAXONOMY_CSS = """<style>
 .tx-num{font:500 .8rem/1 var(--mono);color:var(--accent);border:1px solid var(--hair-strong);
   border-radius:4px;padding:4px 7px;flex:none}
 .tx-sum{margin:0 0 14px;color:var(--ink-2)}
-.tx-probe,.tx-sets,.tx-impl{margin:0 0 8px;font-size:.92rem;color:var(--muted)}
+.tx-probe,.tx-sets,.tx-impl,.tx-joint{margin:0 0 8px;font-size:.92rem;color:var(--muted)}
+.tx-joint{margin-top:12px;padding-top:12px;border-top:1px dashed var(--hair);color:var(--ink-2)}
 .tx-lab{display:inline-block;min-width:112px;font:500 .74rem/1.6 var(--mono);
   text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}
 .tx-n{font:400 .8rem/1 var(--mono);color:var(--faint)}

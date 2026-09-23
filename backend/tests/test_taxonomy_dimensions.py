@@ -409,7 +409,9 @@ def test_a_jointly_developed_dimension_is_credited_in_both_renderers():
     md = tp.render_markdown()
     html = tp.render_html("<style>x</style>")
     assert md.count("**Co-developed with") == len(joint)
-    assert html.count("tx-joint") == len(joint)
+    # Count the ELEMENT, not the substring: "tx-joint" also appears in the
+    # stylesheet now, and a bare count would pass on CSS alone.
+    assert html.count('class="tx-joint"') == len(joint)
 
     pre = [d for d in dims if d["origin"] == "pre_deployment"]
     sentence = tp._solo_credit_sentence(pre)
@@ -472,3 +474,59 @@ def test_the_published_surfaces_refuse_a_frequency_claim():
     dirty = tp.check_no_frequencies(
         "Inquio saw this in 12% of bereavement contacts across their deployments.")
     assert dirty, "a client-environment frequency must be refused"
+
+
+def test_every_layout_class_the_page_emits_has_a_rule_in_the_page():
+    """The taxonomy page must carry the CSS for the markup it writes.
+
+    It rendered six `<div class="lb-wrap">` with no `.lb-wrap` rule, because the
+    style extraction was re.search (FIRST match) and the lander has two style
+    blocks with the container rule -- max-width:1240px; margin:0 auto -- in the
+    second. Result: the page inherited the design TOKENS and none of the LAYOUT,
+    so content ran the full viewport width while every other page was centred.
+
+    ⛔ A class with no rule does not error. The page looked deliberate and was
+    simply wrong, which is why a human had to notice it looked like an artefact.
+    """
+    import re
+    from pathlib import Path
+    import app.leaderboard.taxonomy_page as tp
+
+    lander = Path(__file__).resolve().parents[2] / "frontend/leaderboard.html"
+    html = tp.render_html(lander.read_text(encoding="utf-8"))
+    css = "".join(re.findall(r"<style>(.*?)</style>", html, re.S))
+
+    used = set(re.findall(r'class="([^"]+)"', html))
+    classes = {c for group in used for c in group.split()}
+    layout = {c for c in classes if c.startswith(("lb-", "tx-", "bar", "brand", "navlink"))}
+    assert "lb-wrap" in layout, "the container class must still be in use"
+
+    missing = sorted(c for c in layout if not re.search(r"\.%s\b" % re.escape(c), css))
+    assert not missing, f"classes emitted with no CSS rule on the page: {missing}"
+
+
+def test_the_page_carries_the_site_header_from_the_lander():
+    """Not retyped here: a second copy of the nav is a second copy to maintain."""
+    import re
+    from pathlib import Path
+    import app.leaderboard.taxonomy_page as tp
+
+    lander = Path(__file__).resolve().parents[2] / "frontend/leaderboard.html"
+    lander_html = lander.read_text(encoding="utf-8")
+    html = tp.render_html(lander_html)
+
+    assert '<header class="bar"' in html, "the taxonomy page must not be an orphan"
+    lander_links = re.findall(r'<a class="navlink"[^>]*href="([^"]+)"', lander_html)
+    page_links = re.findall(r'<a class="navlink"[^>]*href="([^"]+)"', html)
+    assert page_links == lander_links, \
+        "the nav must be the lander's, so it cannot drift from the rest of the site"
+
+
+def test_render_refuses_a_lander_with_no_style_block():
+    """Publishing unstyled is worse than not publishing."""
+    from pathlib import Path
+    import pytest as _pytest
+    import app.leaderboard.taxonomy_page as tp
+
+    with _pytest.raises(SystemExit):
+        tp.render_html("<html><body>no styles here</body></html>")
