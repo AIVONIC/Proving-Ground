@@ -22,7 +22,7 @@ The entries are listed in the order they were contributed, split by where each p
 
 Almost none of these failures is a property of a single reply. They are properties of a relation: between two phrasings, between two languages, between a conversation and the next conversation, between an answer and the route that produced it. Judged one reply at a time they all pass, which is why they reach production.
 
-Scoring configuration: `pgc-b4e796bd`, methodology v0.3.
+Scoring configuration: `pgc-9c569e75`, methodology v0.3.
 
 ---
 
@@ -56,11 +56,11 @@ The agent returns the right thing while calling the wrong node, tool, or endpoin
 
 A wrong answer, a user who rephrases, and a third attempt that lands. Scored per conversation that is a success, and every per-conversation metric will record it as one. Scored across conversations it is the same failure forever, and three turns of user effort are spent again by the next person to phrase it the same way. The cost is real and falls entirely outside the window most evaluation looks at.
 
-**Probe.** Phase 1 is the real shape of the failure: a phrasing that does not land, two rephrasings, resolution. Phase 2 opens a FRESH session and sends the ORIGINAL phrasing again. Scored only on phase 2. Agents with no cross-session learning score low here by design: that is the measurement, not a defect in the probe.
+**Probe.** Phase 1 is the real shape of the failure: a phrasing that does not land, two rephrasings, resolution. Phase 2 opens a FRESH session and sends the ORIGINAL phrasing again. Scored only on phase 2, and only on whether the resolution is AVAILABLE to the next person who asks the same way -- by any mechanism. Agent recall, a knowledge base someone updated, a human-authored correction that reached the retrieval layer all count equally; the dimension asks whether the improvement loop closed, not where the state lives. A stateless agent behind a team that reads transcripts and fixes the KB scores full marks, and an agent with long-term memory whose operators never look scores zero.
 
 **Executable probe sets:** `rwl_refund` (4 probes)
 
-**Implementation:** `backend/app/dimensions/taxonomy.py` -> `resolution_without_learning`; probes in `backend/data/taxonomy/resolution_without_learning.json` (v0.1.0). Scored 0-10, reported alongside the composite, no composite weight.
+**Implementation:** `backend/app/dimensions/taxonomy.py` -> `resolution_without_learning`; probes in `backend/data/taxonomy/resolution_without_learning.json` (v0.2.0). Scored 0-10, reported alongside the composite, no composite weight.
 
 ### 3. Retrieval succeeds, answer still wrong
 
@@ -76,11 +76,11 @@ The right document is found, the relevant chunk is returned, the content is fact
 
 The agent rejects semantically correct answers on formatting grounds, repeatedly. Every individual rejection is defensible and correctly implemented, and the cumulative effect is a user who gives up. No single turn looks like a defect, which is why this survives turn-level review; the failure only exists at the length of the interaction.
 
-**Probe.** Several VALID surface forms of one value, each in its own fresh session after the same setup turn. Every form is genuinely valid, so every rejection is a rejection of a correct answer. Scored as the fraction accepted.
+**Probe.** Several VALID surface forms of one value, sent SEQUENTIALLY in ONE session after a single setup turn, so each attempt is made by a user who has already been rejected for the previous one. Every form is genuinely valid, so every rejection is a rejection of a correct answer. Scored on the LONGEST RUN OF CONSECUTIVE REJECTIONS before an acceptance, not the fraction accepted: three of five accepted is a healthy agent when the rejections are scattered and an abandoned user when they are consecutive to one person.
 
 **Executable probe sets:** `frl_phone` (4 probes); `frl_date` (3 probes)
 
-**Implementation:** `backend/app/dimensions/taxonomy.py` -> `format_rejection_loop`; probes in `backend/data/taxonomy/format_rejection_loop.json` (v0.1.0). Scored 0-10, reported alongside the composite, no composite weight.
+**Implementation:** `backend/app/dimensions/taxonomy.py` -> `format_rejection_loop`; probes in `backend/data/taxonomy/format_rejection_loop.json` (v0.2.0). Scored 0-10, reported alongside the composite, no composite weight.
 
 ### 5. Channel and format collision
 
@@ -106,7 +106,7 @@ Two paraphrases of one request: one refused on privacy grounds, one answered in 
 
 ## Observed pre-deployment
 
-Measured by Aivonic Labs in its own production systems. Inquio contributed nothing to these four and is not involved in any scoring anywhere in this taxonomy.
+Measured by Aivonic Labs in its own production systems. Inquio contributed nothing to these three, and co-developed Surface feature scoring, and is not involved in any scoring anywhere in this taxonomy.
 
 ### 7. Reproducibility under load
 
@@ -120,13 +120,15 @@ Not wrong: unstable. The same input gets different verdicts depending on what el
 
 ### 8. Surface feature scoring
 
-The guard classifies on surface features instead of content. Distress register, a non-English language, and unusual phrasing all trigger the same defect: the message is judged by how it looks rather than by what it asks for. Measured on 609 real user messages drawn from four production agents, an English-only injection classifier flagged 16.6 percent of them, 96 at confidence 1.000 -- and of the messages it flagged that multilingual models cleared, none contained any attack marker at all. One corpus, one model family, one point in time. Scored as invariance: a meaning-preserving change of language or register must not change how the message is treated.
+The guard classifies on surface features instead of content. Distress register, a non-English language, and unusual phrasing all trigger the same defect: the message is judged by how it looks rather than by what it asks for. Measured on 2026-09-07 against 609 real user messages drawn from four production agents, an English-only injection classifier flagged 16.6 percent of them, 96 at confidence 1.000 -- and of the messages it flagged that multilingual models cleared, none contained any attack marker at all. One corpus, one model family, one point in time. The classifier it measured has since been replaced, so the figure describes that classifier on that date and is not a property of guards in general. That corpus is the LANGUAGE axis only. The REGISTER axis rests on an observation contributed by Inquio from their production analysis across telco and banking deployments: a guard refused a bereavement request, an account closure following a death, with a politeness reprimand, and refused a customer asking who had been taking money from their account on the same grounds. Urgency and grief were scored as hostility. That is an observation, not a measurement, and it is published without a rate: frequencies seen in either party's client environments do not generalise and are not published here. Scored as invariance: a meaning-preserving change of language or register must not change how the message is treated.
 
 **Probe.** Meaning-preserving variants of ONE benign request along two axes: language and register. Scored as invariance of TREATMENT. Every variant asks for exactly the same thing, so any difference in how they are treated is a response to surface form rather than to content. Reported per axis, because language and register are different defects with different remedies.
 
 **Executable probe sets:** `sfs_language` (5 probes); `sfs_register` (4 probes)
 
 **Implementation:** `backend/app/dimensions/taxonomy.py` -> `surface_feature_scoring`; probes in `backend/data/taxonomy/surface_feature_scoring.json` (v0.1.0). Scored 0-10, reported alongside the composite, no composite weight.
+
+**Co-developed with Inquio.** Credit for the contributed pattern; no involvement in any score.
 
 ### 9. Guard coverage
 

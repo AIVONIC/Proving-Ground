@@ -48,15 +48,18 @@ MANIFEST=(
   "favicons:favicons"
   "og.png:og.png"
   "og.jpg:og.jpg"        # unreferenced since Jul 2026; kept so old social cards resolve
+  "taxonomy.html:taxonomy.html"   # joint taxonomy with Inquio; gated on .taxonomy-approved
 )
 # NOT published, on purpose:
 #   standalone.html  - single-file noindex variant, for sending to people directly
-#   taxonomy.html    - ⛔ EMBARGOED. The joint failure taxonomy with Inquio. Martin Franc
-#                      agreed the CONFLICT DISCLOSURE text verbatim and cleared it for
-#                      publication; he has NOT seen the dimension descriptions or the probe
-#                      definitions, which are our wording over his contribution. It ships
-#                      when he has reviewed it, and the guard below is what makes that a
-#                      gate rather than a comment somebody skims.
+#   taxonomy.html    - PUBLISHED 2026-09-23. Was embargoed: it is a joint taxonomy with
+#                      Inquio and the dimension descriptions are OUR wording over Martin
+#                      Franc's contribution, so publishing it was publishing his work as
+#                      we had phrased it. He has now reviewed the dimensions AND the probe
+#                      definitions and signed off; frontend/.taxonomy-approved records who
+#                      and when, and what he changed. THE GUARD BELOW STAYS. The reason
+#                      outlives this one approval: a MANIFEST nobody re-reads is one line
+#                      away from publishing the NEXT revision of his contribution unread.
 #
 # CARRIED ACROSS THE SWAP, not published from here: scorecards/
 #
