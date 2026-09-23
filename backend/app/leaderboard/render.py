@@ -842,6 +842,7 @@ def site_bar() -> str:
         '<a class="navlink" href="/#dimensions">Dimensions</a>'
         '<a class="navlink" href="/methodology">Methodology</a>'
         '<a class="navlink" href="/leaderboard/">Leaderboard</a>'
+        '<a class="navlink" href="/taxonomy">Taxonomy</a>'
         '<a class="btn" href="/#certify">Certify your agent</a>'
         '</nav></div></header>'
     )
