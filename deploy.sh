@@ -117,7 +117,7 @@ _lb_tmp="$(mktemp -t pg-leaderboard-XXXXXX.html)"
 if ! diff -q "$_lb_tmp" "$REPO/frontend/leaderboard.html" >/dev/null 2>&1; then
   rm -f "$_lb_tmp"
   fail "leaderboard.html is out of date with entries.json. Fix:
-     cd backend && python3 -m app.leaderboard.render --lander ../frontend/index.html --out ../frontend/leaderboard.html"
+     cd backend && python3 -m app.leaderboard.render --lander ../frontend/index.html --report-dir ../frontend/scorecards --out ../frontend/leaderboard.html"
 fi
 
 # certs.json is what /verify and /badge resolve against, so a stale one does not
