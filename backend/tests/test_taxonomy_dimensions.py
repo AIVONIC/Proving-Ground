@@ -433,3 +433,42 @@ def test_the_credit_sentence_tracks_the_data_rather_than_a_literal():
     s = tp._solo_credit_sentence(mixed)
     assert "these five" in s, "a joint entry must not be counted in the disclaimer"
     assert "co-developed Joint one" in s
+
+
+def test_the_register_axis_is_attributed_as_an_observation_and_carries_no_rate():
+    """Martin Franc's condition, pinned so an edit cannot quietly break it.
+
+    The language axis rests on a 609-message corpus we measured. The register axis
+    rests on an observation from Inquio's production analysis. Writing the second
+    as if the first covered it would put a measurement claim on data we never saw,
+    and attaching a frequency to it would publish a client-environment rate that
+    both parties agreed does not generalise and does not get published.
+
+    The dimension must therefore say WHICH axis the corpus covers, attribute the
+    register axis to Inquio, name it an observation, and carry no second rate.
+    """
+    import re
+    from app.dimensions.taxonomy import SurfaceFeatureScoring
+
+    s = SurfaceFeatureScoring.summary
+    assert "LANGUAGE axis only" in s, "the corpus must be scoped to the axis it covers"
+    assert "REGISTER axis rests on an observation contributed by Inquio" in s
+    assert "not a measurement" in s
+    assert "bereavement" in s and "hostility" in s, "the observation itself must be stated"
+
+    # Exactly ONE rate in the whole paragraph: the language-axis corpus figure.
+    # A second percentage would be a frequency sitting beside the observation.
+    rates = re.findall(r"\d+(?:\.\d+)?\s*percent|\d+(?:\.\d+)?%", s)
+    assert rates == ["16.6 percent"], f"unexpected rate(s) beside the observation: {rates}"
+
+
+def test_the_published_surfaces_refuse_a_frequency_claim():
+    """The no-frequencies gate is the mechanism, not the prose promise."""
+    import app.leaderboard.taxonomy_page as tp
+
+    clean = tp.check_no_frequencies("An observation from production. No rates here.")
+    assert not clean, "a clean text must pass, or the gate proves nothing"
+
+    dirty = tp.check_no_frequencies(
+        "Inquio saw this in 12% of bereavement contacts across their deployments.")
+    assert dirty, "a client-environment frequency must be refused"
