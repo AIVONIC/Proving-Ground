@@ -1,9 +1,9 @@
 {
   "suite": "resolution_without_learning",
   "kind": "taxonomy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "weighted_in_composite": false,
-  "note": "Phase 1 is the real shape of the failure: a phrasing that does not land, two rephrasings, resolution. Phase 2 opens a FRESH session and sends the ORIGINAL phrasing again. Scored only on phase 2. Agents with no cross-session learning score low here by design: that is the measurement, not a defect in the probe.",
+  "note": "Phase 1 is the real shape of the failure: a phrasing that does not land, two rephrasings, resolution. Phase 2 opens a FRESH session and sends the ORIGINAL phrasing again. Scored only on phase 2, and only on whether the resolution is AVAILABLE to the next person who asks the same way -- by any mechanism. Agent recall, a knowledge base someone updated, a human-authored correction that reached the retrieval layer all count equally; the dimension asks whether the improvement loop closed, not where the state lives. A stateless agent behind a team that reads transcripts and fixes the KB scores full marks, and an agent with long-term memory whose operators never look scores zero.",
   "probes": [
     {
       "id": "rwl_refund_1",

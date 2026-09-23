@@ -91,6 +91,34 @@ OWN_SECTION_START = "Dimension 7 says reproducibility is a quality dimension"
 OWN_SECTION_END = "Observed in production"
 
 
+
+_COUNT_WORDS = {1: "this one", 2: "these two", 3: "these three", 4: "these four",
+                5: "these five", 6: "these six", 7: "these seven", 8: "these eight"}
+
+
+def _solo_credit_sentence(pre: list[dict]) -> str:
+    """What Inquio contributed nothing to, counted rather than asserted.
+
+    The sentence used to read "Inquio contributed nothing to these four" with the
+    count written out by hand, over a group that included a dimension Inquio HAD
+    contributed to (the distress case merged into surface feature scoring). Two
+    defects in one clause: a count that goes stale when the set changes, and a
+    denial printed over a jointly authored dimension.
+
+    Both are fixed by deriving the sentence from the data. A dimension carrying
+    `co_developed_with` is excluded from the disclaimer and credited on its own
+    entry instead, so the claim can never again be wider than the truth.
+    """
+    solo = [d for d in pre if not d.get("co_developed_with")]
+    joint = [d for d in pre if d.get("co_developed_with")]
+    words = _COUNT_WORDS.get(len(solo), f"these {len(solo)}")
+    out = f"Inquio contributed nothing to {words}"
+    if joint:
+        titles = ", ".join(d["title"] for d in joint)
+        out += f", and co-developed {titles}"
+    return out + ", and is not involved in any scoring anywhere in this taxonomy."
+
+
 def _strip_own_measurement(text: str) -> str:
     """Remove the benchmark's own-measurement block before gating."""
     i = text.find(OWN_SECTION_START)
@@ -265,8 +293,7 @@ def render_markdown() -> str:
     for i, d in enumerate(prod, 1):
         L += _entry_md(i, d)
     L += ["---", "", "## Observed pre-deployment", "",
-          "Measured by Aivonic Labs in its own production systems. Inquio contributed nothing to "
-          "these four and is not involved in any scoring anywhere in this taxonomy.", ""]
+          "Measured by Aivonic Labs in its own production systems. " + _solo_credit_sentence(pre), ""]
     for i, d in enumerate(pre, len(prod) + 1):
         L += _entry_md(i, d)
     return "\n".join(L).rstrip() + "\n"
@@ -287,6 +314,11 @@ def _entry_md(n: int, d: dict) -> list[str]:
         f"probes in `backend/data/taxonomy/{d['id']}.json` (v{d['suite_version']}). "
         f"Scored 0-10, reported alongside the composite, no composite weight.",
         "",
+        # Parity with the HTML renderer on purpose. Two renderers of one fact drift,
+        # and a credit that appears on the page but not in the markdown is the half
+        # that gets quoted without it.
+        *([f"**Co-developed with {d['co_developed_with']}.** Credit for the contributed "
+           f"pattern; no involvement in any score.", ""] if d.get("co_developed_with") else []),
     ]
 
 
@@ -314,7 +346,11 @@ def render_html(lander_html: str) -> str:
                 f'<p class="tx-impl"><span class="tx-lab">Implementation</span>'
                 f'<code>{_h.escape(d["id"])}</code> &middot; scored 0&ndash;10, reported alongside '
                 f'the composite, no composite weight.</p>'
-                '</article>'
+                + (f'<p class="tx-joint"><span class="tx-lab">Co-developed</span>'
+                   f'with {_h.escape(d["co_developed_with"])}. Credit for the contributed '
+                   f'pattern; no involvement in any score.</p>'
+                   if d.get("co_developed_with") else '')
+                + '</article>'
             )
         return "".join(out)
 
@@ -357,8 +393,8 @@ def render_html(lander_html: str) -> str:
         '<section class="tx-sec"><div class="lb-wrap">'
         '<span class="eyebrow">Observed pre-deployment</span>'
         '<h2 class="tx-sec-h">Measured by Aivonic Labs</h2>'
-        '<p class="lb-note">Measured in Aivonic’s own production systems. Inquio contributed '
-        'nothing to these four.</p>'
+        f'<p class="lb-note">Measured in Aivonic’s own production systems. '
+        f'{_h.escape(_solo_credit_sentence(pre))}</p>'
         f'<div class="tx-list">{entries(pre, len(prod) + 1)}</div>'
         '</div></section>'
         f'<section class="tx-foot"><div class="lb-wrap"><p class="lb-note">Scoring configuration '

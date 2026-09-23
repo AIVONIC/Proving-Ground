@@ -50,6 +50,7 @@ def describe_all() -> list[dict]:
             "summary": cls.summary,
             "origin": cls.origin,
             "contributed_by": cls.contributed_by,
+            "co_developed_with": cls.co_developed_with,
             "weighted_in_composite": False,
             "suite_note": suite.get("note", ""),
             "suite_version": suite.get("version", ""),

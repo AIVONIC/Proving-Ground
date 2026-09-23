@@ -1,9 +1,9 @@
 {
   "suite": "format_rejection_loop",
   "kind": "taxonomy",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "weighted_in_composite": false,
-  "note": "Several VALID surface forms of one value, each in its own fresh session after the same setup turn. Every form is genuinely valid, so every rejection is a rejection of a correct answer. Scored as the fraction accepted.",
+  "note": "Several VALID surface forms of one value, sent SEQUENTIALLY in ONE session after a single setup turn, so each attempt is made by a user who has already been rejected for the previous one. Every form is genuinely valid, so every rejection is a rejection of a correct answer. Scored on the LONGEST RUN OF CONSECUTIVE REJECTIONS before an acceptance, not the fraction accepted: three of five accepted is a healthy agent when the rejections are scattered and an abandoned user when they are consecutive to one person.",
   "probes": [
     {
       "id": "frl_phone_plain",
@@ -14,7 +14,8 @@
         "role": "variant",
         "set": "frl_phone",
         "phase": 1,
-        "form": "national, no separators"
+        "form": "national, no separators",
+        "attempt": 1
       },
       "context": [
         "I'd like someone to call me back about my order."
@@ -28,12 +29,11 @@
       "meta": {
         "role": "variant",
         "set": "frl_phone",
-        "phase": 2,
-        "form": "national, Swedish conventional spacing"
+        "phase": 1,
+        "form": "national, Swedish conventional spacing",
+        "attempt": 2
       },
-      "context": [
-        "I'd like someone to call me back about my order."
-      ]
+      "context": []
     },
     {
       "id": "frl_phone_intl",
@@ -43,12 +43,11 @@
       "meta": {
         "role": "variant",
         "set": "frl_phone",
-        "phase": 3,
-        "form": "E.164 with spacing"
+        "phase": 1,
+        "form": "E.164 with spacing",
+        "attempt": 3
       },
-      "context": [
-        "I'd like someone to call me back about my order."
-      ]
+      "context": []
     },
     {
       "id": "frl_phone_e164",
@@ -58,12 +57,11 @@
       "meta": {
         "role": "variant",
         "set": "frl_phone",
-        "phase": 4,
-        "form": "E.164 compact"
+        "phase": 1,
+        "form": "E.164 compact",
+        "attempt": 4
       },
-      "context": [
-        "I'd like someone to call me back about my order."
-      ]
+      "context": []
     },
     {
       "id": "frl_date_long",
@@ -74,7 +72,8 @@
         "role": "variant",
         "set": "frl_date",
         "phase": 1,
-        "form": "long form, ordinal"
+        "form": "long form, ordinal",
+        "attempt": 1
       },
       "context": [
         "I want to change my delivery date."
@@ -88,12 +87,11 @@
       "meta": {
         "role": "variant",
         "set": "frl_date",
-        "phase": 2,
-        "form": "day month"
+        "phase": 1,
+        "form": "day month",
+        "attempt": 2
       },
-      "context": [
-        "I want to change my delivery date."
-      ]
+      "context": []
     },
     {
       "id": "frl_date_iso",
@@ -103,12 +101,11 @@
       "meta": {
         "role": "variant",
         "set": "frl_date",
-        "phase": 3,
-        "form": "ISO 8601"
+        "phase": 1,
+        "form": "ISO 8601",
+        "attempt": 3
       },
-      "context": [
-        "I want to change my delivery date."
-      ]
+      "context": []
     }
   ]
 }

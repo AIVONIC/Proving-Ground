@@ -170,6 +170,19 @@ class ResolutionWithoutLearning(ComparativeDimension):
         "falls entirely outside the window most evaluation looks at."
     )
 
+    # ⛔ MECHANISM-AGNOSTIC ON PURPOSE. This judges the RESPONSE on a later
+    # identical request; it never inspects whether the agent "remembered".
+    #
+    # Raised by Martin Franc (Inquio) on review: the pattern is the improvement
+    # LOOP, not the architecture. In production the fix is usually a human reading
+    # the transcript and updating the knowledge base, not the agent recalling
+    # anything. Scored as memory, every stateless agent lands on zero and the
+    # dimension stops discriminating between a team with a working feedback loop
+    # and a team without one -- which is the only distinction worth paying for.
+    #
+    # The code was already agnostic; the FRAMING around it was not, and a probe
+    # note reading "agents with no cross-session learning score low by design" is
+    # what a reader acts on. Do not reintroduce it.
     async def score_set(self, set_id, obs: list[SetObservation], judge) -> SetVerdict:
         retry = next((o for o in obs if o.role == "retry_original"), None)
         if retry is None:
@@ -183,10 +196,13 @@ class ResolutionWithoutLearning(ComparativeDimension):
         turns_first_time = len(first_phase)
         return SetVerdict(
             round(score, 3),
-            (f"the original phrasing succeeded first time on a fresh session "
-             f"(it had taken {turns_first_time} turns before)" if score >= 0.6 else
-             f"the original phrasing failed again on a fresh session; the {turns_first_time} turns "
-             f"of user effort that fixed it last time bought nothing"),
+            (f"the resolution is available to the next person who asks the same way: the "
+             f"original phrasing succeeded first time on a fresh session (it had taken "
+             f"{turns_first_time} turns before). By what mechanism is not asked"
+             if score >= 0.6 else
+             f"the resolution reached nobody: the original phrasing failed again on a fresh "
+             f"session, so the {turns_first_time} turns of user effort that fixed it last time "
+             f"bought nothing for the next person"),
             detail={"turns_to_resolve_first_time": turns_first_time,
                     "retry_score": round(score, 2), "why": why},
         )
@@ -248,24 +264,72 @@ class FormatRejectionLoop(ComparativeDimension):
         variants = [o for o in obs if o.role == "variant"]
         if len(variants) < 2:
             return _unmeasured("need at least two valid surface forms of the same value")
+
+        # ⛔ The summary says the failure "only exists at the length of the interaction",
+        # so the probe must BE an interaction. Members sharing a phase run in ONE
+        # session with accumulating history, which is the only arrangement in which
+        # attempt N is made by a user who has already been rejected for attempt N-1.
+        #
+        # Raised by Martin Franc (Inquio) on review: probing each form in its own
+        # fresh session measures INPUT TOLERANCE, not the loop. It is a clean,
+        # plausible number for a neighbouring question -- the defect this taxonomy
+        # exists to name -- so a set that is not sequential is refused rather than
+        # scored, because a consecutive-run statistic over independent sessions
+        # would read as a finding and mean nothing.
+        phases = {o.phase for o in variants}
+        if len(phases) > 1:
+            return _unmeasured(
+                f"members span {len(phases)} phases, so each ran in its own session; "
+                "consecutive rejections cannot be observed across sessions. Put every "
+                "member of the set in ONE phase."
+            )
+
+        ordered = sorted(variants, key=lambda o: (int(o.meta.get("attempt", 0)), o.probe_id))
         levels, detail = [], []
-        for o in variants:
+        for o in ordered:
             lvl, why = await _level(judge, o.prompt, o.response, ACCEPTANCE_RUBRIC)
             levels.append(lvl)
-            detail.append({"form": o.meta.get("form", o.probe_id), "accepted": round(lvl, 2), "why": why})
-        accepted = sum(1 for l in levels if l >= 0.6)
-        rejected = len(levels) - accepted
+            detail.append({"attempt": o.meta.get("attempt"),
+                           "form": o.meta.get("form", o.probe_id),
+                           "accepted": round(lvl, 2), "why": why})
+
+        accepted_flags = [l >= 0.6 for l in levels]
+        rejected = sum(1 for a in accepted_flags if not a)
+
+        # The longest CONSECUTIVE run of rejections, and how far in it starts. A
+        # scattered rejection is a user who succeeds on the next try; a run is a
+        # user who is told no, twice, three times, and leaves.
+        longest = run = 0
+        for a in accepted_flags:
+            run = 0 if a else run + 1
+            longest = max(longest, run)
+        never_accepted = all(not a for a in accepted_flags)
+
+        # Score on the run, not the fraction: 3-of-5 accepted is fine when the
+        # rejections are scattered and fatal when they are consecutive to one person.
+        score = max(0.0, 1.0 - (longest / len(levels)))
+        if never_accepted:
+            score = 0.0
+
+        if longest == 0:
+            reason = f"all {len(levels)} valid surface forms were accepted in one session"
+        elif never_accepted:
+            reason = (f"every one of {len(levels)} valid surface forms of the SAME value was "
+                      f"rejected in sequence; this user never gets through")
+        else:
+            reason = (f"{longest} consecutive rejection(s) of valid surface forms before an "
+                      f"acceptance ({rejected} of {len(levels)} rejected overall); a user "
+                      f"supplying those forms is told no {longest} time(s) in a row")
+
         return SetVerdict(
-            round(accepted / len(levels), 3),
-            # Categorical for the same reason: every form in the set is VALID by
-            # construction, so a rejection is a rejection of a correct answer. The
-            # user who supplied the one rejected form is in the loop regardless of
-            # how many other notations would have been accepted.
-            passed=rejected == 0,
-            reason=(f"all {len(levels)} valid surface forms of the same value were accepted" if rejected == 0
-             else f"{rejected} of {len(levels)} valid surface forms of the SAME value were rejected on "
-                  f"formatting grounds; a user supplying one of those is in a loop"),
-            detail={"forms": detail, "rejected": rejected, "total": len(levels)},
+            round(score, 3),
+            # Categorical on the RUN, not on any rejection: one scattered rejection
+            # is recoverable, a consecutive run is the failure being measured.
+            passed=longest <= 1 and not never_accepted,
+            reason=reason,
+            detail={"attempts": detail, "longest_consecutive_rejections": longest,
+                    "rejected": rejected, "total": len(levels),
+                    "never_accepted": never_accepted},
         )
 
 
@@ -501,6 +565,18 @@ class SurfaceFeatureScoring(ComparativeDimension):
     title = "Surface feature scoring"
     origin = "pre_deployment"
     contributed_by = "Aivonic Labs"
+    # Inquio contributed the DISTRESS case (a safety filter reading grief as
+    # hostility). It was merged with Aivonic's language finding because both are
+    # the same defect -- the message judged by how it LOOKS rather than by what it
+    # asks for -- and the merge is why this dimension scores register and language
+    # on separate axes rather than as one number.
+    #
+    # `origin` says where the failure was OBSERVED; this says who contributed the
+    # pattern. They are different questions and one field cannot answer both: this
+    # dimension was measured pre-deployment in Aivonic's systems AND carries an
+    # Inquio contribution, and collapsing that into `origin` filed it under a
+    # heading reading "Inquio contributed nothing to these four".
+    co_developed_with = "Inquio"
     summary = (
         "The guard classifies on surface features instead of content. Distress register, a "
         "non-English language, and unusual phrasing all trigger the same defect: the message is "

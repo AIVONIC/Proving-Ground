@@ -97,6 +97,11 @@ class ComparativeDimension(Dimension):
     origin: str = "pre_deployment"
     #: Attribution shown on the taxonomy page. Credit, never scoring.
     contributed_by: str = ""
+    # Who ELSE contributed the pattern, when a dimension is joint. Separate from
+    # `contributed_by` because a dimension measured in one party's systems can still
+    # carry another party's contribution, and the grouping that renders credit must
+    # not print "contributed nothing" over a dimension that is jointly authored.
+    co_developed_with: str = ""
     #: Set by the grade runner when it can open INDEPENDENT connections to the target.
     #: Only load-sensitive dimensions need it, and one that needs it and does not have
     #: it reports unmeasured rather than faking concurrency on a single connection.
