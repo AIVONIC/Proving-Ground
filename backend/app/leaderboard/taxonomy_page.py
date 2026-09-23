@@ -346,6 +346,10 @@ def render_html(lander_html: str) -> str:
     # brand, no way back to the site, just content on a bare background.
     _bar = re.search(r'<header class="bar".*?</header>', lander_html, re.DOTALL)
     bar = _bar.group(0) if _bar else ""
+    # Mark this page as current, the way methodology.html does: the site's
+    # convention is class="active" on the link for the page you are reading.
+    bar = bar.replace('<a class="navlink" href="/taxonomy">',
+                      '<a class="active" href="/taxonomy">')
 
     blocks = re.findall(r"<style>.*?</style>", lander_html, re.DOTALL)
     if not blocks:
@@ -385,7 +389,14 @@ def render_html(lander_html: str) -> str:
     head = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        '<meta name="robots" content="noindex,nofollow">'
+        # PUBLIC since 2026-09-23. This was noindex,nofollow for the embargo:
+        # the page existed at a stable URL while Martin had not yet reviewed
+        # his own contribution in our wording, so it had to be reachable for
+        # review and invisible to search. He has signed off, so it now carries
+        # the same directive as the lander and the leaderboard. Leaving the
+        # noindex would have been a page that is published in every sense
+        # except the one that gets it read.
+        '<meta name="robots" content="index,follow,max-image-preview:large">'
         '<title>Agent failure taxonomy — Proving Ground</title>'
         f'<meta name="description" content="{desc}">'
         '<link rel="icon" href="/favicon.ico" sizes="any">'
@@ -433,6 +444,12 @@ def render_html(lander_html: str) -> str:
 
 # Prose carries NO max-width here either: .lb-wrap is the container and the measure.
 TAXONOMY_CSS = """<style>
+/* The current-page marker. methodology.html carries its own copy of this and
+   the LANDER carries none, so a page taking the lander's styles gets an
+   unstyled a.active -- which is what this page had the moment its own nav
+   entry was marked current. One line, and the layout test below now covers
+   `active` so the next page to use it cannot ship without a rule. */
+.bar nav a.active{color:var(--accent)}
 .tx-sec,.tx-own,.tx-foot{border-top:1px solid var(--hair);padding-top:38px;margin-top:8px}
 .tx-sec-h{font-size:clamp(1.4rem,2.4vw,1.9rem);margin:12px 0 0;font-weight:400}
 .tx-list{margin-top:26px;display:grid;gap:22px}
@@ -441,7 +458,12 @@ TAXONOMY_CSS = """<style>
 .tx-num{font:500 .8rem/1 var(--mono);color:var(--accent);border:1px solid var(--hair-strong);
   border-radius:4px;padding:4px 7px;flex:none}
 .tx-sum{margin:0 0 14px;color:var(--ink-2)}
-.tx-probe,.tx-sets,.tx-impl,.tx-joint{margin:0 0 8px;font-size:.92rem;color:var(--muted)}
+/* No font-size: these INHERIT the site body (17px). They were .92rem, which
+   resolves against the ROOT (16px, html sets none) and rendered 14.7px --
+   13% under site prose, on the lines carrying the actual probe description.
+   Hierarchy comes from colour and the mono uppercase label, as elsewhere on
+   the site, not from shrinking the text a reader has to read. */
+.tx-probe,.tx-sets,.tx-impl,.tx-joint{margin:0 0 10px;color:var(--muted)}
 .tx-joint{margin-top:12px;padding-top:12px;border-top:1px dashed var(--hair);color:var(--ink-2)}
 .tx-lab{display:inline-block;min-width:112px;font:500 .74rem/1.6 var(--mono);
   text-transform:uppercase;letter-spacing:.07em;color:var(--faint)}

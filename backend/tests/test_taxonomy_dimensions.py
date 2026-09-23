@@ -495,10 +495,19 @@ def test_every_layout_class_the_page_emits_has_a_rule_in_the_page():
     lander = Path(__file__).resolve().parents[2] / "frontend/leaderboard.html"
     html = tp.render_html(lander.read_text(encoding="utf-8"))
     css = "".join(re.findall(r"<style>(.*?)</style>", html, re.S))
+    # ⛔ STRIP CSS COMMENTS FIRST. Without this the search matched `.active`
+    # inside a comment that merely MENTIONED it, so the check passed while the
+    # rule was absent -- a checker confirming what it was asked to confirm.
+    # Caught by deleting the rule and watching the test stay green.
+    css = re.sub(r"/\*.*?\*/", " ", css, flags=re.S)
 
     used = set(re.findall(r'class="([^"]+)"', html))
     classes = {c for group in used for c in group.split()}
-    layout = {c for c in classes if c.startswith(("lb-", "tx-", "bar", "brand", "navlink"))}
+    # `active` is in this list because it was NOT, and a current-page marker
+    # shipped with no rule for it: the lander defines .bar nav a.active nowhere,
+    # methodology.html keeps a private copy, and this page inherits the lander.
+    layout = {c for c in classes
+              if c.startswith(("lb-", "tx-", "bar", "brand", "navlink", "active"))}
     assert "lb-wrap" in layout, "the container class must still be in use"
 
     missing = sorted(c for c in layout if not re.search(r"\.%s\b" % re.escape(c), css))
@@ -516,10 +525,21 @@ def test_the_page_carries_the_site_header_from_the_lander():
     html = tp.render_html(lander_html)
 
     assert '<header class="bar"' in html, "the taxonomy page must not be an orphan"
-    lander_links = re.findall(r'<a class="navlink"[^>]*href="([^"]+)"', lander_html)
-    page_links = re.findall(r'<a class="navlink"[^>]*href="([^"]+)"', html)
-    assert page_links == lander_links, \
+
+    # Same nav as the lander, with ONE difference: this page marks its own entry
+    # class="active" rather than linking to itself, which is what methodology.html
+    # does. So compare the full link SET, not just the navlinks.
+    def links(doc):
+        return re.findall(r'<a class="(?:navlink|active)"[^>]*href="([^"]+)"', doc)
+
+    assert links(html) == links(lander_html), \
         "the nav must be the lander's, so it cannot drift from the rest of the site"
+    assert '<a class="active" href="/taxonomy"' in html, \
+        "the page you are reading is marked current, per the site convention"
+    assert '<a class="navlink" href="/taxonomy"' not in html, \
+        "and is not also offered as a link to itself"
+    assert "/taxonomy" in links(lander_html), \
+        "the taxonomy must be reachable from every page's nav, not just its own"
 
 
 def test_render_refuses_a_lander_with_no_style_block():
