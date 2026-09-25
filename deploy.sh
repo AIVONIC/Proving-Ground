@@ -364,6 +364,12 @@ if [[ -n "$SAMPLE_CARD" ]]; then
   # outreach threads. Follow it and assert we land on a real card.
   _old="crewai-northwind-782bf0c50b47"
   _code="$(curl -s -o /tmp/pg_verify_body -w '%{http_code}' -L "$BASE/$SCORECARDS/$_old")"
+  # A superseded card is now a redirect STUB (one score per card, the latest), and
+  # curl does not follow a meta refresh, so follow exactly one stub hop by hand.
+  if [[ "$_code" == "200" ]] && grep -q "pg:superseded" /tmp/pg_verify_body; then
+    _next="$(grep -o 'url=/scorecards/[a-z0-9-]*' /tmp/pg_verify_body | head -1 | cut -d= -f2)"
+    _code="$(curl -s -o /tmp/pg_verify_body -w '%{http_code}' -L "$BASE$_next")"
+  fi
   if [[ "$_code" == "200" ]] && grep -q "rp-title" /tmp/pg_verify_body; then
     printf '   ok   %-46s superseded link redirects to a live card\n' "/$SCORECARDS/$_old"
   else

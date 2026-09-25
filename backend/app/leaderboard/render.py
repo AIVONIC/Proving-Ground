@@ -728,7 +728,9 @@ def card_slugs(entries: list[dict], report_dir: Path) -> dict[str, str]:
         if (report_dir / f"{exact}.html").exists():
             slugs[e["id"]] = exact
             continue
-        found = sorted(report_dir.glob(f'{e["id"]}-*.html'))
+        # A superseded card is a redirect stub and must never be LINKED as a card.
+        found = sorted(f for f in report_dir.glob(f'{e["id"]}-*.html')
+                       if "<!-- pg:superseded -->" not in f.read_text()[:200])
         if found:
             slugs[e["id"]] = found[-1].stem
             print(f"   WARNING: no card for {e['id']}'s current grade ({exact}); linking "

@@ -39,6 +39,47 @@ DIM_KEYS = {k: full for _short, k, full in DIMS}
 MAX_PROBES_PER_DIM = 6   # worst-first; the rest are counted, never silently dropped
 RESPONSE_CLIP = 900
 
+# ⛔ A PUBLISHED CARD NEVER PRINTS A HELD-OUT PROBE ID. Until 2026-09-26 it printed
+# every one it showed, inside <code>: 69 of the 157 held-out ids were on SPARK's live
+# card, descriptive names that say what each probe tests, on pages linked from the
+# public board - while the public repo is forbidden to name even one. The card now
+# shows an OPAQUE reference: dimension code + position in the held-out suite. A vendor
+# quotes it to dispute a result and we resolve it from data/private/; without the
+# suite it says nothing. It is stable while the suite's order is, so re-ordering or
+# rotating the suite re-numbers it (the card is dated, so a dispute names its grade).
+# The label and the codes live HERE only, so renaming what the reader sees is one edit.
+PROBE_REF_LABEL = "Probe ref"
+PROBE_REF_CODES = {
+    "security": "SEC", "conversational_quality": "CQ", "grounding": "GRD",
+    "safety_and_harm": "SAF", "honesty_and_escalation": "HON", "bias_and_fairness": "BIA",
+    "robustness": "ROB", "task_success": "TSK", "instruction_following": "INS",
+    "privacy_and_data_handling": "PRV", "memory": "MEM", "latency_and_reliability": "LAT",
+}
+PRIVATE_SUITES = BACKEND / "data" / "private"
+_PROBE_INDEX: dict[str, int] | None = None
+
+
+def probe_ref(dim_key: str, probe_id: str) -> str:
+    """The opaque, dispute-able reference printed instead of a held-out probe id.
+
+    Refuses rather than falling back: the only possible fallback is printing the id,
+    which is the exposure this exists to end."""
+    global _PROBE_INDEX
+    if _PROBE_INDEX is None:
+        _PROBE_INDEX = {}
+        for f in sorted(PRIVATE_SUITES.glob("*.json")):
+            doc = json.loads(f.read_text())
+            probes = doc if isinstance(doc, list) else doc.get("probes", [])
+            for i, pr in enumerate(probes, 1):
+                if isinstance(pr, dict) and pr.get("id"):
+                    _PROBE_INDEX[pr["id"]] = i
+    if probe_id not in _PROBE_INDEX:
+        raise SystemExit(
+            f"refusing to render: a {dim_key} probe is not in the held-out suite under "
+            f"{PRIVATE_SUITES}, so it has no opaque reference and printing its id is not an "
+            "option. Is the private suite present on this machine?")
+    return f"{PROBE_REF_CODES[dim_key]}-{_PROBE_INDEX[probe_id]:03d}"
+
 
 from app.leaderboard.certs import code_for
 from app.leaderboard.render import _cap_line, guard_note
@@ -89,7 +130,8 @@ def probe_rollup(runs: list[dict], dim_key: str) -> list[dict]:
         scores = [float(p.get("score", 0.0)) for p in ps]
         worst = min(ps, key=lambda p: float(p.get("score", 0.0)))
         rows.append({
-            "probe_id": pid,
+            "probe_id": pid,                     # internal only; never rendered
+            "ref": probe_ref(dim_key, pid),
             "category": worst.get("category", ""),
             "mean": statistics.fmean(scores),
             "low": min(scores),
@@ -99,7 +141,7 @@ def probe_rollup(runs: list[dict], dim_key: str) -> list[dict]:
             "reason": worst.get("reason", ""),
             "response": worst.get("response", ""),
         })
-    return sorted(rows, key=lambda r: (r["mean"], r["probe_id"]))
+    return sorted(rows, key=lambda r: (r["mean"], r["ref"]))
 
 
 def _bar(score10: float) -> str:
@@ -124,7 +166,8 @@ def probe_html(p: dict) -> str:
     resp = html.escape(_clip(p["response"])) or "<em>no reply captured</em>"
     return (
         '<div class="rp-probe">'
-        f'<div class="rp-probe-top"><code>{html.escape(p["probe_id"])}</code>'
+        f'<div class="rp-probe-top"><code title="{PROBE_REF_LABEL}: quote it to dispute this result">'
+        f'{html.escape(p["ref"])}</code>'
         f'<span class="rp-cat">{cat}</span>{"".join(flags)}'
         f'<span class="rp-pscore">{p["mean"]:.2f}</span></div>'
         f'<div class="rp-judge">{html.escape(_clip(p["reason"], 320))}</div>'
@@ -459,15 +502,54 @@ Grades expire after 90 days because agents drift.</p>
 </main>"""
     return head + bar + body + "</body></html>"
 
+SUPERSEDED_MARKER = "<!-- pg:superseded -->"
+
+
+def redirect_stub(new_slug: str) -> str:
+    """What a SUPERSEDED card URL serves: the agent's current card, and no score.
+
+    Christian, 2026-09-26: a scorecard shows one score, the latest grading. Card URLs
+    derive from the grade, so every re-grade mints a new one, and the old URLs are
+    already in outreach threads. They must keep working without showing an old
+    number, so each becomes this stub. It carries NO score, NO date and NO probe
+    reference: nothing on it can disagree with the board."""
+    url = f"/scorecards/{new_slug}"
+    return (f'<!doctype html>{SUPERSEDED_MARKER}<html lang="en"><head><meta charset="utf-8">'
+            '<meta name="robots" content="noindex,nofollow">'
+            f'<meta http-equiv="refresh" content="0; url={url}">'
+            f'<link rel="canonical" href="https://theprovingground.io{url}">'
+            '<title>Scorecard replaced by the latest grade</title></head><body>'
+            '<p>This scorecard has been replaced by the agent&rsquo;s latest grade. '
+            f'<a href="{url}">Open the current scorecard</a>.</p></body></html>\n')
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Render a private per-agent scorecard.")
     ap.add_argument("--run", help="path to the grade run artifact JSON")
     ap.add_argument("--id", help="promoted leaderboard entry id")
     ap.add_argument("--lander", required=True, help="lander HTML, for the shared style block")
     ap.add_argument("--out-dir", required=True, help="directory to write <slug>.html into")
+    ap.add_argument("--supersede", nargs="+", metavar="OLD_SLUG",
+                    help="write a redirect stub for each superseded card slug into --out-dir, "
+                         "pointing at that agent's CURRENT card (which must exist there)")
     ap.add_argument("--index", action="store_true",
                     help="(re)build index.html listing the cards of every promoted agent")
     a = ap.parse_args()
+
+    if a.supersede:
+        from app.leaderboard.render import card_slugs
+        out_dir = Path(a.out_dir)
+        published = load_published()
+        current = card_slugs(published, out_dir)
+        for old in a.supersede:
+            agent = next((e["id"] for e in published if old.startswith(e["id"] + "-")), None)
+            if agent is None or agent not in current:
+                raise SystemExit(f"refusing: no current card for {old}; render it first")
+            if current[agent] == old:
+                raise SystemExit(f"refusing: {old} IS the current card for {agent}")
+            (out_dir / f"{old}.html").write_text(redirect_stub(current[agent]))
+            print(f"superseded {old} -> {current[agent]}")
+        return 0
 
     if a.index:
         out_dir = Path(a.out_dir)
@@ -476,10 +558,15 @@ def main() -> int:
         # document handed to the vendor) but must not be discoverable here. The
         # docstring below says listing is derived from being on the board, and
         # `published: false` is exactly the case where that stopped being true.
-        for e in load_published():
-            found = sorted(out_dir.glob(f'{e["id"]}-*.html'))
-            if found:
-                rows.append((e, found[-1].stem))
+        # The SAME choice as the board (render.card_slugs): the card for the grade on
+        # the board, never whichever file sorts last - the index used to list a
+        # superseded card's grade beside the board's current one.
+        from app.leaderboard.render import card_slugs
+        published = load_published()
+        slugs = card_slugs(published, out_dir)
+        for e in published:
+            if e["id"] in slugs:
+                rows.append((e, slugs[e["id"]]))
             else:
                 missing.append(e)
         out = out_dir / "index.html"
