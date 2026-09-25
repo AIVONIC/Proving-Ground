@@ -112,8 +112,16 @@ A composite is only comparable to another composite computed the same way, and "
 That comparability is therefore carried by an identifier which is **computed from the scoring configuration**, not declared by hand:
 
 ```
-composite pgc-b4e796bd (12 weighted dimensions, methodology v0.3)
+$ python -c "from app.scoring import version; print(version.describe())"
+composite pgc-9c569e75 (12 weighted dimensions, methodology v0.3)
 ```
+
+The command is shown rather than the value alone, because a value written here is
+a second place to maintain. It was written alone until 2026-09-25, and by then this
+document published `pgc-b4e796bd` while the configuration computed `pgc-9c569e75`:
+a stale identifier inside the one section whose job is to explain what the
+identifier means, which is the exact failure the next paragraph warns against,
+occurring in the warning itself. Recompute it rather than trusting the line above.
 
 It changes automatically when the weights change, when a weighted dimension is added or removed, when the critical cap moves, or when a tier gate moves. Two grades may be compared as the same measurement **if and only if they carry the same identifier**, and a grade recorded before the identifier existed carries none, which is treated as "not comparable" rather than as a match.
 
