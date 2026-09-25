@@ -110,6 +110,13 @@ def _substitutions(entry: dict):
         # rest without comment, so adding a second one to the page read as the
         # page being "out of date" -- the sync was quietly the thing removing it.
         links = re.findall(r"<a [^>]*>.*?</a>", m.group(2), re.S)
+        # ⛔ A CERTIFICATE LINK NAMES THE AGENT, NEVER THE `pg-` CODE. The home page
+        # carried `/verify/pg-6cd57bac` by hand while the board and every card use the
+        # readable alias; Christian, 2026-09-26: the URL should show the agent. Both
+        # resolve identically. Rewritten here from the featured entry, so a
+        # hand-written code cannot come back and a different featured agent is right.
+        links = [re.sub(r'href="/verify/[^"]*"', f'href="/verify/{entry["id"]}"', a)
+                 for a in links]
         for a in links:
             text += f" &middot; {a}"
         return f"{m.group(1)}{text}{m.group(3)}"

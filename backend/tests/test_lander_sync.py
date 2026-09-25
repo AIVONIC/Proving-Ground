@@ -98,3 +98,19 @@ def test_index_carries_no_inline_script() -> None:
     inline = re.findall(r"<script(?![^>]*(?:ld\+json|src=))[^>]*>", html)
     assert not inline, f"index.html has inline script(s): {inline}"
     assert '<script src="/app.js" defer></script>' in html
+
+
+def test_the_home_page_certificate_link_names_the_agent_never_the_pg_code() -> None:
+    """Christian, 2026-09-26: the URL should show the agent. The home page carried
+    /verify/pg-6cd57bac by hand while the board and cards used the readable alias."""
+    featured = pick(load(), None)
+    html = (Path(__file__).resolve().parents[2] / "frontend" / "index.html").read_text()
+    links = re.findall(r'href="/verify/([^"]*)"', html)
+    assert links and all(l == featured["id"] for l in links)
+    # and a hand-written code is rewritten, not preserved
+    fe = Path(__file__).resolve().parents[2] / "frontend"
+    forged = html.replace(f'href="/verify/{featured["id"]}"', 'href="/verify/pg-00000000"')
+    assert "/verify/pg-00000000" in forged
+    out = sync_bundle({"index.html": forged, "app.js": (fe / "app.js").read_text()}, featured)
+    assert "/verify/pg-00000000" not in out["index.html"]
+    assert f'href="/verify/{featured["id"]}"' in out["index.html"]
