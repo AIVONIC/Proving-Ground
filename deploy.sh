@@ -306,7 +306,7 @@ SAMPLE_CARD="$(ssh -o ConnectTimeout=10 "$HOST" \
 # all, so a board rendered without --report-dir still checks something.
 if [[ -z "$SAMPLE_CARD" ]]; then
   SAMPLE_CARD="$(ssh -o ConnectTimeout=10 "$HOST" \
-    "ls '$DOCROOT.new/$SCORECARDS'/*.html 2>/dev/null | grep -v '/index.html$' | head -1 | xargs -r basename" || true)"
+    "grep -L 'pg:superseded' '$DOCROOT.new/$SCORECARDS'/*.html 2>/dev/null | grep -v '/index.html$' | head -1 | xargs -r basename" || true)"
 fi
 
 say "6. Swap"

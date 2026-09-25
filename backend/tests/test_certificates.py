@@ -184,15 +184,22 @@ def test_unreadable_index_from_cold_is_unavailable_not_unknown(client, monkeypat
 
 
 def test_code_is_stable_across_regrades(client):
-    """The scorecard slug seeds on the grade and MUST change per run; the
-    certificate code must not, or a mark embedded on a vendor's site breaks the
-    day their score improves."""
+    """The certificate code must never change, or a mark embedded on a vendor's
+    site breaks the day their score improves.
+
+    The SCORECARD address changed policy on 2026-09-26 (Christian): a PUBLISHED
+    agent has one card, at its own name, always showing the latest grade, so its
+    address is also stable across re-grades. A card that is NOT published keeps a
+    grade-derived token that changes per run and cannot be guessed from a name."""
     from app.leaderboard.certs import code_for
     from app.leaderboard.report import slug_for
     e = {"id": "demo", "graded_at": "2026-01-01", "composite": 80.0}
     e2 = {**e, "graded_at": "2026-06-01", "composite": 91.0}
     assert code_for(e["id"]) == code_for(e2["id"])
-    assert slug_for(e, "runs/a.json") != slug_for(e2, "runs/b.json")
+    assert slug_for(e, "runs/a.json") == slug_for(e2, "runs/b.json") == "demo"
+    w, w2 = {**e, "published": False}, {**e2, "published": False}
+    assert slug_for(w, "runs/a.json") != slug_for(w2, "runs/b.json")
+    assert slug_for(w, "runs/a.json").startswith("demo-")
 
 
 def test_certificate_page_honours_the_same_themes_as_the_site(client):

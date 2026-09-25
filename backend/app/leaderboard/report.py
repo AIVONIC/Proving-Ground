@@ -102,16 +102,21 @@ def _eyebrow(entry: dict) -> str:
 
 
 def slug_for(entry: dict, run_path: str) -> str:
-    """`<agent-id>-<token>`. The name is there so a pasted link is self-evidently
-    about THIS agent; the token is there so the URL cannot be guessed.
+    """The card's URL name.
 
-    Both halves earn their place. A bare `/scorecards/spark` would be enumerable, and a
-    report carries a vendor's own transcripts and the fact that we graded them at
-    all, neither of which is ours to expose by letting anyone try names until one
-    answers 200. A bare token is unguessable but tells the recipient nothing.
+    PUBLISHED agent: just its id, `/scorecards/spark` (Christian, 2026-09-26: the
+    URL should show the agent). One address per agent that always shows its latest
+    grade, so a re-grade overwrites it and a link already sent never goes stale.
+    The id already names the build (`dify-northwind`, not `dify`), so it does not
+    read as a grade of the vendor's own product.
 
-    Derived from the grade, with no clock and no randomness, so regenerating the
-    same grade reproduces the same URL and a link already sent never rots."""
+    ANY OTHER card (withheld, or never promoted): `<agent-id>-<token>`, derived from
+    the grade with no clock and no randomness. Such a card carries a vendor's own
+    transcripts and the fact that we graded them at all, neither of which is ours to
+    expose by letting anyone try names until one answers 200. A published card is
+    linked from the public board, so guessing protects nothing there."""
+    if entry.get("published", True) and entry.get("graded_at") and entry.get("composite") is not None:
+        return entry["id"]
     seed = f'{entry["id"]}|{entry.get("graded_at", "")}|{entry["composite"]}|{Path(run_path).name}'
     token = hashlib.sha256(seed.encode()).hexdigest()[:12]
     return f'{entry["id"]}-{token}'
@@ -542,7 +547,9 @@ def main() -> int:
         published = load_published()
         current = card_slugs(published, out_dir)
         for old in a.supersede:
-            agent = next((e["id"] for e in published if old.startswith(e["id"] + "-")), None)
+            # LONGEST matching id: `spark-v2-<token>` belongs to spark-v2, not spark.
+            agent = max((e["id"] for e in published if old.startswith(e["id"] + "-")),
+                        key=len, default=None)
             if agent is None or agent not in current:
                 raise SystemExit(f"refusing: no current card for {old}; render it first")
             if current[agent] == old:
