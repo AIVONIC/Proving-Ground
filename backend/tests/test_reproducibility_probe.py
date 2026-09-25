@@ -103,13 +103,21 @@ def test_empty_item_set_is_refused_not_reported_as_zero():
             SystemExit("no items"))
 
 
-def test_measurements_file_is_a_dated_series_not_a_single_number():
+def test_measurements_file_is_a_dated_series_not_a_single_number(tmp_path):
     """Improving the pipeline must ADD a dated measurement beside the first, never
-    replace it. That commitment is kept by the file format, not by intention."""
+    replace it. That commitment is kept by the file format, not by intention.
+
+    ⛔ WRITES TO tmp_path, NOT INTO data/reproducibility/. It used to write a dotfile
+    into the real directory and unlink it afterwards. That cleanup was written BEFORE
+    `record()` gained its redacted `.public.json` companion, so it deleted one file
+    and left the other, the leftover ACCUMULATED across runs, and another session's
+    broad `git add` committed it into a PUBLIC repo (4fd112d). Harmless content,
+    entirely avoidable: a test that writes where the product publishes is one sweep
+    away from shipping its fixture. Cleaning up is weaker than not writing there.
+    """
     from app.reproducibility.concurrency_probe import MEASUREMENTS, record
 
-    tmp = BACKEND / "data" / "reproducibility" / ".series_selftest.json"
-    tmp.unlink(missing_ok=True)
+    tmp = tmp_path / "series.json"
     try:
         record({"measured_on": "2026-01-01", "summary": {"loaded_flip_rate": 0.9}}, tmp)
         record({"measured_on": "2026-06-01", "summary": {"loaded_flip_rate": 0.1}}, tmp)
@@ -118,4 +126,5 @@ def test_measurements_file_is_a_dated_series_not_a_single_number():
         assert series[0]["summary"]["loaded_flip_rate"] == 0.9, "the worse earlier number is gone"
     finally:
         tmp.unlink(missing_ok=True)
+        (tmp.parent / (tmp.stem + ".public.json")).unlink(missing_ok=True)
     assert MEASUREMENTS.name == "measurements.json"

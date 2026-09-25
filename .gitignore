@@ -63,7 +63,15 @@ backend/data/exec_runs/
 # reveal that the held-out set holds at least twelve exfiltration probes.
 # The redacted companion (measurements.public.json) carries the same rates,
 # bounds, drift and spend with movements reported per DIMENSION, and IS committed.
-backend/data/reproducibility/measurements.json
+# ⛔ DENY BY DEFAULT, whitelist the redacted companions. This named ONE FILENAME,
+# which is the shape aivonic-7c found across the estate on 2026-09-25: a rule that
+# was right when written, whose coverage rots as the lane produces more files, and
+# which is invisible to "stage what you wrote" because you DID write them. A second
+# full record under any other name would have been staged by the next broad sweep.
+# Now a new file here is ignored unless it is explicitly a *.public.json companion,
+# so nobody has to remember.
+backend/data/reproducibility/*
+!backend/data/reproducibility/*.public.json
 
 # Canary baseline records HELD-OUT probe ids (and per-judge scores) from
 # data/private/. Same reason data/runs/ and data/private/ are ignored: the repo
