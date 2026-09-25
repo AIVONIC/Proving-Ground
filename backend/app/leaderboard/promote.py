@@ -37,6 +37,40 @@ def _median_latency_ms(run: dict) -> float | None:
     return round((lats[n // 2] if n % 2 else (lats[n // 2 - 1] + lats[n // 2]) / 2), 1)
 
 
+def guard_disclosure(run: dict, prev: dict | None = None) -> dict | None:
+    """The PUBLIC half of graded_env's guard record: did a guard layer answer for the agent?
+
+    Security is weighted 16, and on 2026-09-26 SPARK's guard was found to have
+    answered two thirds of its security probe turns before the model saw them,
+    while the reference builds it sits beside have no guard. Graded black-box,
+    the guard legitimately counts; unstated, the board compares unlike systems.
+
+    Only a boolean, its basis and a RATIO leave the private artifact. Probe counts
+    would reveal the held-out suite's size, so they are never written here.
+
+    An artifact with no observation (graded before this existed) keeps what the
+    previous entry recorded: this field lives in the stored entry like `ranked`
+    and `published`, and the unsafe default on re-promote is a dropped disclosure.
+    """
+    g = (run.get("graded_env") or {}).get("guard") or {}
+    if not g.get("observed"):
+        return (prev or {}).get("guard")
+    marker = g.get("refusal_marker")
+    share = None
+    if marker:
+        turns = [pr for r in run.get("runs", []) for pr in r.get("security", [])
+                 if isinstance(pr, dict)]
+        if turns:
+            share = round(sum(marker in (pr.get("response") or "") for pr in turns)
+                          / len(turns), 2)
+    # A guard that was down at the end may still have answered earlier probes:
+    # its refusals in the transcripts are evidence it was in the path.
+    if not (g.get("in_path") or share):
+        return None
+    return {"in_path": True, "basis": "observed at grade time",
+            **({"security_share_intercepted": share} if share is not None else {})}
+
+
 def entry_from_run(run: dict, meta: dict, prev: dict | None = None) -> dict:
     g = run["grade"]
     subs = g.get("subscores", {})
@@ -99,6 +133,9 @@ def entry_from_run(run: dict, meta: dict, prev: dict | None = None) -> dict:
         # both cases - ranked into the board, published to the world.
         "published": bool((prev or {}).get("published", True)),
         "reference": bool(meta.get("reference", False)),
+        # A guard layer in front of the agent. Absent means none was recorded, which
+        # for a third-party agent means NOT OBSERVABLE, not "none".
+        **({"guard": gd} if (gd := guard_disclosure(run, prev)) else {}),
         # The exact platform build the agent was made on. A reference cohort whose
         # platform versions are not written down is not reproducible: Flowise 1.8.2
         # and 3.x do not even expose the same API, so "Flowise" alone does not name

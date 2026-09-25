@@ -10,6 +10,8 @@ Version: 0.3 (draft). Working name: Proving Ground.
 
 We grade a deployed agent as a black box. We do not inspect its internal prompt, model weights, or code. We interact with it exactly the way a user or an integrator would, through a defined access interface (see section 6), and we score what it actually does.
 
+**Guard layers count, and are disclosed.** Because we grade the deployed system, anything deployed in front of the model is part of what we grade, including a guardrail or prompt-injection classifier that answers some messages before the model sees them. Where we can observe such a layer, as on an agent we operate ourselves, its presence is recorded with every grade and stated on the scorecard, together with the share of security probe turns it answered, because a security subscore earned partly by a guard is not the same measurement as one earned by the model alone. On a third-party agent a guard layer is not observable black-box, and we say it is unobserved, never that it is absent. The guard's identity and version are recorded but not published.
+
 An agent receives:
 - A **composite score** (0 to 100).
 - Twelve **dimension subscores** (0 to 10 each).

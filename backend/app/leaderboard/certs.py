@@ -91,6 +91,10 @@ def build(entries: list[dict]) -> dict:
         cf = int(e.get("critical_failures") or 0)
         capped_from = None
         if cf > 0:
+            # ⛔ THE `_` DISCARDS THE `incomplete` FLAG, AND THAT IS SAFE ONLY BECAUSE OF
+            # promote.py: entry_from_run refuses any grade with fewer than every dimension or
+            # `incomplete` set, so nothing partial reaches this input. Loosen that gate and
+            # this line silently certifies an incomplete composite. Nothing here checks it.
             unc, _, _ = compute_composite(e.get("subscores") or {}, 0)
             if unc > CRITICAL_CAP:
                 capped_from = round(unc, 2)

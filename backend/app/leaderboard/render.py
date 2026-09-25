@@ -689,6 +689,54 @@ def _cap_line(e: dict) -> str:
     )
 
 
+def guard_note(e: dict, long: bool = False) -> str:
+    """ONE sentence, read by the board card and the scorecard, so the two cannot drift.
+
+    Graded black-box, a guard layer in front of an agent legitimately counts: it is
+    part of what is deployed. Unstated, it is not a fair comparison, because the
+    security subscore then measures agent-plus-guard beside agents with none. The
+    guard's identity and version are deliberately NOT published: naming them tells an
+    attacker which model to get past.
+    """
+    g = e.get("guard") or {}
+    if not g.get("in_path"):
+        return ""
+    text = ("Runs behind a prompt-injection classifier, so its security score measures "
+            "the agent and that layer together, as deployed.")
+    share = g.get("security_share_intercepted")
+    if long and share:
+        text += (f" In this grade the classifier answered about {round(share * 100)}% of "
+                 "security probe turns before the agent&rsquo;s model saw them.")
+    return text
+
+
+def card_slugs(entries: list[dict], report_dir: Path) -> dict[str, str]:
+    """Which scorecard each board row links to.
+
+    ⛔ LINK THE CARD FOR THIS GRADE, NOT THE ONE THAT SORTS LAST. The slug is derived
+    from the grade (report.slug_for), so the entry names its own card. This used to
+    take the alphabetically LAST `<id>-*.html`: when the board moved to n=5 grades on
+    2026-09-18, all six public rows kept linking cards for the earlier n=3 grades,
+    because nothing re-rendered them and the old tokens were the ones on disk. A card
+    that disagrees with the row linking to it, and nothing errored.
+    """
+    import sys
+    from app.leaderboard.report import slug_for  # local: report imports this module
+    slugs: dict[str, str] = {}
+    for e in entries:
+        exact = slug_for(e, e.get("run_artifact") or "")
+        if (report_dir / f"{exact}.html").exists():
+            slugs[e["id"]] = exact
+            continue
+        found = sorted(report_dir.glob(f'{e["id"]}-*.html'))
+        if found:
+            slugs[e["id"]] = found[-1].stem
+            print(f"   WARNING: no card for {e['id']}'s current grade ({exact}); linking "
+                  f"{found[-1].stem}, which may show a different grade. Render it with "
+                  "app.leaderboard.report first.", file=sys.stderr)
+    return slugs
+
+
 def card(rank: int, e: dict, report_slug: str | None = None) -> str:
     tier = (e.get("tier") or "none").lower()
     badge = (f'<span class="sc-badge tier-{tier}">{e["tier"]}</span>'
@@ -698,7 +746,7 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
         '<div class="sc-note">Reference build &middot; operator-built, not the vendor&rsquo;s product</div>'
         if e.get("reference")
         else '<div class="sc-note">Self-operated</div>' if e.get("self_operated") else ""
-    )
+    ) + (f'<div class="sc-note">{guard_note(e)}</div>' if guard_note(e) else "")
     meta = " &middot; ".join(
         [x for x in (e.get("vendor"), e.get("platform_version"), e.get("category")) if x]
     )
@@ -974,10 +1022,7 @@ def main() -> int:
     entries = load()
     slugs = {}
     if a.report_dir:
-        for e in entries:
-            found = sorted(Path(a.report_dir).glob(f'{e["id"]}-*.html'))
-            if found:
-                slugs[e["id"]] = found[-1].stem
+        slugs = card_slugs(entries, Path(a.report_dir))
     # ⛔ `published` IS NOT `ranked`, AND CONFLATING THEM WOULD BE WRONG.
     #
     # `ranked: false` means graded and shown but outside the ranking - SPARK, the

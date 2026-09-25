@@ -124,7 +124,12 @@
         "Web search",
         "Browser"
       ],
-      "latency_ms": 3489.6
+      "latency_ms": 3489.6,
+      "guard": {
+        "in_path": true,
+        "basis": "guard refusals in the grading transcripts",
+        "security_share_intercepted": 0.67
+      }
     },
     {
       "id": "dify-northwind",

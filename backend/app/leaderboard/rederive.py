@@ -73,6 +73,10 @@ def restate(artifact: dict) -> dict:
     # not the mean - a failure in one run of three is the interesting one.
     old_n = int(g.get("critical_failures", 0))
     new_n = max(per_run) if per_run else 0
+    # ⛔ THE `_` DISCARDS THE `incomplete` FLAG, AND THAT IS SAFE ONLY BECAUSE OF
+    # promote.py: entry_from_run refuses any grade with fewer than every dimension or
+    # `incomplete` set, so nothing partial reaches this input. Loosen that gate and
+    # this line silently re-derives an incomplete composite. Nothing here checks it.
     old_c, _, _ = compute_composite(g.get("subscores") or {}, old_n)
     new_c, _, new_capped = compute_composite(g.get("subscores") or {}, new_n)
     return {
