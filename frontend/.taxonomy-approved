@@ -1,0 +1,25 @@
+Martin Franc (Inquio) - 2026-09-23 - approved for publication
+
+Scope: the dimension descriptions AND the probe definitions, not only the conflict
+disclosure. He reviewed all ten dimensions and confirmed the result.
+
+Inquio is not scored by this benchmark and does not appear on the leaderboard. If
+that changes, the disclosure is updated and published before any Inquio score is
+shown.
+
+⛔ THE DETAIL OF HIS REVIEW IS DELIBERATELY NOT IN THIS PUBLIC REPO.
+
+This file is a deploy gate and this repository is PUBLIC, which is a combination
+that is easy to miss: the gate lives in frontend/ beside the published page, so it
+reads like site content, and `git add` of a path you wrote yourself raises nothing.
+The first version recorded his two probe corrections and his attribution complaint
+verbatim, on the reasoning that an approval is worth more with the disagreements
+kept in it. That reasoning holds for an INTERNAL record. Publishing a second
+party's private review feedback is his decision and was not asked for.
+
+He is demonstrably careful about this: he declined to give a frequency figure for
+his own observation because frequencies seen in client environments do not
+generalise and are not published by either party.
+
+The full record is held locally, off this repo. If Martin would like the
+corrections published, they go back in with his agreement.
