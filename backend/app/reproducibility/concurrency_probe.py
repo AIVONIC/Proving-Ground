@@ -263,7 +263,7 @@ def _redact(result: dict) -> dict:
     The full record names the probes that flipped, which is the useful thing
     internally and is exactly what must not be published: those ids come from the
     PRIVATE suite, and the private suites are the moat this benchmark rests on. An
-    id like ``security/adv_exf_12`` does not reveal a probe's content, but it does
+    probe id does not reveal a probe's content, but it does
     reveal that the held-out set contains at least twelve exfiltration probes, and
     a graded vendor should learn nothing about the suite from a page about
     reproducibility.

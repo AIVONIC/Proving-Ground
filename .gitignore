@@ -59,8 +59,11 @@ backend/data/exec_runs/
 # The FULL reproducibility record names the held-out probes whose verdicts moved,
 # which is the useful thing internally and the one thing that must not be
 # published: those ids come from backend/data/private/, the moat ignored above.
-# An id like security/adv_exf_12 reveals nothing of a probe's content and does
-# reveal that the held-out set holds at least twelve exfiltration probes.
+# A probe id reveals nothing of a probe's content and does
+# reveal how many probes of a given family the held-out set holds -- the id encodes
+# a family and an ordinal, so one leaked id bounds the suite from below. Deliberately
+# NOT illustrated with a real id here: an earlier version of this comment quoted one,
+# which published a held-out identifier inside the rule forbidding exactly that.
 # The redacted companion (measurements.public.json) carries the same rates,
 # bounds, drift and spend with movements reported per DIMENSION, and IS committed.
 # ⛔ DENY BY DEFAULT, whitelist the redacted companions. This named ONE FILENAME,
