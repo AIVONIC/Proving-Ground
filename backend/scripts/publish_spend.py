@@ -32,13 +32,18 @@ REMOTE_FILE = f"{REMOTE_DIR}/spend.json"
 
 def build() -> dict:
     by_model: dict[str, dict] = {}
-    runs_with, runs_without = [], []
+    runs_with, runs_without, runs_unreadable = [], [], []
     unpriced: set[str] = set()
 
     for f in sorted(RUNS.glob("*.json")):
         try:
             d = json.loads(f.read_text())
-        except Exception:
+        except Exception as e:
+            # Counted and PUBLISHED, never dropped: a total that silently omits a run
+            # reads as complete. Not fatal: one half-written file must not block it.
+            runs_unreadable.append({"run": f.stem, "error": type(e).__name__})
+            print(f"   WARNING: run {f.name} unreadable ({type(e).__name__}); "
+                  "excluded from the total and listed as such")
             continue
         sp = d.get("spend")
         platform = d.get("platform") or d.get("agent") or f.stem.split("_")[0]
@@ -80,6 +85,8 @@ def build() -> dict:
         # Named, not silently dropped: these cost real money and the amount is
         # simply not recoverable.
         "runs_without_ledger": runs_without,
+        # Run files that could not be read at all: the total does NOT include them.
+        "runs_unreadable": runs_unreadable,
         "note": (
             "The judge ledger was added on 2026-09-03. Runs before it recorded no "
             "tokens, so their cost is unknown rather than zero."
@@ -97,6 +104,7 @@ def main() -> int:
     print(
         f"\n  runs with a ledger : {len(data['runs_with_ledger'])}"
         f"\n  runs WITHOUT       : {len(data['runs_without_ledger'])}  (cost unknown, not zero)"
+        f"\n  runs UNREADABLE    : {len(data.get('runs_unreadable') or [])}  (not in the total)"
         f"\n  measured total     : ${data['usd_total']}"
         f"\n  unpriced models    : {data['unpriced_models'] or 'none'}"
     )

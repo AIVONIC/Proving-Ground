@@ -96,8 +96,11 @@ def _catalog() -> dict:
     for f in (BACKEND / "data" / "private").glob("*.json"):
         try:
             d = json.loads(f.read_text())
-        except Exception:
-            continue
+        except Exception as e:
+            # A held-out suite that cannot be read must STOP the measurement: skipping
+            # it silently measured against a partial catalog and reported as complete.
+            raise SystemExit(f"held-out suite {f.name} is unreadable ({type(e).__name__}); "
+                             "refusing to measure against a partial catalog")
         for p in (d if isinstance(d, list) else d.get("probes", [])):
             if isinstance(p, dict) and p.get("id"):
                 cat[p["id"]] = p
@@ -152,8 +155,10 @@ def _dimensions() -> dict:
         factory = entry[0] if isinstance(entry, tuple) else entry
         try:
             out[dim_id] = factory()
-        except Exception:
-            continue
+        except Exception as e:
+            # Silently dropping a dimension made the canary cover less than it said.
+            raise SystemExit(f"dimension {dim_id!r} could not be built ({type(e).__name__}: {e}); "
+                             "the canary would silently not cover it")
     return out
 
 

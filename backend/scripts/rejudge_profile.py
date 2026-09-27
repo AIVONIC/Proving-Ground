@@ -75,8 +75,11 @@ def main() -> int:
     for f in (BACKEND / "data" / "private").glob("*.json"):
         try:
             j = json.loads(f.read_text())
-        except Exception:
-            continue
+        except Exception as e:
+            # A held-out suite that cannot be read must STOP the measurement: skipping
+            # it silently measured against a partial catalog and reported as complete.
+            raise SystemExit(f"held-out suite {f.name} is unreadable ({type(e).__name__}); "
+                             "refusing to measure against a partial catalog")
         for p in (j if isinstance(j, list) else j.get("probes", [])):
             if isinstance(p, dict) and p.get("id"):
                 cat[p["id"]] = p

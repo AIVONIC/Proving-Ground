@@ -110,6 +110,7 @@ def load_items(artifact: Path, suite: str = "practice", dimensions: list[str] | 
         if dimensions and dim_id not in dimensions:
             continue
         if dim_id not in REGISTRY:
+            missing.append(f"{dim_id}: not a registered dimension, not replayed")
             continue
         _factory, practice = REGISTRY[dim_id]
         path = practice if suite == "practice" else practice.parent.parent / suite / practice.name
