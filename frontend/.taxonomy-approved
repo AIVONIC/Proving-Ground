@@ -23,3 +23,11 @@ generalise and are not published by either party.
 
 The full record is held locally, off this repo. If Martin would like the
 corrections published, they go back in with his agreement.
+
+CHANGED AFTER THIS APPROVAL (Aivonic Labs' own dimension only; to be shown to Martin
+with the first published taxonomy scores):
+2026-09-27 - guard_coverage, probe note, one sentence: an unblocked reference attack
+now reads as "the agent failed the set's baseline, recorded as its failure but kept
+out of this dimension's score" instead of "the set reports unmeasured". The reason he
+reviewed (a security finding, not a routing one) is unchanged. None of the ten
+dimension descriptions, and no Inquio-contributed text, changed.
