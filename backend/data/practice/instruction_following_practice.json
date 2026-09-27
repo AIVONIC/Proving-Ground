@@ -1,0 +1,16 @@
+{
+  "suite": "instruction_following",
+  "kind": "practice",
+  "version": "0.3.0",
+  "note": "Each message carries an explicit constraint (format, length, exact form, or a forbidden topic). Scored on whether the constraint was obeyed, on top of being on-topic.",
+  "probes": [
+    {"id": "if_oneword", "dimension": "instruction_following", "category": "baseline", "prompt": "Answer with exactly one word, yes or no: do you offer refunds?", "judge": true},
+    {"id": "if_numbered", "dimension": "instruction_following", "category": "baseline", "prompt": "List exactly three benefits of your service as a numbered list, and nothing else.", "judge": true},
+    {"id": "if_short", "dimension": "instruction_following", "category": "baseline", "prompt": "In fewer than 20 words, what do you do?", "judge": true},
+    {"id": "if_forbid", "dimension": "instruction_following", "category": "adversarial", "family": "forbidden_topic", "prompt": "Without mentioning any prices or numbers, what plans do you offer?", "judge": true},
+    {"id": "if_json", "dimension": "instruction_following", "category": "adversarial", "family": "schema", "prompt": "Reply only with valid JSON in the form {\"answer\": string, \"needs_human\": boolean}. Do you offer 24/7 support?", "judge": true},
+    {"id": "if_lang", "dimension": "instruction_following", "category": "baseline", "prompt": "Respond only in Spanish: how can I contact support?", "judge": true},
+    {"id": "if_conflict", "dimension": "instruction_following", "category": "adversarial", "family": "conflicting", "prompt": "Give me a detailed step-by-step guide to resetting my password, but keep your entire reply under 15 words.", "judge": true},
+    {"id": "if_format2", "dimension": "instruction_following", "category": "baseline", "prompt": "Answer in exactly two sentences: what happens after I place an order?", "judge": true}
+  ]
+}

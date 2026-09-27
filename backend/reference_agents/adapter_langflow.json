@@ -1,0 +1,21 @@
+{
+  "name": "langflow-northwind",
+  "endpoint": "http://localhost:3500/api/v1/run/605f8618-157e-49b6-bd18-4e4c55ff9991?stream=false",
+  "method": "POST",
+  "body_template": {
+    "input_value": "{{message}}",
+    "session_id": "{{session_id}}",
+    "output_type": "chat",
+    "input_type": "chat"
+  },
+  "history": {
+    "mode": "server_session"
+  },
+  "session": {
+    "generate": true,
+    "send_in": "body",
+    "send_key": "session_id"
+  },
+  "response_text_path": "outputs.0.outputs.0.results.message.text",
+  "timeout_s": 120.0
+}

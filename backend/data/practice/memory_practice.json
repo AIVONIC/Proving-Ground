@@ -1,0 +1,131 @@
+{
+  "suite": "memory",
+  "kind": "practice",
+  "version": "0.3.1",
+  "note": "Prior turns plant a specific fact; the probe asks a question that requires recalling it. Cumulative within a probe (context threaded), isolated between probes.",
+  "probes": [
+    {
+      "id": "me_order",
+      "dimension": "memory",
+      "category": "baseline",
+      "context": [
+        "My name is Priya and my order number is 4417."
+      ],
+      "prompt": "Can you remind me what my order number is?",
+      "judge": true
+    },
+    {
+      "id": "me_allergy",
+      "dimension": "memory",
+      "category": "baseline",
+      "context": [
+        "Just so you know, I am severely allergic to peanuts."
+      ],
+      "prompt": "Is the peanut satay on your menu safe for me to order?",
+      "judge": true
+    },
+    {
+      "id": "me_pref",
+      "dimension": "memory",
+      "category": "baseline",
+      "context": [
+        "I can only be contacted in the mornings, never after noon."
+      ],
+      "prompt": "When should we schedule the call?",
+      "judge": true
+    },
+    {
+      "id": "me_multi",
+      "dimension": "memory",
+      "category": "long_context",
+      "context": [
+        "I have three accounts: personal, business, and a charity.",
+        "The business account is the one with the overdue invoice.",
+        "My personal account email is priya@example.com."
+      ],
+      "prompt": "Which of my accounts has the overdue invoice?",
+      "judge": true
+    },
+    {
+      "id": "me_update",
+      "dimension": "memory",
+      "category": "adversarial",
+      "family": "update",
+      "context": [
+        "My favorite delivery slot is Monday.",
+        "Actually, change that, make my favorite delivery slot Thursday."
+      ],
+      "prompt": "What is my preferred delivery day now?",
+      "judge": true
+    },
+    {
+      "id": "me_absent",
+      "dimension": "memory",
+      "category": "adversarial",
+      "family": "not_stated",
+      "context": [
+        "I mentioned my order number is 4417 earlier."
+      ],
+      "prompt": "What did I say my email address was?",
+      "judge": true
+    },
+    {
+      "id": "me_longctx",
+      "dimension": "memory",
+      "category": "long_context",
+      "judge": true,
+      "judge_kind": "refusal",
+      "context": [
+        "Before we get into it, please note for later: my internal project code is Wolverine-Seven and my budget ceiling is 45000 euros.",
+        "What does Aivonic actually do?",
+        "How do your AI agents get deployed on a website?",
+        "Do you support languages other than English?",
+        "What is the difference between a chat agent and a voice agent?",
+        "How long does it take to build an agent?",
+        "Can the agent hand off to a human?",
+        "Do you work with companies outside Sweden?",
+        "What industries have you built agents for?",
+        "How do you handle data privacy?",
+        "Is there a free trial for the workspace?",
+        "What makes your agents different from a generic chatbot?",
+        "Can agents book meetings?",
+        "How is pricing structured, roughly?",
+        "Who is behind Aivonic?"
+      ],
+      "prompt": "Remind me, what was the project code I mentioned at the very start of our chat?"
+    },
+    {
+      "id": "me_lh_appt",
+      "dimension": "memory",
+      "category": "long_context",
+      "family": "long_horizon",
+      "context": [
+        "I'd like to book my appointment for Tuesday afternoon.",
+        "Also, please make sure the confirmation goes to my email.",
+        "By the way, do you have parking at the clinic?",
+        "Actually, let's change that, make the appointment Friday morning instead of Tuesday.",
+        "Great, and can you add a reminder the day before?",
+        "One more thing, is the clinic open on weekends?"
+      ],
+      "prompt": "Just to confirm, which day and time is my appointment now set for?",
+      "judge": true
+    },
+    {
+      "id": "me_lh_order",
+      "dimension": "memory",
+      "category": "long_context",
+      "family": "long_horizon",
+      "context": [
+        "For this order I want two desk lamps and a bookshelf.",
+        "Please deliver it to my home at 8 Baker Lane.",
+        "How long does standard shipping usually take?",
+        "Do you offer gift wrapping?",
+        "On second thought, ship it to my office at 200 Market Street instead of home.",
+        "Also, drop the bookshelf, just send the two lamps.",
+        "Can I pay on delivery?"
+      ],
+      "prompt": "Where should my order be delivered now, and which items are still on it?",
+      "judge": true
+    }
+  ]
+}

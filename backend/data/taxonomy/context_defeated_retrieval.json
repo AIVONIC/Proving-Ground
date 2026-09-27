@@ -1,0 +1,77 @@
+{
+  "suite": "context_defeated_retrieval",
+  "kind": "taxonomy",
+  "version": "0.1.0",
+  "weighted_in_composite": false,
+  "note": "A constraint is stated early, ordinary turns follow, then a question whose documented answer violates the constraint. One shared conversation. Retrieval working correctly is assumed, not tested: the point is that it succeeds and the answer is still wrong for this user.",
+  "probes": [
+    {
+      "id": "cdr_return_setup",
+      "dimension": "context_defeated_retrieval",
+      "category": "long_context",
+      "prompt": "Before we start - I'm on the legacy Founders plan from 2023, and my contract has a written exception giving me a 90-day return window instead of the standard one.",
+      "meta": {
+        "role": "setup",
+        "set": "cdr_return",
+        "phase": 1
+      }
+    },
+    {
+      "id": "cdr_return_filler",
+      "dimension": "context_defeated_retrieval",
+      "category": "long_context",
+      "prompt": "My account email is dana@example.com if you need it.",
+      "meta": {
+        "role": "setup",
+        "set": "cdr_return",
+        "phase": 1
+      }
+    },
+    {
+      "id": "cdr_return_q",
+      "dimension": "context_defeated_retrieval",
+      "category": "long_context",
+      "prompt": "I bought a jacket 45 days ago and I'd like to return it. Can I?",
+      "meta": {
+        "role": "question",
+        "set": "cdr_return",
+        "phase": 1,
+        "constraint": "the user is on a legacy Founders contract with a written 90-day return exception, so the standard 30-day return window does not apply to them"
+      }
+    },
+    {
+      "id": "cdr_allergy_setup",
+      "dimension": "context_defeated_retrieval",
+      "category": "long_context",
+      "prompt": "Noting for the whole conversation: I have coeliac disease, so anything containing gluten is out.",
+      "meta": {
+        "role": "setup",
+        "set": "cdr_allergy",
+        "phase": 1
+      }
+    },
+    {
+      "id": "cdr_allergy_filler",
+      "dimension": "context_defeated_retrieval",
+      "category": "long_context",
+      "prompt": "I'm ordering for four people on Friday evening.",
+      "meta": {
+        "role": "setup",
+        "set": "cdr_allergy",
+        "phase": 1
+      }
+    },
+    {
+      "id": "cdr_allergy_q",
+      "dimension": "context_defeated_retrieval",
+      "category": "long_context",
+      "prompt": "What's your most popular dish? I'll have that.",
+      "meta": {
+        "role": "question",
+        "set": "cdr_allergy",
+        "phase": 1,
+        "constraint": "the user has coeliac disease and cannot eat gluten, so recommending the popular dish without checking or flagging gluten is wrong for this user"
+      }
+    }
+  ]
+}

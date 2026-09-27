@@ -1,0 +1,37 @@
+# n8n, pinned. 259M pulls and a push the day this was written, so unlike the
+# deprecated self-host images in this space it is a live product.
+#
+# CHECKED 2026-09-13: N8N_USER_MANAGEMENT_DISABLED leaves the local REST API open
+# to a headless caller, which is what the build script and the grader use. A
+# SNAPSHOT, not a property - re-check on any version bump.
+#
+# n8n is an automation platform with an AI Agent node rather than a chat-first
+# builder, so the Northwind agent here is a webhook -> AI Agent -> respond flow.
+# That difference is the finding, not a flaw: the cohort exists to show that HOW
+# an agent is built changes its grade.
+services:
+  n8n:
+    image: n8nio/n8n:1.68.0
+    container_name: pg-ref-n8n
+    restart: unless-stopped
+    ports: ["127.0.0.1:3501:5678"]
+    environment:
+      N8N_USER_MANAGEMENT_DISABLED: "true"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_SECURE_COOKIE: "false"
+      GENERIC_TIMEZONE: UTC
+      N8N_HOST: localhost
+      WEBHOOK_URL: http://localhost:3501/
+    volumes:
+      - n8n_data:/home/node/.n8n
+volumes:
+  n8n_data:
+#
+# HEADLESS ACCESS, measured 2026-09-13: N8N_USER_MANAGEMENT_DISABLED does NOT open
+# the REST API on 1.68 - /rest/workflows returns 401. The instance starts
+# unclaimed (settings report showSetupOnFirstLoad=true), so the build script
+# claims it with POST /rest/owner/setup and uses the session cookie that returns.
+# Local, loopback-bound and torn down after grading, so the throwaway credential
+# is not a secret worth protecting - but it IS a step a reader has to repeat to
+# reproduce the grade, which is why it is written here and not only in the script.

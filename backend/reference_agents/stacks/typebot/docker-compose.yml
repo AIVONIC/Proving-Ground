@@ -1,0 +1,46 @@
+# Typebot 3.18.0, pinned. A reference-cohort platform is torn down after grading,
+# so the version is pinned here rather than tracked with :latest: the whole point
+# of the cohort is that a later reader can rebuild the same agent and get the
+# same grade. Flowise is 1.8.2 and Dify 0.15.3 for the same reason.
+#
+# Ports are deliberately off the common ranges so this never collides with the
+# workstation's other stacks (Flowise 3300, Dify 8380, platform pg 5432).
+services:
+  typebot-db:
+    image: postgres:16-alpine
+    container_name: pg-ref-typebot-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: typebot
+      POSTGRES_USER: typebot
+      POSTGRES_PASSWORD: ${PG_TYPEBOT_DB_PASSWORD:?set PG_TYPEBOT_DB_PASSWORD}
+    ports: ["127.0.0.1:5436:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U typebot -d typebot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  typebot-builder:
+    image: baptistearno/typebot-builder:3.18.0
+    container_name: pg-ref-typebot-builder
+    restart: unless-stopped
+    depends_on:
+      typebot-db: {condition: service_healthy}
+    ports: ["127.0.0.1:3400:3000"]
+    environment: &tb_env
+      DATABASE_URL: postgresql://typebot:${PG_TYPEBOT_DB_PASSWORD}@typebot-db:5432/typebot
+      ENCRYPTION_SECRET: ${PG_TYPEBOT_ENCRYPTION_SECRET:?set PG_TYPEBOT_ENCRYPTION_SECRET (exactly 32 chars)}
+      NEXTAUTH_URL: http://localhost:3400
+      NEXT_PUBLIC_VIEWER_URL: http://localhost:3401
+      ADMIN_EMAIL: pg-operator@example.com
+      DISABLE_SIGNUP: "true"
+
+  typebot-viewer:
+    image: baptistearno/typebot-viewer:3.18.0
+    container_name: pg-ref-typebot-viewer
+    restart: unless-stopped
+    depends_on:
+      typebot-db: {condition: service_healthy}
+    ports: ["127.0.0.1:3401:3000"]
+    environment: *tb_env

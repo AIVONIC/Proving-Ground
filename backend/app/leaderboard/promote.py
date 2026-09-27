@@ -1,0 +1,229 @@
+"""Promote a grade run artifact into a leaderboard entry.
+
+    python -m app.leaderboard.promote --run data/runs/spark_XX.json \
+        --id spark --name SPARK --vendor "Aivonic Labs AB" \
+        --category "Sales & Support" --access "Socket.IO" \
+        --graded-at 2026-07-14 --self-operated
+
+Only a full 12-dimension run (a real tier assigned, not "incomplete") is eligible;
+a partial run is rejected so the board never shows a tier computed on a subset.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+
+from app.dimensions.catalog import REGISTRY
+from app.judges.coverage import (dimensions_below_full, judge_coverage,
+                                 panel_labs)
+from app.leaderboard.store import upsert
+
+
+def _median_latency_ms(run: dict) -> float | None:
+    """Median per-probe latency across every probe of every run. Reported on the
+    board alongside quality (the scatter axis), never folded into the composite."""
+    lats = [
+        pr["latency_ms"]
+        for one_run in run.get("runs", [])
+        for probes in one_run.values()
+        for pr in probes
+        if isinstance(pr, dict) and pr.get("latency_ms")
+    ]
+    if not lats:
+        return None
+    lats.sort()
+    n = len(lats)
+    return round((lats[n // 2] if n % 2 else (lats[n // 2 - 1] + lats[n // 2]) / 2), 1)
+
+
+def guard_disclosure(run: dict, prev: dict | None = None) -> dict | None:
+    """The PUBLIC half of graded_env's guard record: did a guard layer answer for the agent?
+
+    Security is weighted 16, and on 2026-09-26 SPARK's guard was found to have
+    answered two thirds of its security probe turns before the model saw them,
+    while the reference builds it sits beside have no guard. Graded black-box,
+    the guard legitimately counts; unstated, the board compares unlike systems.
+
+    Only a boolean, its basis and a RATIO leave the private artifact. Probe counts
+    would reveal the held-out suite's size, so they are never written here.
+
+    An artifact with no observation (graded before this existed) keeps what the
+    previous entry recorded: this field lives in the stored entry like `ranked`
+    and `published`, and the unsafe default on re-promote is a dropped disclosure.
+    """
+    g = (run.get("graded_env") or {}).get("guard") or {}
+    if not g.get("observed"):
+        return (prev or {}).get("guard")
+    marker = g.get("refusal_marker")
+    share = None
+    if marker:
+        turns = [pr for r in run.get("runs", []) for pr in r.get("security", [])
+                 if isinstance(pr, dict)]
+        if turns:
+            share = round(sum(marker in (pr.get("response") or "") for pr in turns)
+                          / len(turns), 2)
+    # A guard that was down at the end may still have answered earlier probes:
+    # its refusals in the transcripts are evidence it was in the path.
+    if not (g.get("in_path") or share):
+        return None
+    return {"in_path": True, "basis": "observed at grade time",
+            **({"security_share_intercepted": share} if share is not None else {})}
+
+
+def entry_from_run(run: dict, meta: dict, prev: dict | None = None) -> dict:
+    g = run["grade"]
+    subs = g.get("subscores", {})
+    if len(subs) < len(REGISTRY) or g.get("incomplete"):
+        raise SystemExit(
+            f"refusing to promote {meta['id']}: run graded {len(subs)}/{len(REGISTRY)} "
+            "dimensions. A public entry needs a full grade."
+        )
+    conf = g.get("confidence", {})
+    lat = _median_latency_ms(run)
+    return {
+        "id": meta["id"],
+        "name": meta["name"],
+        "vendor": meta["vendor"],
+        "category": meta.get("category", ""),
+        "access": meta.get("access", ""),
+        "composite": round(float(g["composite"]), 2),
+        "tier": g["tier"],
+        "subscores": {k: round(float(v), 2) for k, v in subs.items()},
+        "critical_failures": int(g.get("critical_failures", 0)),
+        # Carried from the artifact, never recomputed here: recomputing would
+        # stamp today's configuration onto a measurement taken under another one,
+        # which is precisely the false equivalence the id exists to prevent.
+        # Absent on grades taken before the id existed, and that reads as "not
+        # comparable" rather than as a match.
+        "composite_id": g.get("composite_id"),
+        "methodology_version": g.get("methodology_version"),
+        "runs": int(conf.get("runs", 1)),
+        # None when the grade was a single run, which supports no interval. Carried
+        # as null rather than coerced to [composite, composite]: a zero-width
+        # interval asserts perfect precision and no consumer can tell it from a
+        # genuinely tight one.
+        "ci95": ([conf["ci95_low"], conf["ci95_high"]]
+                 if conf.get("ci95_low") is not None and conf.get("ci95_high") is not None
+                 else None),
+        "graded_at": meta["graded_at"],
+        "self_operated": bool(meta.get("self_operated", False)),
+        # ⛔ RANKED IS CONSUMED BY render.py AND WAS NEVER WRITTEN HERE. It splits the
+        # board into ranked entries and RECUSED ones, and its absence reads as True
+        # (`e.get("ranked", True)`). So a re-promote silently dropped the field and
+        # would have placed SPARK - our OWN agent - into the public ranking it had been
+        # deliberately recused from. Caught on the n=5 promotion, before any deploy.
+        #
+        # A self-operated agent is recused BY DEFAULT: we built it, we grade it, and a
+        # benchmark that ranks its author's own product has spent the only asset it
+        # has. An explicit value on the existing entry still wins, so a deliberate
+        # choice is never overwritten by this inference.
+        "ranked": bool((prev or {}).get("ranked",
+                                        not meta.get("self_operated", False))),
+        # ⛔ AND `published` IS THE SAME DEFECT WITH A WORSE BLAST RADIUS. Also
+        # consumed (store.load_published, certs.py) and also never written here, so a
+        # re-promote dropped it and `e.get("published", True)` turned a DELIBERATELY
+        # WITHHELD grade public. A grade withheld pending vendor disclosure: the n=5
+        # re-promote silently un-withheld it and it was caught by checking the flag
+        # rather than by anything failing.
+        #
+        # Both fields share a shape worth naming: a property that lives ONLY in the
+        # stored entry, is read with a permissive default, and is written by nothing.
+        # Every re-promote silently reverts it, and the default is the unsafe value in
+        # both cases - ranked into the board, published to the world.
+        "published": bool((prev or {}).get("published", True)),
+        "reference": bool(meta.get("reference", False)),
+        # A guard layer in front of the agent. Absent means none was recorded, which
+        # for a third-party agent means NOT OBSERVABLE, not "none".
+        **({"guard": gd} if (gd := guard_disclosure(run, prev)) else {}),
+        # The exact platform build the agent was made on. A reference cohort whose
+        # platform versions are not written down is not reproducible: Flowise 1.8.2
+        # and 3.x do not even expose the same API, so "Flowise" alone does not name
+        # the thing that was measured.
+        **({"platform_version": meta["platform_version"]} if meta.get("platform_version") else {}),
+        # Which run artifact produced this row. Basename only: the artifacts are
+        # gitignored (they carry full transcripts), so this is a pointer, not a
+        # path. Without it a board row cannot be traced back to the runs behind
+        # it, and a cross-platform comparison nobody can re-derive is an
+        # assertion rather than a result.
+        **({"run_artifact": meta["run_artifact"]} if meta.get("run_artifact") else {}),
+        # The labs that actually judged this run, MEASURED from the artifact.
+        # Never a constant: the pages used to say "four-lab judge panel" for every
+        # entry while Gemini had covered 0 of 441 judgments on one of them.
+        **({"judge_labs": meta["judge_labs"]} if meta.get("judge_labs") else {}),
+        # Labs that took part at all, and the dimensions where one fell short.
+        # judge_labs alone was misleading in both directions: it dropped a lab
+        # that judged six dimensions perfectly because it was blocked on a
+        # seventh, and it implied one panel across all twelve. A safety judge
+        # that abstains on the worst failures is a fact the card must carry, not
+        # something a single run-level percentage can express.
+        **({"judge_panel": meta["judge_panel"]} if meta.get("judge_panel") else {}),
+        **({"judge_shortfall": meta["judge_shortfall"]} if meta.get("judge_shortfall") else {}),
+        "tools": list(meta.get("tools") or []),
+        "tools_verified": list(meta.get("tools_verified") or []),
+        **({"latency_ms": lat} if lat is not None else {}),
+    }
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Promote a grade run to the leaderboard.")
+    ap.add_argument("--run", required=True, help="path to a grade run artifact JSON")
+    ap.add_argument("--id", required=True)
+    ap.add_argument("--name", required=True)
+    ap.add_argument("--vendor", required=True)
+    ap.add_argument("--category", default="")
+    ap.add_argument("--access", default="")
+    ap.add_argument("--graded-at", required=True, help="YYYY-MM-DD (passed in; the engine has no clock)")
+    ap.add_argument("--tools", default="",
+                    help="comma-separated executing tools the agent actually invokes (e.g. "
+                         "'Email,Web search,Booking,Checkout'); empty means conversation-only")
+    ap.add_argument("--tools-verified", default="",
+                    help="comma-separated tools whose execution was verified in a sandbox "
+                         "(subset of --tools); shown as 'N of M verified' on the board")
+    ap.add_argument("--platform-version", default="",
+                    help="exact platform build the agent was made on (e.g. 'Typebot 3.18.0'); "
+                         "required in practice for a reference build, or the comparison "
+                         "cannot be reproduced")
+    ap.add_argument("--self-operated", action="store_true",
+                    help="mark an agent the operator runs itself (shown transparently)")
+    ap.add_argument("--reference", action="store_true",
+                    help="mark an operator-built reference agent (a build on a third-party "
+                         "platform, not that vendor's official product), shown transparently")
+    a = ap.parse_args()
+
+    run = json.loads(Path(a.run).read_text())
+    labs = panel_labs(run)
+    cov = judge_coverage(run)
+    panel = [lab for lab in ("claude", "openai", "grok", "gemini") if cov.get(lab, 0) > 0]
+    shortfall = dimensions_below_full(run)
+    partial = {k: v for k, v in cov.items() if k not in labs}
+    if partial:
+        # Loud, because a thinner panel is invisible in the scores themselves.
+        print("NOTE: judged by " + ", ".join(labs) + ". Partial coverage, excluded "
+              "from the stated panel: "
+              + ", ".join(f"{k} {v:.0%}" for k, v in partial.items()))
+    meta = {
+        "id": a.id, "name": a.name, "vendor": a.vendor, "category": a.category,
+        "access": a.access, "graded_at": a.graded_at, "self_operated": a.self_operated,
+        "platform_version": a.platform_version.strip(),
+        "run_artifact": Path(a.run).name,
+        "judge_labs": labs,
+        "judge_panel": panel,
+        "judge_shortfall": {d: {k: round(v, 3) for k, v in labs_.items()}
+                            for d, labs_ in shortfall.items()},
+        "reference": a.reference,
+        "tools": [t.strip() for t in a.tools.split(",") if t.strip()],
+        "tools_verified": [t.strip() for t in a.tools_verified.split(",") if t.strip()],
+    }
+    # Read the entry being replaced so a deliberate choice on it - `ranked`, chiefly -
+    # survives a re-promote instead of being silently dropped back to its default.
+    from app.leaderboard.store import load as _load_board
+    prev = next((e for e in _load_board() if e.get("id") == a.id), None)
+    board = upsert(entry_from_run(run, meta, prev))
+    g = run["grade"]
+    print(f"promoted {a.id}: {g['composite']} {g['tier']} -> {len(board)} on the board")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

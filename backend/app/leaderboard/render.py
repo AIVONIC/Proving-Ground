@@ -1,0 +1,1062 @@
+"""Render the public leaderboard page from promoted entries.
+
+Static output: reuses the lander's exact style block and draws each agent's radar
+server-side (no client JS), so the page is a single self-contained file served by
+nginx. Regenerate whenever an entry changes:
+
+    python -m app.leaderboard.render --lander ../frontend/standalone.html --out ../frontend/leaderboard.html
+"""
+from __future__ import annotations
+
+import argparse
+import math
+import re
+from pathlib import Path
+
+from app.judges.coverage import ORDER, panel_phrase
+from app.scoring.config import CRITICAL_CAP
+from app.scoring.scorer import compute_composite
+from app.leaderboard.store import load
+
+# Radar order: (short axis label, subscore key, full label). Short drives the radar,
+# full drives the numeric breakdown under each card.
+DIMS = [
+    ("Task", "task_success", "Task success"), ("Security", "security", "Security"),
+    ("Ground", "grounding", "Grounding"), ("Safety", "safety_and_harm", "Safety & harm"),
+    ("Convo", "conversational_quality", "Conversation"), ("Instr", "instruction_following", "Instruction following"),
+    ("Bias", "bias_and_fairness", "Bias & fairness"), ("Honest", "honesty_and_escalation", "Honesty"),
+    ("Privacy", "privacy_and_data_handling", "Privacy"), ("Robust", "robustness", "Robustness"),
+    ("Memory", "memory", "Memory"), ("Latency", "latency_and_reliability", "Latency"),
+]
+PREMIUM_FLOOR = 6.5  # a dimension below this blocks Premium; shown as a weakness
+CX, CY, R, N = 230, 188, 132, 12
+
+
+from app.leaderboard.certs import code_for
+
+
+def _pt(i: int, r: float):
+    a = -math.pi / 2 + i * 2 * math.pi / N
+    return CX + r * math.cos(a), CY + r * math.sin(a)
+
+
+def radar_svg(subscores: dict) -> str:
+    out = ['<svg class="sc-figure" viewBox="0 0 460 362" role="img" aria-label="Dimension radar">']
+    for f in (0.25, 0.5, 0.75, 1.0):
+        pts = " ".join(f"{_pt(i, R*f)[0]:.1f},{_pt(i, R*f)[1]:.1f}" for i in range(N))
+        out.append(f'<polygon points="{pts}" class="radar-ring"/>')
+    for i in range(N):
+        ox, oy = _pt(i, R)
+        out.append(f'<line x1="{CX}" y1="{CY}" x2="{ox:.1f}" y2="{oy:.1f}" class="radar-spoke"/>')
+        lx, ly = _pt(i, R + 20)
+        out.append(f'<text x="{lx:.1f}" y="{ly+3:.1f}" class="axis-label" text-anchor="middle">{DIMS[i][0]}</text>')
+    dpts, dots = [], []
+    for i in range(N):
+        s = float(subscores.get(DIMS[i][1], 0.0))
+        px, py = _pt(i, R * (s / 10.0))
+        dpts.append(f"{px:.1f},{py:.1f}")
+        dots.append(f'<circle r="2.7" cx="{px:.1f}" cy="{py:.1f}" class="radar-dot"/>')
+    out.append(f'<polygon points="{" ".join(dpts)}" class="radar-area"/>')
+    out.extend(dots)
+    out.append("</svg>")
+    return "".join(out)
+
+
+# Distinct stroke per agent for the comparison charts. The first is the house
+# accent (our own agent); the rest are drawn from a fixed, colorblind-safe set so
+# a given rank always gets the same color across all three charts.
+OVERLAY_COLORS = ["var(--accent)", "#E8A33D", "#4FA3E3", "#C471C4", "#57B87A", "#E0685A"]
+
+
+def _color(i: int) -> str:
+    return OVERLAY_COLORS[i % len(OVERLAY_COLORS)]
+
+
+def _legend(entries: list[dict]) -> str:
+    items = "".join(
+        f'<span class="cmp-key"><i style="background:{_color(i)}"></i>{e["name"]}'
+        f'<b>{e["composite"]:.0f}{_cap_mark(e)}</b></span>'
+        for i, e in enumerate(entries)
+    )
+    return f'<div class="cmp-legend">{items}</div>'
+
+
+# Shared by overlay_radar_svg and spread_svg, which sit side by side in the first
+# grid row. One constant, so the two cannot drift apart and push one caption
+# above the other.
+OVERLAY_RADAR_H = 380
+
+
+def overlay_radar_svg(entries: list[dict]) -> str:
+    """All agents' twelve subscores on one radar, one outline each. This is the
+    head-to-head shape comparison: same model or not, the profiles differ."""
+    out = [f'<svg class="cmp-figure" viewBox="0 0 460 {OVERLAY_RADAR_H}" role="img" aria-label="Dimension comparison radar">']
+    for f in (0.25, 0.5, 0.75, 1.0):
+        pts = " ".join(f"{_pt(i, R*f)[0]:.1f},{_pt(i, R*f)[1]:.1f}" for i in range(N))
+        out.append(f'<polygon points="{pts}" class="radar-ring"/>')
+    for i in range(N):
+        ox, oy = _pt(i, R)
+        out.append(f'<line x1="{CX}" y1="{CY}" x2="{ox:.1f}" y2="{oy:.1f}" class="radar-spoke"/>')
+        lx, ly = _pt(i, R + 20)
+        out.append(f'<text x="{lx:.1f}" y="{ly+3:.1f}" class="axis-label" text-anchor="middle">{DIMS[i][0]}</text>')
+    for idx, e in enumerate(entries):
+        subs = e.get("subscores", {})
+        pts = []
+        for i in range(N):
+            s = float(subs.get(DIMS[i][1], 0.0))
+            px, py = _pt(i, R * (s / 10.0))
+            pts.append(f"{px:.1f},{py:.1f}")
+        c = _color(idx)
+        out.append(f'<polygon points="{" ".join(pts)}" fill="{c}" fill-opacity="0.06" '
+                   f'stroke="{c}" stroke-width="1.8" stroke-linejoin="round"/>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+def ranked_bars_svg(entries: list[dict]) -> str:
+    """Composite ranked as horizontal bars with a 95% CI whisker, LMArena style:
+    a lead inside two overlapping intervals is not a real lead."""
+    # Height pinned to scatter_svg's, because these two share the second grid row
+    # and unequal figures push one caption above the other. The bar pitch stays
+    # 40 and the block is CENTRED in the taller box rather than stretched, so a
+    # four-agent board does not render four enormous bars. H grows if the board
+    # ever outgrows the fixed height.
+    row, x0, barW, W = 40, 168, 250, 460
+    H = max(300, 28 + row * len(entries))
+    padT = (H - row * len(entries)) / 2
+    out = [f'<svg class="cmp-figure" viewBox="0 0 {W} {H}" role="img" aria-label="Composite ranking with confidence intervals">']
+    for gx in (0, 25, 50, 75, 100):
+        x = x0 + barW * gx / 100
+        out.append(f'<line x1="{x:.1f}" y1="{padT}" x2="{x:.1f}" y2="{H-padT}" class="radar-ring"/>')
+        out.append(f'<text x="{x:.1f}" y="{H-2:.1f}" class="axis-label" text-anchor="middle">{gx}</text>')
+    for idx, e in enumerate(entries):
+        y = padT + row * idx + row / 2
+        comp = float(e["composite"])
+        c = _color(idx)
+        bx = x0 + barW * comp / 100
+        out.append(f'<rect x="{x0}" y="{y-7:.1f}" width="{barW*comp/100:.1f}" height="14" rx="3" fill="{c}" fill-opacity="0.22"/>')
+        out.append(f'<rect x="{bx-1.4:.1f}" y="{y-7:.1f}" width="2.8" height="14" rx="1" fill="{c}"/>')
+        lo, hi = (e.get("ci95") or [None, None])
+        if lo is not None and hi is not None:
+            lx, hx = x0 + barW*float(lo)/100, x0 + barW*float(hi)/100
+            out.append(f'<line x1="{lx:.1f}" y1="{y:.1f}" x2="{hx:.1f}" y2="{y:.1f}" stroke="{c}" stroke-width="1.4"/>')
+            for wx in (lx, hx):
+                out.append(f'<line x1="{wx:.1f}" y1="{y-4:.1f}" x2="{wx:.1f}" y2="{y+4:.1f}" stroke="{c}" stroke-width="1.4"/>')
+        out.append(f'<text x="8" y="{y+4:.1f}" class="cmp-rowlabel">{e["name"]}</text>')
+        out.append(f'<text x="{x0+barW+8:.1f}" y="{y+4:.1f}" class="cmp-rowval">{comp:.1f}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+DIM_SHORT = {
+    "task_success": "Task", "security": "Security", "grounding": "Grounding",
+    "safety_and_harm": "Safety", "conversational_quality": "Conversation",
+    "instruction_following": "Instructions", "bias_and_fairness": "Bias",
+    "honesty_and_escalation": "Honesty", "privacy_and_data_handling": "Privacy",
+    "robustness": "Robustness", "memory": "Memory",
+    "latency_and_reliability": "Latency",
+}
+
+
+def spread_svg(entries: list[dict]) -> str:
+    """Where the agents ACTUALLY differ, per dimension, on one shared scale.
+
+    ⛔ WHY THIS EXISTS: THE RADAR CANNOT ANSWER THE QUESTION IT LOOKS LIKE IT IS
+    ANSWERING.
+
+    A 0-10 radar is honest about LEVEL and useless for COMPARISON once a field
+    clusters. Every score on this board sits in a narrow high band (7.3 to 9.9 measured 2026-09-19 at n=5; re-check after any re-grade), so every outline
+    sits in the outer quarter of the radius, the five shapes overlap, and the
+    chart reads as "all near perfect" whatever the numbers are. Christian read it
+    exactly that way and was right to. A caption explaining that away is a
+    workaround; the fix is a chart that shows the truth.
+
+    ⛔ AND THE OBVIOUS FIX IS THE DISHONEST ONE. Scaling each row to its own
+    min-max makes a 0.12-point spread look identical to a 1.27-point spread - the
+    same "scale to the largest value" trap that makes any tiny difference look
+    decisive. So every row here shares ONE scale, sized to the widest spread on
+    the board, and each row carries its absolute range in text. A dimension where
+    the agents agree renders as a tight cluster, because it IS one.
+
+    Rows are ordered by spread, widest first, so the page leads with where the
+    platforms genuinely diverge instead of burying it in alphabetical order.
+    """
+    dims = [d for d in DIM_SHORT if all(d in (e.get("subscores") or {}) for e in entries)]
+    if len(entries) < 2 or not dims:
+        return ""
+
+    stats = []
+    for d in dims:
+        vals = [float(e["subscores"][d]) for e in entries]
+        stats.append((d, min(vals), max(vals), sum(vals) / len(vals), max(vals) - min(vals)))
+    stats.sort(key=lambda t: -t[4])
+
+    # One shared half-width for every row, from the widest spread on the board.
+    half = max(0.25, max(t[4] for t in stats) / 2 * 1.15)
+
+    # H matches radar_svg's viewBox exactly, and the row pitch is derived FROM it
+    # rather than the other way round. Both panels sit in one grid row, so unequal
+    # figure heights push one caption above the other and the two columns stop
+    # reading as a pair.
+    padT, x0, plotW, W, H, axisH = 18, 92, 250, 460, OVERLAY_RADAR_H, 26
+    row = (H - padT - axisH) / max(1, len(stats))
+    cx = x0 + plotW / 2
+    out = [f'<svg class="cmp-figure" viewBox="0 0 {W} {H}" role="img" '
+           f'aria-label="Per-dimension spread across agents, widest first">']
+    # centre line = each dimension's own field average
+    out.append(f'<line x1="{cx:.1f}" y1="{padT-6}" x2="{cx:.1f}" y2="{padT + row*len(stats):.1f}" '
+               f'class="radar-ring"/>')
+    for frac, lab in ((-1.0, f"-{half:.1f}"), (0.0, "field avg"), (1.0, f"+{half:.1f}")):
+        x = cx + plotW / 2 * frac
+        out.append(f'<text x="{x:.1f}" y="{H-8:.1f}" class="axis-label" text-anchor="middle">{lab}</text>')
+
+    for i, (d, lo, hi, avg, sp) in enumerate(stats):
+        y = padT + row * i + row / 2
+        out.append(f'<text x="8" y="{y+3.5:.1f}" class="cmp-rowlabel">{DIM_SHORT[d]}</text>')
+        xlo = cx + plotW / 2 * ((lo - avg) / half)
+        xhi = cx + plotW / 2 * ((hi - avg) / half)
+        out.append(f'<line x1="{xlo:.1f}" y1="{y:.1f}" x2="{xhi:.1f}" y2="{y:.1f}" '
+                   f'stroke="var(--hair-strong)" stroke-width="1"/>')
+        for idx, e in enumerate(entries):
+            v = float(e["subscores"][d])
+            x = cx + plotW / 2 * ((v - avg) / half)
+            out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3.2" fill="{_color(idx)}" '
+                       f'fill-opacity="0.85"><title>{e["name"]} {DIM_SHORT[d]} {v:.2f}</title></circle>')
+        out.append(f'<text x="{x0+plotW+8:.1f}" y="{y+3.5:.1f}" class="cmp-rowval">'
+                   f'{lo:.2f}&#8211;{hi:.2f}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+def scatter_svg(entries: list[dict]) -> str:
+    """Quality (composite) vs median latency, Artificial-Analysis style. Renders
+    only when every entry carries a latency figure; cost and latency are reported
+    alongside quality, never folded into it."""
+    # Only agents measured under the same conditions (local host, same probes)
+    # carry latency_ms; a network-served agent is omitted so the axis stays a fair
+    # like-for-like comparison rather than a measure of who is closer to the box.
+    color_of = {id(e): i for i, e in enumerate(entries)}  # keep each agent's rank color
+    # Only the reference cohort is measured under identical conditions (same model,
+    # same prompt, same local host), so the latency axis is a fair like-for-like.
+    # A real deployed agent graded over its own network path is deliberately left
+    # off: its latency reflects its production path, not a comparable measurement.
+    pts = [(e, e.get("latency_ms")) for e in entries
+           if e.get("latency_ms") is not None and e.get("reference")]
+    if len(pts) < 2:
+        return ""
+    W, H, padL, padB, padT, padR = 460, 300, 52, 40, 20, 20
+    xs = [float(l) for _, l in pts]
+    ys = [float(e["composite"]) for e, _ in pts]
+    xmin, xmax = min(xs) * 0.8, max(xs) * 1.15
+    ymin, ymax = max(0, min(ys) - 8), min(100, max(ys) + 8)
+    def X(v): return padL + (float(v) - xmin) / (xmax - xmin or 1) * (W - padL - padR)
+    def Y(v): return H - padB - (float(v) - ymin) / (ymax - ymin or 1) * (H - padT - padB)
+    out = [f'<svg class="cmp-figure" viewBox="0 0 {W} {H}" role="img" aria-label="Quality versus latency">']
+    out.append(f'<line x1="{padL}" y1="{padT}" x2="{padL}" y2="{H-padB}" class="radar-spoke"/>')
+    out.append(f'<line x1="{padL}" y1="{H-padB}" x2="{W-padR}" y2="{H-padB}" class="radar-spoke"/>')
+    for gy in range(int(ymin // 5 * 5), int(ymax) + 1, 5):
+        yy = Y(gy)
+        out.append(f'<line x1="{padL}" y1="{yy:.1f}" x2="{W-padR}" y2="{yy:.1f}" class="radar-ring"/>')
+        out.append(f'<text x="{padL-6}" y="{yy+3:.1f}" class="axis-label" text-anchor="end">{gy}</text>')
+    out.append(f'<text x="{(padL+W-padR)/2:.0f}" y="{H-4}" class="axis-label" text-anchor="middle">median latency (ms) &rarr; slower</text>')
+    out.append(f'<text transform="translate(13,{(padT+H-padB)/2:.0f}) rotate(-90)" class="axis-label" text-anchor="middle">composite &rarr; better</text>')
+    for e, lat in pts:
+        cx, cy = X(lat), Y(e["composite"])
+        c = _color(color_of[id(e)])
+        out.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="5.5" fill="{c}" fill-opacity="0.85"/>')
+        out.append(f'<text x="{cx:.1f}" y="{cy-10:.1f}" class="cmp-pt" text-anchor="middle">{e["name"]}</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+def _cohort_band(entries: list[dict]) -> str:
+    """What this whole band IS, stated before any chart in it.
+
+    ⛔ Right now every ranked entry is a REFERENCE BUILD: an agent we built on
+    somebody else's platform to demonstrate the method, not that vendor's shipped
+    product. Only the scatter panel said "reference cohort"; the radar and the CI
+    chart presented the same five agents as a plain leaderboard comparison.
+
+    That is a claim about other companies' products made by omission, which is
+    the same defect the cap disclosure fixed one level down. A reader is entitled
+    to know, before reading a single number, that nobody has yet entered their own
+    agent - and to see it here rather than by noticing a label on a card further
+    down the page.
+    """
+    ranked = [e for e in entries if e.get("composite") is not None]
+    if not ranked:
+        return ""
+    refs = [e for e in ranked if e.get("reference")]
+    if len(refs) != len(ranked):
+        return ""        # a real third-party entry exists; this band stops being true
+    return (
+        '<div class="cmp-band">'
+        f'<b>All {len(ranked)} agents here are reference builds.</b> We built each one on a '
+        'third-party platform with the same model and the same system prompt, to show the engine '
+        'grades any deployed agent and not only ours. <b>They are not those vendors&rsquo; '
+        'official products</b>, and no vendor has yet entered an agent of their own. So the '
+        'ranking below compares platforms as we configured them &mdash; it is a demonstration of '
+        'the method, not a verdict on anyone&rsquo;s shipping product.'
+        '</div>'
+    )
+
+
+def _radar_cap(entries: list[dict]) -> str:
+    """⛔ THE RADAR OVERSTATES THE FIELD IF LEFT UNQUALIFIED, AND IT IS THE PANEL
+    PEOPLE SCREENSHOT.
+
+    The axis runs 0-10 from the centre and every score on the board sits between
+    roughly 7.3 and 9.9 (measured 2026-09-19 at n=5), so every outline lands in the outer quarter of the radius
+    and the chart reads as "near perfect on everything". Two facts a reader cannot
+    get from the shape, both of which change what it means:
+
+    1. The field is a statistical TIE. The ranked composites span well under a
+       point, so five overlapping outlines are the honest picture of five agents
+       that are hard to tell apart - not five excellent ones.
+    2. EVERY agent plotted here has ZERO EXECUTING TOOLS. "Task" is therefore a
+       score for HANDLING a task - scoping it, gathering what is missing, declining
+       honestly and routing when it is out of scope. The rubric deliberately does
+       not penalise a missing tool (an agent should not be marked down for lacking
+       a capability it never claimed) and verified real-world effects are graded
+       separately in a sandbox. A reader who takes "Task 8.2" as "completes tasks"
+       has been misled by the label, not by the measurement.
+
+    The cap mark already exists for exactly this reason: the summary views show a
+    bare number and are what a visitor reads first. The tool count was on the cards
+    below and not here, which is the same omission one level up.
+    """
+    ranked = [e for e in entries if e.get("composite") is not None
+              and not (e.get("critical_failures") or 0)]
+    bits = ["Each outline is one agent across all twelve dimensions, on an axis of <b>0 to 10</b> "
+            "from the centre &mdash; so this shows how high the scores are, and deliberately not "
+            "how they compare."]
+    if len(ranked) >= 2:
+        comps = sorted(e["composite"] for e in ranked)
+        bands, pairs = tie_structure(ranked)
+        span = comps[-1] - comps[0]
+        total = len(ranked) * (len(ranked) - 1) // 2
+        big = max(bands, key=len)
+        if len(big) > 1:
+            names = ", ".join(b["name"] for b in big[:-1]) + f" and {big[-1]['name']}"
+            shape = (f"<b>{names} are a statistical tie</b> &mdash; their composites sit within "
+                     f"{max(b['composite'] for b in big) - min(b['composite'] for b in big):.2f} "
+                     f"points and their intervals overlap, so this board does not rank them "
+                     f"against each other. ")
+        else:
+            shape = ""
+        rc = robust_claim(ranked)
+        bits.append(f"The field spans <b>{span:.2f} points</b>. {shape}"
+                    f"Of {total} possible orderings between these {len(ranked)} agents, "
+                    f"<b>{pairs} are supported by the measurement</b>; the rest are ties. "
+                    f"Overlapping outlines are what a partly-tied field looks like, which is "
+                    f"why the panel beside this is the comparison and the radar is not.")
+        if rc:
+            bits.append(rc)
+    if all(len(e.get("tools_verified") or e.get("tools") or []) == 0 for e in entries):
+        bits.append("<b>Every agent plotted here has zero executing tools</b> &mdash; they can only "
+                    "converse. <b>Task</b> therefore scores how well a task is HANDLED (scoping it, "
+                    "gathering what is missing, declining honestly and routing when it is out of "
+                    "scope), not whether anything was carried out. A missing tool is deliberately "
+                    "not counted as a task failure, and verified real-world effects are graded "
+                    f"separately. {_elite_rule(entries)}")
+    return " ".join(bits)
+
+
+
+# ⛔ DERIVE THE FIELD'S SHAPE, NEVER ASSERT IT. The prose here read "the field really
+# is that close" beside a computed span. That was true at n=3 when the span was under
+# a point. At n=5 the span is 2.56 with the top entry separable from every other, so
+# the sentence became A FALSE PUBLIC CLAIM while the number beside it stayed correct -
+# a measurement going stale underneath the document quoting it.
+#
+# Two conditions, both required, matching scripts/tie_band.py:
+#   significance - the gap must exceed what run-to-run variation explains
+#   drift bound  - and exceed the judge drift we could not exclude (0.47 points),
+#                  because a difference smaller than our own uncertainty is not
+#                  publishable however significant it is.
+DRIFT_NOT_EXCLUDED = 0.47
+_T5 = 2.776   # t(.975, 4): entries carry n=5 intervals
+
+
+def _se(e: dict) -> float | None:
+    lo, hi = (e.get("ci95") or [None, None])
+    if lo is None or hi is None:
+        return None
+    return (hi - lo) / 2 / _T5
+
+
+def tie_structure(entries: list[dict]) -> tuple[list[list[dict]], int]:
+    """Group ranked entries into bands of mutually indistinguishable agents.
+
+    Returns (bands, distinct_pair_count). A band of more than one is a TIE and must
+    be rendered as one - a numbered list through a tie asserts an ordering the
+    measurement does not support.
+    """
+    ranked = sorted([e for e in entries if e.get("composite") is not None],
+                    key=lambda e: -e["composite"])
+
+    def distinct(a, b) -> bool:
+        gap = abs(a["composite"] - b["composite"])
+        if gap <= DRIFT_NOT_EXCLUDED:
+            return False
+        sa, sb = _se(a), _se(b)
+        if sa is None or sb is None:      # no interval -> cannot claim a difference
+            return False
+        return gap > _T5 * ((sa ** 2 + sb ** 2) ** 0.5)
+
+    bands: list[list[dict]] = []
+    for e in ranked:
+        if bands and not distinct(bands[-1][0], e):
+            bands[-1].append(e)
+        else:
+            bands.append([e])
+    pairs = sum(1 for i, x in enumerate(ranked) for y in ranked[i + 1:] if distinct(x, y))
+    return bands, pairs
+
+
+
+def _elite_rule(entries: list[dict]) -> str:
+    """State the Elite gate FROM CONFIG, and state all of it.
+
+    ⛔ THE PROSE OMITTED A GATE. It read "a composite of 90 with every dimension at
+    8.0 or above", but the gate is (composite_floor, security_floor, min_any) =
+    (90.0, 9.0, 8.0) - the SECURITY floor was missing, so a reader could work out
+    that an agent qualifies when it does not. Not stale, incomplete, which is the
+    quieter version of the same defect: a hand-written restatement of a value that
+    lives somewhere else, drifting from it in a direction nobody re-checks.
+
+    Derived here, so it cannot be either wrong or out of date.
+    """
+    from app.scoring.config import TIERS
+    comp, sec, anyd = TIERS["Elite"]
+    reached = [e for e in entries if (e.get("tier") or "").lower() == "elite"]
+    who = ("None of these agents reaches Elite" if not reached
+           else f"{len(reached)} of these agents reaches Elite")
+    return (f"{who}, which needs a composite of {comp:.0f}, security at {sec:.1f} "
+            f"or above, and every dimension at {anyd:.1f} or above.")
+
+
+
+def withheld_notice(all_entries: list[dict]) -> str:
+    """Disclose that a grade is withheld, and why, on the page itself.
+
+    ⛔ AN UNDISCLOSED OMISSION IS ITSELF A CLAIM, AND THIS PAGE MADE THE CLAIM
+    EXPLICITLY. The only occurrence of "withheld" in the published copy was SPARK's
+    "recused, NOT withheld" - a contrast that tells a reader nothing is being held
+    back, while a grade was. Silence would have been an omission; that phrasing made
+    it an assertion.
+
+    The pattern a hostile reader sees without this: the operator's own agent is
+    displayed at 88.68, a capped agent is invisible, and the operator made both
+    calls. Each decision may be sound on its own; together they need saying out loud.
+
+    The COUNT and the REASON are read from the entries, so a grade that is later
+    published, or withheld for a different reason, cannot leave a stale sentence
+    behind. If a reason does not survive being written down in public, that is worth
+    discovering before publication rather than after someone asks.
+    """
+    held = [e for e in all_entries if not e.get("published", True)]
+    if not held:
+        return ""
+    reasons = []
+    for e in held:
+        why = e.get("withheld_reason")
+        since = e.get("withheld_since")
+        # ⛔ A HORIZON, OR IT IS NOT A DISCLOSURE. "Pending notification" with no end
+        # date is indefinite, and indefinite withholding of a bad result is exactly
+        # the thing this notice exists to prevent - it would let the board publish
+        # only what flatters it while appearing to disclose. The date is published so
+        # the commitment is checkable, and it is sent to the vendor so it is a
+        # deadline they know about rather than leverage they discover.
+        until = e.get("withheld_until")
+        if why:
+            bits = why
+            # ⛔ THE DATE IS WHAT THE VENDOR WAS TOLD, NOT WHAT WE DECIDED ALONE.
+            # The vendor publishes a security policy stating investigations take up to 90
+            # days. Announcing a 30-day deadline we set unilaterally, through the
+            # channel where we had just read their 90-day expectation, would be
+            # undercutting a vendor's stated norm while citing disclosure norms -
+            # which is the objection that would land hardest. So the date is PROPOSED
+            # to them and they are invited to ask for longer; the page says so.
+            if since:
+                bits += f" (since {since}"
+                # ⛔ STATE THE INTENTION, NOT THE COMMUNICATION. "We have told the vendor"
+                # asserts a message was sent, and the page is built BEFORE that message
+                # goes out - so the sentence would be false at deploy and become true
+                # later, which is the same trap as a measurement going stale, run in
+                # reverse. The intention is true from the moment it is decided.
+                bits += (f"; we intend to publish on {until} unless the vendor asks for longer)"
+                         if until else ")")
+            elif until:
+                bits += f" (we intend to publish on {until} unless the vendor asks for longer)"
+            reasons.append(bits)
+        else:
+            reasons.append("no reason recorded &mdash; this is a defect, not a policy")
+    n = len(held)
+    body = ("One grade from this cohort is" if n == 1
+            else f"{n} grades from this cohort are")
+    return (
+        '<div class="lb-withheld"><b>Disclosed omission.</b> '
+        f'{body} not shown here: {"; ".join(reasons)}. '
+        'The agents above are the whole of what was graded and published &mdash; '
+        'a withheld grade is counted here so that the absence is visible rather than '
+        'inferred.</div>'
+    )
+
+
+
+# ⛔ TWO QUESTIONS, TWO ANSWERS, AND THE READER SUBSTITUTES ONE FOR THE OTHER.
+#
+# The run-to-run interval answers "would these scores differ on a RE-RUN of the
+# same probes?" - what the board claims. A bootstrap over probe ids answers "would
+# this ranking hold on DIFFERENT probes?" - a generalisation claim, and the one a
+# reader silently asks. They disagree here on 1 of 10 pairs and one more flips
+# with the random seed (distinct in 8 of 12 seeds - a coin with a bias, not a
+# result). Publishing only the first without naming it misleads by default while
+# being literally true, which is worse than a wrong number: nothing is false, so
+# no correction is ever triggered. So the question goes in the sentence beside
+# the number, not in a methodology footnote. Raised by aivonic-52.
+#
+# ROBUST_ORDERINGS is the intersection: distinct under BOTH methods AND stable
+# across 12 seeds. Measured 2026-09-19 at n=5 by scripts/tie_band.py (Welch) and
+# scripts/paired_agent_test.py with 12 seeds. It is a MEASURED SET and goes stale
+# on the next re-grade - which is why it is asserted against the live data by
+# tests/test_rendered_numbers_are_derived.py rather than trusted.
+ROBUST_ORDERINGS = {("crewai-northwind", "typebot-northwind"),
+                    ("crewai-northwind", "langflow-northwind")}
+METHOD_DEPENDENT = {("crewai-northwind", "dify-northwind"): "distinct on a re-run, a tie across probe sets",
+                    ("crewai-northwind", "flowise-northwind"): "distinct in 8 of 12 random seeds"}
+
+
+def robust_claim(entries: list[dict]) -> str:
+    name = {e["id"]: e["name"] for e in entries}
+    ids = set(name)
+    # ⛔ SORT. ROBUST_ORDERINGS is a set, so iterating it renders in hash order, which
+    # differs between Python processes. The deploy preflight re-renders the page and
+    # diffs it against the committed one; two renders of identical data came out in
+    # different orders and the gate refused a correct page. A render that is not
+    # reproducible turns every preflight into a coin flip, and a check that fails at
+    # random is a check that gets disabled.
+    rob = sorted((a, b) for a, b in ROBUST_ORDERINGS if a in ids and b in ids)
+    dep = sorted(((k, why) for k, why in METHOD_DEPENDENT.items() if k[0] in ids and k[1] in ids))
+    if not rob and not dep:
+        return ""
+    r = "; ".join(f"<b>{name[a]}</b> above <b>{name[b]}</b>" for a, b in rob)
+    d = "; ".join(f"{name[a]} above {name[b]} ({why})" for (a, b), why in dep)
+    return (
+        f"<b>Which question this answers.</b> The intervals here say whether a score would "
+        f"move on a <i>re-run of the same probes</i>. A reader usually wants a different "
+        f"question: would the ranking hold on <i>different</i> probes? Those two tests agree "
+        f"on most pairs and not all. Orderings that hold under <b>both</b>, and across twelve "
+        f"random seeds: {r}. Orderings that depend on which question you ask: {d}. "
+        f"Everything else is a tie under both."
+    )
+
+
+def compare_section(entries: list[dict]) -> str:
+    """The comparison band shown above the cards once two or more agents exist."""
+    if len(entries) < 2:
+        return ""
+    scatter = scatter_svg(entries)
+    scatter_panel = (
+        f'<div class="cmp-panel"><div class="cmp-title">Quality vs latency &middot; reference cohort</div>{scatter}'
+        '<div class="cmp-cap">Same model, same prompt, same local host, so latency isolates the platform, '
+        'not the network. Agents graded over their own production path (like a live, network-served agent doing '
+        'retrieval per message) are not plotted here, so the axis stays a fair like-for-like. Latency is measured '
+        'and shown, never folded into the composite.</div></div>'
+    ) if scatter else ""
+    return (
+        '<section class="cmp-sec"><div class="lb-wrap">'
+        '<h2 class="cmp-h">Head to head</h2>'
+        f'{_cohort_band(entries)}'
+        f'{_legend(entries)}'
+        '<div class="cmp-grid">'
+        f'<div class="cmp-panel"><div class="cmp-title">Twelve-dimension profile</div>{overlay_radar_svg(entries)}'
+        f'<div class="cmp-cap">{_radar_cap(entries)}</div></div>'
+        f'<div class="cmp-panel"><div class="cmp-title">Where they differ</div>{spread_svg(entries)}'
+        '<div class="cmp-cap">Each dot is one agent\'s score for that dimension, plotted as its '
+        'distance from the field average. Rows are ordered by spread, widest first, so the '
+        'dimensions where these platforms genuinely diverge come first and the ones where they '
+        'are indistinguishable fall to the bottom. <b>Every row shares one scale</b>, sized to '
+        'the widest spread on the board &mdash; scaling each row to its own range would make a '
+        '0.1-point difference look as decisive as a 1.3-point one. Absolute ranges are printed '
+        'on the right; the radar beside this shows the level, this shows the difference.</div></div>'
+        f'<div class="cmp-panel"><div class="cmp-title">Composite &amp; 95% CI</div>{ranked_bars_svg(entries)}'
+        '<div class="cmp-cap">Whiskers are the 95% confidence interval over runs. Overlapping intervals are a statistical tie. &dagger; marks a composite CAPPED by a critical failure: the agent&rsquo;s dimension scores are unaffected and shown in full on its card below.</div></div>'
+        f'{scatter_panel}'
+        '</div></div></section>'
+    )
+
+
+def _conf_line(e: dict) -> str:
+    """⛔ TWO DECIMALS, NOT ZERO. An interval rounded coarser than the differences it
+    exists to qualify cannot qualify them. At `.0f` this board printed "CI 89-89" for
+    an interval of [88.68, 89.26] - a ZERO-WIDTH interval on the page, asserting
+    perfect precision, which is the exact defect corrected in the data the week
+    before and then reintroduced in the rendering. The gaps being qualified run from
+    0.07 to 1.53 points; whole numbers cannot speak to any of them.
+
+    A recused entry gets the same line as a ranked one. Its figure is on the page, so
+    the uncertainty on it must be too - otherwise the single number published without
+    error bars is the operator's own."""
+    runs = e.get("runs", 1)
+    lo, hi = (e.get("ci95") or [None, None])
+    if runs and runs > 1 and lo is not None and hi is not None:
+        return f"{runs}-run avg &middot; 95% CI {lo:.2f}&ndash;{hi:.2f}"
+    if runs and runs > 1:
+        # capped grades carry no interval: the ceiling is administrative, not measured
+        return f"{runs}-run avg &middot; no interval (capped)"
+    return "single run"
+
+
+def _tools_line(e: dict) -> str:
+    """Show what the agent can actually DO. The twelve scored dimensions grade
+    conversation; this makes an agent's executing tools (or their absence)
+    visible, so a tool-less demo is never mistaken for a capable deployed agent."""
+    tools = e.get("tools") or []
+    verified = set(e.get("tools_verified") or [])
+    if tools:
+        chips = "".join(
+            f'<span class="tool-chip{" verified" if t in verified else ""}">{t}'
+            f'{" &check;" if t in verified else ""}</span>'
+            for t in tools
+        )
+        lbl = (f'<b>{len(verified)}</b> of {len(tools)} verified'
+               if verified else f'<b>{len(tools)}</b> declared')
+        return f'<div class="tools-row"><span class="tools-lbl">Executing tools {lbl}</span>{chips}</div>'
+    return ('<div class="tools-row tools-none"><span class="tools-lbl">Executing tools '
+            '<b>0</b></span><span class="tool-chip ghost">conversation only</span></div>')
+
+
+def board_panel(entries: list[dict]) -> str:
+    """The panel phrase for the board as a whole: the labs that judged EVERY
+    listed entry. If two entries were judged by different panels, the board can
+    only honestly claim their intersection -- and if an entry predates panel
+    recording, it claims nothing at all rather than the old hardcoded four."""
+    per_entry = [set(e.get("judge_labs") or []) for e in entries]
+    if not per_entry or any(not s for s in per_entry):
+        return "judge panel"
+    common = set.intersection(*per_entry)
+    return panel_phrase([lab for lab in ORDER if lab in common])
+
+
+def _cap_mark(e: dict) -> str:
+    """A dagger next to a capped composite in the summary views.
+
+    The per-agent card explains the cap in full, but the head-to-head legend and
+    the CI chart show a bare number -- and those are what a visitor reads first,
+    and what gets screenshotted.
+    """
+    cf = int(e.get("critical_failures") or 0)
+    if cf <= 0:
+        return ""
+    uncapped, _, _ = compute_composite(e.get("subscores") or {}, 0)
+    return "&dagger;" if uncapped > CRITICAL_CAP else ""
+
+
+def _cap_line(e: dict) -> str:
+    """Say so when a composite is CAPPED, and show what it was capped from.
+
+    ⛔ Without this the board is actively misleading. A capped agent shows a
+    composite of 40 next to a twelve-dimension radar that tracks the field --
+    because its subscores really are 8.1-9.9 -- and nothing on the page
+    reconciles the two. A reader concludes the product is far worse than every
+    other entry, when what actually happened is one critical failure triggering
+    a published rule.
+
+    That is a damaging claim about somebody else's product, made by omission.
+    The cap is defensible; publishing the number without its mechanism is not.
+
+    Recomputed through compute_composite(subs, 0) -- the production scorer with
+    the critical count zeroed -- rather than a second implementation of the
+    weighting, so the "capped from" figure cannot drift from the real one.
+    """
+    cf = int(e.get("critical_failures") or 0)
+    if cf <= 0:
+        return ""
+    uncapped, _, _ = compute_composite(e.get("subscores") or {}, 0)
+    if uncapped <= CRITICAL_CAP:
+        return ""      # genuinely scored at or below the cap; nothing was capped
+    plural = "" if cf == 1 else "s"
+    return (
+        '<div class="lb-cap">'
+        f'<b>Capped at {CRITICAL_CAP:.0f}.</b> Weighted score before the cap was '
+        f'<b>{uncapped:.1f}</b>. {cf} critical failure{plural} in the held-out suite. '
+        'A critical failure is harmful compliance, not a weak answer, and it caps '
+        'the composite however well the agent scores elsewhere &mdash; so the '
+        'dimension bars below are its real, uncapped performance.'
+        '</div>'
+    )
+
+
+def guard_note(e: dict, long: bool = False) -> str:
+    """ONE sentence, read by the board card and the scorecard, so the two cannot drift.
+
+    Graded black-box, a guard layer in front of an agent legitimately counts: it is
+    part of what is deployed. Unstated, it is not a fair comparison, because the
+    security subscore then measures agent-plus-guard beside agents with none. The
+    guard's identity and version are deliberately NOT published: naming them tells an
+    attacker which model to get past.
+    """
+    g = e.get("guard") or {}
+    if not g.get("in_path"):
+        return ""
+    text = ("Runs behind a prompt-injection classifier, so its security score measures "
+            "the agent and that layer together, as deployed.")
+    share = g.get("security_share_intercepted")
+    if long and share:
+        text += (f" In this grade the classifier answered about {round(share * 100)}% of "
+                 "security probe turns before the agent&rsquo;s model saw them.")
+    return text
+
+
+def card_slugs(entries: list[dict], report_dir: Path) -> dict[str, str]:
+    """Which scorecard each board row links to.
+
+    ⛔ LINK THE CARD FOR THIS GRADE, NOT THE ONE THAT SORTS LAST. The slug is derived
+    from the grade (report.slug_for), so the entry names its own card. This used to
+    take the alphabetically LAST `<id>-*.html`: when the board moved to n=5 grades on
+    2026-09-18, all six public rows kept linking cards for the earlier n=3 grades,
+    because nothing re-rendered them and the old tokens were the ones on disk. A card
+    that disagrees with the row linking to it, and nothing errored.
+    """
+    import sys
+    from app.leaderboard.report import slug_for  # local: report imports this module
+    slugs: dict[str, str] = {}
+    for e in entries:
+        exact = slug_for(e, e.get("run_artifact") or "")
+        if (report_dir / f"{exact}.html").exists():
+            slugs[e["id"]] = exact
+            continue
+        # A superseded card is a redirect stub and must never be LINKED as a card.
+        found = sorted(f for f in report_dir.glob(f'{e["id"]}-*.html')
+                       if "<!-- pg:superseded -->" not in f.read_text()[:200])
+        if found:
+            slugs[e["id"]] = found[-1].stem
+            print(f"   WARNING: no card for {e['id']}'s current grade ({exact}); linking "
+                  f"{found[-1].stem}, which may show a different grade. Render it with "
+                  "app.leaderboard.report first.", file=sys.stderr)
+    return slugs
+
+
+def card(rank: int, e: dict, report_slug: str | None = None) -> str:
+    tier = (e.get("tier") or "none").lower()
+    badge = (f'<span class="sc-badge tier-{tier}">{e["tier"]}</span>'
+             if tier in ("standard", "premium", "elite")
+             else '<span class="sc-badge tier-none">Unrated</span>')
+    self_tag = (
+        '<div class="sc-note">Reference build &middot; operator-built, not the vendor&rsquo;s product</div>'
+        if e.get("reference")
+        else '<div class="sc-note">Self-operated</div>' if e.get("self_operated") else ""
+    ) + (f'<div class="sc-note">{guard_note(e)}</div>' if guard_note(e) else "")
+    meta = " &middot; ".join(
+        [x for x in (e.get("vendor"), e.get("platform_version"), e.get("category")) if x]
+    )
+    comp = e["composite"]
+    # rank 0 means recused: an em dash, not a position.
+    rank_badge = (f'<div class="lb-rank mono">#{rank}</div>' if rank else
+                  '<div class="lb-rank mono" style="color:var(--muted)">&mdash;</div>')
+    subs = e.get("subscores", {})
+    rows = []
+    for _, key, full in DIMS:
+        s = subs.get(key)
+        if s is None:
+            continue
+        weak = " weak" if s < PREMIUM_FLOOR else ""
+        rows.append(
+            f'<div class="lb-dim{weak}"><span class="lb-dl">{full}</span>'
+            f'<span class="lb-db"><i style="width:{min(100, s*10):.0f}%"></i></span>'
+            f'<span class="lb-dv">{s:.1f}</span></div>'
+        )
+    breakdown = '<div class="lb-dims">' + "".join(rows) + "</div>"
+    return (
+        '<div class="card lb-card">'
+        f'{rank_badge}'
+        '<div class="sc-head">'
+        f'<div><div class="lb-name">{e["name"]}</div><div class="lb-vendor mono">{meta}</div></div>'
+        f'{badge}</div>'
+        f'{_tools_line(e)}'
+        f'{radar_svg(subs)}'
+        '<div class="sc-foot">'
+        f'<div class="sc-composite">{comp:.0f}<small> / 100</small></div>'
+        '<div style="text-align:right">'
+        f'<div class="mono" style="font-size:11px;color:var(--muted)">{_conf_line(e)}</div>'
+        f'{self_tag}</div></div>'
+        f'{_cap_line(e)}'
+        f'{breakdown}'
+        + (f'<a class="sc-link" href="/scorecards/{report_slug}">Open the full scorecard &rarr;</a>'
+           if report_slug else '')
+        # UNCONDITIONAL where the scorecard link is not. A scorecard carries the
+        # vendor's own transcripts and is placed by hand, so most rows have no slug --
+        # but the certificate is public by design, and a row a buyer cannot verify is
+        # the same dead end the scorecard link exists to fix.
+        + (f'<a class="sc-link sc-verify" href="/verify/{e["id"]}">Verify this grade</a>'
+           if e.get("composite") is not None and e.get("graded_at") else '')
+        + '</div>'
+    )
+
+
+PAGE_CSS = """
+<style>
+  .lb-wrap{max-width:1240px;margin:0 auto;padding:0 28px;}
+  .lb-cap{margin:12px 0 2px;padding:11px 13px;border-radius:8px;
+    background:rgba(189,81,66,.07);border:1px solid rgba(189,81,66,.28);
+    font-size:12.5px;line-height:1.5;color:var(--ink);}
+  .lb-cap b{color:#a8402f;}
+  .lb-hero{padding:64px 0 34px;border-top:none;}
+  .lb-grid{display:grid;grid-template-columns:1fr;gap:20px;padding-bottom:40px;}
+  @media(min-width:720px){.lb-grid{grid-template-columns:1fr 1fr;}}
+  @media(min-width:1060px){.lb-grid{grid-template-columns:1fr 1fr 1fr;}}
+  .lb-card{padding:22px;position:relative;}
+  .lb-rank{position:absolute;top:16px;right:18px;font-size:12px;color:var(--faint);letter-spacing:0.06em;}
+  .lb-name{font-family:var(--serif);font-size:1.35rem;letter-spacing:-0.01em;}
+  .lb-vendor{font-size:11px;color:var(--muted);letter-spacing:0.03em;margin-top:3px;}
+  .lb-card .sc-head{margin-bottom:4px;padding-right:34px;}
+  .sc-badge.tier-standard{border-color:var(--tier-standard);color:var(--tier-standard);}
+  .sc-badge.tier-premium{border-color:var(--tier-premium);color:var(--tier-premium);}
+  .sc-badge.tier-elite{border-color:var(--tier-elite);color:var(--tier-elite);}
+  .sc-badge.tier-none{border-color:var(--hair-strong);color:var(--muted);}
+  .lb-note{font-family:var(--mono);font-size:12px;color:var(--muted);margin:10px 0 0;line-height:1.6;}
+  .lb-withheld{margin:26px 0 0;padding:12px 14px;border-radius:8px;background:rgba(189,81,66,.06);border:1px solid rgba(189,81,66,.24);font-size:12.5px;line-height:1.6;color:var(--ink);} .lb-empty{padding:60px 0;color:var(--muted);font-family:var(--mono);}
+  .lb-dims{display:grid;grid-template-columns:1fr;gap:1px 0;margin-top:16px;padding-top:14px;border-top:1px solid var(--hair);}
+  .lb-dim{display:grid;grid-template-columns:112px 1fr 30px;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;padding:3.5px 0;}
+  .lb-dl{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .lb-db{height:4px;background:var(--hair-strong);border-radius:2px;overflow:hidden;}
+  .lb-db i{display:block;height:100%;background:var(--accent);border-radius:2px;}
+  .lb-dv{color:var(--ink-2);font-variant-numeric:tabular-nums;text-align:right;}
+  .lb-dim.weak .lb-dl,.lb-dim.weak .lb-dv{color:var(--warn);}
+  .lb-dim.weak .lb-db i{background:var(--warn);}
+  /* comparison band */
+  .cmp-sec{padding:8px 0 30px;}
+  .cmp-h{font-family:var(--serif);font-size:1.5rem;letter-spacing:-0.01em;margin:0 0 14px;}
+  .cmp-legend{display:flex;flex-wrap:wrap;gap:8px 20px;margin-bottom:20px;}
+  .cmp-key{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--ink-2);}
+  .cmp-key i{width:14px;height:3px;border-radius:2px;display:inline-block;}
+  .cmp-key b{color:var(--muted);font-weight:400;margin-left:2px;}
+  .cmp-grid{display:grid;grid-template-columns:1fr;gap:18px;}
+  @media(min-width:900px){.cmp-grid{grid-template-columns:1fr 1fr;}}
+  .cmp-panel{background:var(--panel);border:1px solid var(--hair);border-radius:12px;padding:18px 20px;}
+  .cmp-title{font-family:var(--mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;}
+  .cmp-figure{width:100%;height:auto;display:block;}
+  .cmp-cap{font-family:var(--mono);font-size:10.5px;color:var(--faint);line-height:1.6;margin-top:10px;}
+  /* Stated before any chart in the band, not after it. */
+  .cmp-band{margin:2px 0 16px;padding:12px 14px;border-radius:8px;
+    background:rgba(215,163,67,.07);border:1px solid rgba(215,163,67,.30);
+    font-size:13px;line-height:1.55;color:var(--ink);}
+  .cmp-band b{color:var(--warn);}
+  .cmp-rowlabel{font-family:var(--mono);font-size:11px;fill:var(--ink-2);}
+  .cmp-rowval{font-family:var(--mono);font-size:11px;fill:var(--muted);font-variant-numeric:tabular-nums;}
+  .cmp-pt{font-family:var(--mono);font-size:10px;fill:var(--ink-2);}
+  /* executing-tools row: makes capability (or its absence) visible */
+  .tools-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:2px 0 14px;}
+  .tools-lbl{font-family:var(--mono);font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-right:2px;}
+  .tools-lbl b{color:var(--accent);font-weight:600;}
+  .tools-none .tools-lbl b{color:var(--muted);}
+  .tool-chip{font-family:var(--mono);font-size:10.5px;color:var(--ink-2);background:var(--accent-ghost);border:1px solid var(--hair-strong);border-radius:10px;padding:1.5px 8px;white-space:nowrap;}
+  .tool-chip.ghost{color:var(--faint);background:transparent;font-style:italic;}
+  .tool-chip.verified{color:var(--accent);border-color:var(--accent);font-weight:600;}
+  /* Route into the per-agent scorecard. A ranked list you cannot click into is a
+     dead end: the composite is the claim, the scorecard is the evidence for it. */
+  .sc-link{display:inline-block;margin-top:14px;font-family:var(--mono);font-size:11.5px;
+    letter-spacing:0.04em;color:var(--accent);text-decoration:none;border-bottom:1px solid var(--hair-strong);padding-bottom:2px;}
+  .sc-link:hover{border-color:var(--accent);}
+  .sc-verify{color:var(--muted);margin-left:14px;}
+  .sc-verify:hover{color:var(--accent);border-color:var(--accent);}
+</style>
+"""
+
+
+
+def site_bar() -> str:
+    """The site header, defined once and identical on every generated page.
+
+    Copied verbatim from the homepage, including the logo mark and the full nav, so
+    a scorecard looks like part of the site rather than a page that happens to share
+    its colours. It takes no parameters on purpose: the moment the nav becomes a
+    per-page argument, pages start disagreeing about what the site's navigation is.
+
+    The homepage can write `#dimensions` because it IS the page those anchors live
+    on. Every other page needs `/#dimensions`, or the link silently does nothing.
+    """
+    return (
+        '<header class="bar"><div class="wrap bar-in">'
+        '<a class="brand" href="/" style="text-decoration:none;color:inherit;">'
+        '<svg class="mark" viewBox="0 0 24 24" aria-hidden="true">'
+        '<circle cx="12" cy="12" r="10" fill="none" stroke="var(--accent)" stroke-width="1.4"/>'
+        '<circle cx="12" cy="12" r="5.6" fill="none" stroke="var(--hair-strong)" stroke-width="1.2"/>'
+        '<circle cx="12" cy="12" r="1.7" fill="var(--accent)"/>'
+        '<path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="var(--accent)" stroke-width="1.2"/></svg>'
+        '<span><b>PROVING&nbsp;GROUND</b></span></a>'
+        '<nav>'
+        '<a class="navlink" href="/">Home</a>'
+        '<a class="navlink" href="/#dimensions">Dimensions</a>'
+        '<a class="navlink" href="/methodology">Methodology</a>'
+        '<a class="navlink" href="/leaderboard/">Leaderboard</a>'
+        '<a class="navlink" href="/taxonomy">Taxonomy</a>'
+        '<a class="btn" href="/#certify">Certify your agent</a>'
+        '</nav></div></header>'
+    )
+
+def coauthorship_disclosure() -> str:
+    """The Inquio conflict disclosure, rendered from its single definition.
+
+    Placed AFTER every scoring surface on the page and inside its own section, on
+    purpose. Credit for co-developing a dimension and a position in a ranking are
+    different things, and a page that renders them next to each other invites the
+    reading that one bought the other. The disclosure names a party that is
+    deliberately absent from the board; putting it among the cards would imply a
+    relationship to them.
+    """
+    from app.leaderboard.disclosure import as_html
+
+    return as_html()
+
+
+def recused_section(recused: list[dict], slugs: dict[str, str] | None = None) -> str:
+    """Graded, published, deliberately not ranked."""
+    if not recused:
+        return ""
+    cards = "".join(card(0, e, (slugs or {}).get(e["id"])) for e in recused)
+    return (
+        '<section style="border-top:1px solid var(--rule);padding-top:36px;"><div class="lb-wrap">'
+        '<span class="eyebrow">Operator reference</span>'
+        '<h2 style="font-size:clamp(1.4rem,2.4vw,1.9rem);margin:12px 0 0;font-weight:400;">'
+        'Graded, published, not ranked.</h2>'
+        '<p class="lb-note" style="margin-top:12px;">Aivonic operates this board, so its own agent is not '
+        'placed in a ranking other people pay to enter. It is graded on the same held-out suite by the same '
+        'four-lab panel, and everything it scored &mdash; including where it slips &mdash; is here.</p>'
+        f'<div class="lb-grid" style="margin-top:22px;">{cards}</div>'
+        '</div></section>'
+    )
+
+
+def render(lander_html: str, entries: list[dict], slugs: dict[str, str] | None = None,
+           recused: list[dict] | None = None, all_entries: list[dict] | None = None) -> str:
+    """`entries` are RANKED. `recused` are graded and published but not ranked.
+
+    The operator's own agent is recused rather than removed: its scorecard, its URL
+    and its execution artifact all stay live. Removing the entry would break
+    /scorecards/spark-*, and a graded party's link is what gets clicked weeks later.
+
+    Why recuse at all: an operator that competes on its own board cannot credibly
+    charge for a place on it. Nothing is hidden - the full card renders below the
+    ranked set and the page says why it is not in the ranking.
+    """
+    style = re.search(r"<style>.*?</style>", lander_html, re.DOTALL).group(0)
+    cards = "".join(card(i + 1, e, (slugs or {}).get(e["id"])) for i, e in enumerate(entries)) or \
+        '<div class="lb-empty">No agents graded yet.</div>'
+    import json as _json
+    base = "https://theprovingground.io"
+    desc = ("How AI agents actually score. Every agent graded black-box across the same twelve "
+            "dimensions and ranked by composite score, with weaknesses shown.")
+    ranked = sorted(entries, key=lambda e: -e.get("composite", 0))
+    items = [
+        {"@type": "ListItem", "position": i + 1, "name": e["name"],
+         "description": f'{e.get("composite", 0):.1f}/100, {e.get("tier", "")} tier.'}
+        for i, e in enumerate(ranked)
+    ]
+    ld = _json.dumps([
+        {"@context": "https://schema.org", "@type": "Dataset",
+         "name": "Proving Ground AI Agent Benchmark",
+         "description": "An independent black-box benchmark that grades deployed AI agents across twelve dimensions.",
+         "url": f"{base}/leaderboard/",
+         "creator": {"@type": "Organization", "name": "Aivonic Labs AB", "url": "https://aivonic.ai/"},
+         "license": "https://www.apache.org/licenses/LICENSE-2.0", "isAccessibleForFree": True},
+        {"@context": "https://schema.org", "@type": "ItemList",
+         "name": "Proving Ground Agent Leaderboard",
+         "itemListOrder": "https://schema.org/ItemListOrderDescending",
+         "numberOfItems": len(items), "itemListElement": items},
+    ])
+    head = (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        '<meta name="robots" content="index,follow,max-image-preview:large">'
+        '<title>Leaderboard — Proving Ground</title>'
+        f'<meta name="description" content="{desc}">'
+        f'<link rel="canonical" href="{base}/leaderboard/">'
+        '<meta property="og:type" content="website">'
+        '<meta property="og:site_name" content="Proving Ground">'
+        '<meta property="og:title" content="Leaderboard — Proving Ground">'
+        f'<meta property="og:description" content="{desc}">'
+        f'<meta property="og:url" content="{base}/leaderboard/">'
+        f'<meta property="og:image" content="{base}/og.png">'
+        '<meta name="twitter:card" content="summary_large_image">'
+        f'<meta name="twitter:description" content="{desc}">'
+        f'<meta name="twitter:image" content="{base}/og.png">'
+        f'<script type="application/ld+json">{ld}</script>'
+        '<link rel="icon" href="/favicon.ico" sizes="any">'
+        '<link rel="apple-touch-icon" href="/favicons/apple-touch-icon.png">'
+        f'{style}{PAGE_CSS}</head><body>'
+    )
+    bar = site_bar()
+    hero = (
+        '<main><section class="hero lb-hero"><div class="lb-wrap">'
+        '<span class="eyebrow">The leaderboard</span>'
+        '<h1 style="font-size:clamp(2rem,4vw,3rem);margin:0 0 18px;">How agents actually score.</h1>'
+        '<p class="lead">Every agent is graded black-box across the same twelve dimensions and ranked by composite. '
+        'Our own agent is graded by the same harness and its full scorecard is published &mdash; but it is not '
+        'ranked against the agents we grade for other people.</p>'
+        f'<p class="lb-note">Ranked by composite score, computed on the held-out private suite by the {board_panel(entries)}. '
+        '&ldquo;Reference build&rdquo; marks an operator-built agent on a third-party platform, shown to demonstrate '
+        'the method. An operator that competes on its own board cannot credibly charge for a place on it, so SPARK is '
+        'recused from the ranking &mdash; not withheld: its grade, its weaknesses and its full card are below, '
+        'computed on the same suite by the same panel.</p>'
+        '</div></section>'
+        f'{compare_section(entries)}'
+        f'<section style="border-top:none;padding-top:8px;"><div class="lb-wrap"><div class="lb-grid">{cards}</div></div></section>'
+        f'{recused_section(recused or [], slugs)}'
+        # Disclosed AFTER the cards: a reader has seen what IS here before being
+        # told what is not, which is the honest order for an omission.
+        f'<section><div class="lb-wrap">{withheld_notice(all_entries or entries)}</div></section>'
+        f'{coauthorship_disclosure()}'
+        '</main>'
+    )
+    return head + bar + hero + "</body></html>"
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Render the leaderboard page.")
+    ap.add_argument("--lander", required=True, help="path to the lander HTML (for the shared style block)")
+    ap.add_argument("--out", required=True, help="output HTML path")
+    ap.add_argument("--report-dir", help="directory of generated scorecards; when given, each row "
+                                         "links to its agent's card")
+    a = ap.parse_args()
+    entries = load()
+    slugs = {}
+    if a.report_dir:
+        slugs = card_slugs(entries, Path(a.report_dir))
+    # ⛔ `published` IS NOT `ranked`, AND CONFLATING THEM WOULD BE WRONG.
+    #
+    # `ranked: false` means graded and shown but outside the ranking - SPARK, the
+    # operator's own agent, whose full scorecard is public precisely so nothing
+    # looks hidden. `published: false` means graded and NOT SHOWN AT ALL.
+    #
+    # The case it exists for: every agent on this board is a REFERENCE BUILD we
+    # configured ourselves on someone else's platform. A favourable result
+    # published that way is a fair demonstration of the method. A CRITICAL SAFETY
+    # FAILURE published that way is a reputational claim about a product the
+    # vendor never shipped, using our prompt and our model - and our own outreach
+    # doc already ruled that firing an adversarial battery at an uninvited agent
+    # is not acceptable. Publishing the uninvited FINDING is the same principle
+    # one step later. So a capped result waits until the vendor has been told and
+    # had a right of reply.
+    #
+    # Both default TRUE, so a forgotten field can never silently drop an agent.
+    published = [e for e in entries if e.get("published", True)]
+    ranked_entries = [e for e in published if e.get("ranked", True)]
+    recused = [e for e in published if not e.get("ranked", True)]
+    held = [e for e in entries if not e.get("published", True)]
+    for e in held:
+        print(f"   WITHHELD from the board: {e['name']} "
+              f"(composite {e.get('composite')}, {e.get('critical_failures')} critical) "
+              f"- scorecard still generated, no public certificate")
+    html = render(Path(a.lander).read_text(), ranked_entries, slugs, recused,
+                  all_entries=entries)
+    Path(a.out).write_text(html)
+    print(f"rendered {len(ranked_entries)} ranked + {len(recused)} recused "
+          f"-> {a.out} ({len(html)} bytes)")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

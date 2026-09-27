@@ -1,0 +1,132 @@
+{
+  "measured_on": "2026-08-28",
+  "platforms": {
+    "Dify": {
+      "containers": 7,
+      "parts": [
+        {
+          "container": "dify-api-1",
+          "part": "api",
+          "image": "langgenius/dify-api:0.15.3",
+          "role": "the REST API (the only part the agent uses)",
+          "mb": 782.2
+        },
+        {
+          "container": "dify-db-1",
+          "part": "db",
+          "image": "postgres:15-alpine",
+          "role": "Postgres: apps, conversations, config",
+          "mb": 43.5
+        },
+        {
+          "container": "dify-redis-1",
+          "part": "redis",
+          "image": "redis:6-alpine",
+          "role": "queue for the worker",
+          "mb": 4.8
+        },
+        {
+          "container": "dify-sandbox-1",
+          "part": "sandbox",
+          "image": "langgenius/dify-sandbox:0.2.10",
+          "role": "isolated runtime for user-authored code blocks",
+          "mb": 49.8
+        },
+        {
+          "container": "dify-ssrf_proxy-1",
+          "part": "ssrf_proxy",
+          "image": "ubuntu/squid:latest",
+          "role": "egress proxy so a tenant HTTP block cannot reach internal IPs",
+          "mb": 0.0
+        },
+        {
+          "container": "dify-weaviate-1",
+          "part": "weaviate",
+          "image": "semitechnologies/weaviate:1.19.0",
+          "role": "vector database for RAG",
+          "mb": 29.0
+        },
+        {
+          "container": "dify-worker-1",
+          "part": "worker",
+          "image": "langgenius/dify-api:0.15.3",
+          "role": "Celery worker: document ingestion and indexing",
+          "mb": 344.7
+        }
+      ],
+      "total_mb": 1254.0,
+      "under_load": true
+    },
+    "Typebot": {
+      "containers": 3,
+      "parts": [
+        {
+          "container": "pg-ref-typebot-builder",
+          "part": "builder",
+          "image": "baptistearno/typebot-builder:3.18.0",
+          "role": "the flow editor UI; here only because it runs the migrations",
+          "mb": 341.5
+        },
+        {
+          "container": "pg-ref-typebot-db",
+          "part": "db",
+          "image": "postgres:16-alpine",
+          "role": "Postgres: flows and sessions",
+          "mb": 25.0
+        },
+        {
+          "container": "pg-ref-typebot-viewer",
+          "part": "viewer",
+          "image": "baptistearno/typebot-viewer:3.18.0",
+          "role": "the runtime that serves chats (the graded surface)",
+          "mb": 185.3
+        }
+      ],
+      "total_mb": 551.8,
+      "under_load": false
+    },
+    "Onyx": {
+      "containers": 2,
+      "parts": [
+        {
+          "container": "onyx-api_server-1",
+          "part": "api_server",
+          "image": "onyxdotapp/onyx-backend:v4.6.2",
+          "role": "the REST API",
+          "mb": 539.1
+        },
+        {
+          "container": "onyx-relational_db-1",
+          "part": "relational_db",
+          "image": "postgres:15.2-alpine",
+          "role": "Postgres",
+          "mb": 93.1
+        }
+      ],
+      "total_mb": 632.2,
+      "under_load": false,
+      "note": "Onyx Lite. The full stack adds OpenSearch, MinIO, Redis and two model servers; Lite drops them, which is correct here because nothing is indexed."
+    },
+    "Flowise": {
+      "containers": 1,
+      "parts": [
+        {
+          "container": "pg-ref-flowise",
+          "part": "flowise",
+          "image": "flowiseai/flowise:1.8.2",
+          "role": "everything, in one container",
+          "mb": 174.3
+        }
+      ],
+      "total_mb": 174.3,
+      "under_load": false
+    },
+    "CrewAI": {
+      "containers": 0,
+      "parts": [],
+      "total_mb": 0.0,
+      "under_load": false,
+      "note": "No container at all: a Python process. CrewAI is not a chat product, so there is no server to run."
+    }
+  }
+}

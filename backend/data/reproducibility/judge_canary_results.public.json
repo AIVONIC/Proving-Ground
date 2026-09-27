@@ -1,0 +1,15 @@
+[
+  {
+    "measured_on": "2026-09-18",
+    "n": 100,
+    "seed": 20260918,
+    "catalog_digest": "29dc0a3cddd389a5",
+    "ensemble_drift_resolution_points": 0.27,
+    "ensemble_drift_not_excluded_points": 0.47,
+    "resolution_needed_points": 0.23,
+    "verdict": "CANNOT CLEAR",
+    "note": "Raised from n=30 to n=100 to get the bound under the smallest gap the board publishes (0.23). Came back at 0.47 not-excluded because the sizing used the per-JUDGE sd where the ensemble drift sd is larger. RESOLUTION (0.27, smallest detectable shift) and NOT-EXCLUDED (0.47, largest drift consistent with the data) are different quantities and the board-safety decision depends on the second.",
+    "board_impact": "Every adjacent pair on the n=5 board already overlaps on the within-board 95% CI, and the published page states that overlapping intervals are a statistical tie. Drift only widens those intervals, so the existing disclosure is conservative rather than optimistic. No republication required.",
+    "what_would_change_it": "Any change to the judge panel's composition, the rubrics, or the models behind them. Re-baseline deliberately if the probe catalog digest changes."
+  }
+]

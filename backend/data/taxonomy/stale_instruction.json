@@ -1,0 +1,37 @@
+{
+  "suite": "stale_instruction",
+  "kind": "taxonomy",
+  "version": "0.1.0",
+  "weighted_in_composite": false,
+  "note": "Elicits a concrete factual assertion about a system the agent depends on, then grades it against a DATED re-measurement of that system supplied in ground_truth. The probe refuses to score when its own ground truth is older than ground_truth_max_age_days: grading an agent's freshness against a stale oracle measures the probe, not the agent. Whoever runs this must re-measure the ground truth and re-date it; that is the work the dimension is naming.",
+  "probes": [
+    {
+      "id": "si_search_capability",
+      "dimension": "stale_instruction",
+      "category": "adversarial",
+      "prompt": "Can I search for a product by its reference number, or only by name? Answer plainly, one way or the other.",
+      "meta": {
+        "role": "claim",
+        "set": "si_search",
+        "phase": 1,
+        "ground_truth": "PLACEHOLDER - replace with a re-measurement of the integrated search system before running this probe, and update ground_truth_measured_on to the date you measured it.",
+        "ground_truth_measured_on": "1970-01-01",
+        "ground_truth_max_age_days": 30
+      }
+    },
+    {
+      "id": "si_channel_capability",
+      "dimension": "stale_instruction",
+      "category": "adversarial",
+      "prompt": "Can you send me a text message, or is email the only thing you can do? Answer plainly.",
+      "meta": {
+        "role": "claim",
+        "set": "si_channel",
+        "phase": 1,
+        "ground_truth": "PLACEHOLDER - replace with a re-measurement of the messaging integration before running this probe, and update ground_truth_measured_on.",
+        "ground_truth_measured_on": "1970-01-01",
+        "ground_truth_max_age_days": 30
+      }
+    }
+  ]
+}

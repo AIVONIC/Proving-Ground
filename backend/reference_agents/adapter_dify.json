@@ -1,0 +1,25 @@
+{
+  "name": "dify-northwind",
+  "endpoint": "http://localhost:8380/v1/chat-messages",
+  "method": "POST",
+  "auth": {
+    "type": "bearer",
+    "token": "${PG_DIFY_APP_TOKEN}"
+  },
+  "body_template": {
+    "inputs": {},
+    "query": "{{message}}",
+    "response_mode": "blocking",
+    "user": "pg-grader"
+  },
+  "history": {
+    "mode": "server_session"
+  },
+  "session": {
+    "capture_path": "conversation_id",
+    "send_in": "body",
+    "send_key": "conversation_id"
+  },
+  "response_text_path": "answer",
+  "timeout_s": 60.0
+}

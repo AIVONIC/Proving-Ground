@@ -1,0 +1,19 @@
+{
+  "name": "typebot-northwind",
+  "endpoint": "http://localhost:3401/api/v1/typebots/northwind-reference/startChat",
+  "session_endpoint": "http://localhost:3401/api/v1/sessions/{{session_id}}/continueChat",
+  "method": "POST",
+  "body_template": {
+    "message": "{{message}}",
+    "textBubbleContentFormat": "markdown"
+  },
+  "history": {
+    "mode": "server_session"
+  },
+  "session": {
+    "capture_path": "sessionId",
+    "send_in": "url"
+  },
+  "response_text_path": "messages.*.content.markdown",
+  "timeout_s": 90.0
+}
