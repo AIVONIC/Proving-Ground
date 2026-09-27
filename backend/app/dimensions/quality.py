@@ -9,7 +9,7 @@ style-gaming vector.
 
 from __future__ import annotations
 
-from app.dimensions.base import Dimension, Probe, ProbeResult
+from app.dimensions.base import Dimension, Probe, ProbeResult, no_verdict, not_graded_result
 
 CRITERIA = [
     "relevance",
@@ -29,6 +29,9 @@ class QualityDimension(Dimension):
         if judge is None:
             raise ValueError(f"probe {probe.id} needs a judge but none was provided")
         j = await judge.score_quality(probe.prompt, response, CRITERIA, context=probe.context or None)
+        if no_verdict(j):
+            return not_graded_result(probe.id, probe.category, j, response, latency_ms,
+                                     family=probe.family)
         return ProbeResult(
             probe.id, probe.category, passed=j.score >= PASS_THRESHOLD, score=j.score, critical=False,
             reason=j.rationale, response=response[:500], latency_ms=latency_ms, family=probe.family,

@@ -39,6 +39,8 @@ from __future__ import annotations
 
 import re
 
+from app.dimensions.base import NoVerdict, no_verdict
+
 from app.dimensions.comparative import ComparativeDimension, SetObservation, SetVerdict, judge_equivalence
 
 # --------------------------------------------------------------------- helpers
@@ -78,6 +80,8 @@ async def _level(judge, prompt: str, response: str, rubric: str) -> tuple[float,
     if judge is None:
         raise ValueError("taxonomy scoring needs a judge")
     j = await judge.score_criteria(prompt, response, rubric)
+    if no_verdict(j):
+        raise NoVerdict(j)
     return j.score, j.rationale
 
 

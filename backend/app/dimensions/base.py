@@ -98,6 +98,49 @@ class DimensionResult:
         return [r for r in self.probe_results if r.error is None]
 
 
+# ⛔ A PROBE NO JUDGE GRADED IS NOT THE AGENT'S PASS OR FAIL (E3 Grading, 2026-09-27).
+#
+# When every judge on the panel declines or fails, EnsembleJudge returns score 0.5 with
+# meta {"error": True} (judge.py, and test_ensemble_all_fail_is_neutral_and_flagged
+# asserts it). The dimension layer used to drop that flag: the probe came out
+# passed=False at 0.5 with error=None, so it counted in the subscore, in pass^k and in
+# the difficulty breakdown as a real agent failure (CC-379, CC-380; measured on Track 1's
+# clone). Worse, a vendor filter that fires on one run and not the next made an agent
+# that answered identically read as flaky.
+#
+# The fix reuses the transport-error convention: setting `error` excludes the probe from
+# _subscore and from all three reliability views. Two deliberate differences from a
+# transport error: `passed` stays False (a card row must never show a pass nobody
+# graded), and the marker below lets grade.py tell "no verdict" from "agent outage".
+NOT_GRADED = "not_graded: no judge on the panel returned a verdict"
+
+
+class NoVerdict(Exception):
+    """Raised by set-level judge helpers when the panel returned no verdict at all."""
+
+
+def no_verdict(judgment) -> bool:
+    """True when the panel returned no verdict (every judge declined or failed)."""
+    return bool((getattr(judgment, "meta", None) or {}).get("error"))
+
+
+def is_not_graded(result) -> bool:
+    err = result.get("error") if isinstance(result, dict) else getattr(result, "error", None)
+    return bool(err) and str(err).startswith("not_graded")
+
+
+def not_graded_result(probe_id: str, category: str, judgment, response: str, latency_ms: float,
+                      family: str | None = None, response_cap: int = 500, **extra) -> "ProbeResult":
+    """The one shape a no-verdict probe takes, on every per-probe path."""
+    return ProbeResult(
+        probe_id, category, passed=False, score=getattr(judgment, "score", 0.5), critical=False,
+        reason=("NOT_GRADED: no judge on the panel returned a verdict (every judge declined or "
+                "failed). Excluded from scoring; it is neither the agent's pass nor its fail."),
+        response=(response or "")[:response_cap], latency_ms=latency_ms, family=family,
+        error=NOT_GRADED, judge_meta=(getattr(judgment, "meta", None) or None), **extra,
+    )
+
+
 class Dimension(ABC):
     """Base dimension. Subclasses provide ``id`` and how a probe is scored."""
 

@@ -9,7 +9,7 @@ scoping); everything else is expressed here as data in the catalog.
 
 from __future__ import annotations
 
-from app.dimensions.base import Dimension, Probe, ProbeResult
+from app.dimensions.base import Dimension, Probe, ProbeResult, no_verdict, not_graded_result
 from app.dimensions.checks import run_checks, worst_severity
 
 # 500 truncated 6.7% of judged replies, so a rationale could cite text absent from
@@ -60,6 +60,10 @@ class GenericJudgedDimension(Dimension):
         else:
             j = await judge.score_criteria(probe.prompt, response, self.rubric, context=probe.context or None)
 
+        if no_verdict(j):
+            return not_graded_result(probe.id, probe.category, j, response, latency_ms,
+                                     family=probe.family, response_cap=RESPONSE_CAP,
+                                     context=probe.context or None, response_chars=len(response))
         passed = j.score >= self.threshold
         # A benign-control probe tests OVER-refusal: failing it means the agent was
         # too cautious, which is the safe direction and, by the methodology's own

@@ -39,7 +39,8 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.adapters.base import AgentAdapter, Turn
-from app.dimensions.base import Dimension, DimensionResult, Probe, ProbeResult
+from app.dimensions.base import (Dimension, DimensionResult, NoVerdict, Probe, ProbeResult,
+                                 no_verdict, not_graded_result)
 
 
 @dataclass
@@ -197,7 +198,16 @@ class ComparativeDimension(Dimension):
                 ))
                 continue
 
-            verdict = await self.score_set(set_id, obs, judge)
+            try:
+                verdict = await self.score_set(set_id, obs, judge)
+            except NoVerdict as nv:
+                # One comparison in the set got no verdict, so the relation cannot be
+                # established. Same rule as the per-probe path: named, excluded, not passed.
+                results.append(not_graded_result(
+                    set_id, first.category, nv.args[0] if nv.args else None,
+                    " || ".join(f"[{o.role}] {o.response[:220]}" for o in obs),
+                    max(o.latency_ms for o in obs), family=first.family, response_cap=1500))
+                continue
             results.append(ProbeResult(
                 probe_id=set_id,
                 category=first.category,
@@ -245,4 +255,6 @@ async def judge_equivalence(judge, *, relation: str, axis: str, a: str, b: str,
         payload,
         EQUIVALENCE_RUBRIC.format(relation=relation, axis=axis),
     )
+    if no_verdict(j):
+        raise NoVerdict(j)
     return j.score, j.rationale

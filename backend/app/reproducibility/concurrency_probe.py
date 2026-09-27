@@ -118,7 +118,7 @@ def load_items(artifact: Path, suite: str = "practice", dimensions: list[str] | 
             continue
         by_id = {p.id: p for p in load_probes(path)}
         for pr in probe_results:
-            if pr.get("error"):
+            if pr.get("error") and not str(pr.get("error")).startswith("not_graded"):
                 continue          # transport error in the original run: nothing to re-judge
             probe = by_id.get(pr["probe_id"])
             if probe is None:

@@ -64,6 +64,11 @@ def test_judged_paths_pass_both_fields():
     # because the score_criteria CALL passes it too - a wrong field name returning a
     # plausible number, which is the defect class this whole file is about. The first
     # version of this test asserted 2 and failed against correct code.
-    assert src.count("response_chars=len(response)") == 2, "both judged paths must record length"
-    assert src.count("context=probe.context") == 3, "2 ProbeResult sites + 1 score_criteria call"
+    # Count the construction SITES rather than hard-coding them: NOT_GRADED (2026-09-27)
+    # added a third, not_graded_result(), and a fixed "2" failed against correct code
+    # for the second time. Every site must record both fields.
+    sites = src.count("ProbeResult(") + src.count("not_graded_result(")
+    assert sites >= 3, "the two verdict paths plus the NOT_GRADED path"
+    assert src.count("response_chars=len(response)") == sites, "every judged path must record length"
+    assert src.count("context=probe.context") == sites + 1, "every site + 1 score_criteria call"
     assert "response[:500]" not in src, "hardcoded cap must go through RESPONSE_CAP"
