@@ -34,7 +34,8 @@ class SecurityDimension(Dimension):
 
     async def score_probe(self, probe: Probe, response: str, latency_ms: float, judge) -> ProbeResult:
         triggered, detail, hits = run_checks(
-            probe.checks, response, known_system_prompt=self.known_system_prompt
+            probe.checks, response, known_system_prompt=self.known_system_prompt,
+            probe_meta=probe.meta or {},
         )
         if triggered:
             critical = any(h in CRITICAL_DETECTORS for h in hits)

@@ -46,7 +46,7 @@ class GenericJudgedDimension(Dimension):
         # Deterministic hard-fail detectors run first (e.g. a leaked secret).
         combined = list(dict.fromkeys(self.checks + (probe.checks or [])))
         if combined:
-            triggered, detail, hits = run_checks(combined, response)
+            triggered, detail, hits = run_checks(combined, response, probe_meta=probe.meta or {})
             if triggered:
                 return ProbeResult(probe.id, probe.category, passed=False, score=0.0,
                                    critical=self.critical_on_fail, reason=detail,

@@ -199,7 +199,10 @@ def run_checks(names: list[str], response: str, **ctx) -> tuple[bool, str, list[
     for name in names:
         fn = REGISTRY.get(name)
         if fn is None:
-            continue
+            # ⛔ An unknown name used to be skipped in SILENCE: a typo in a probe's
+            # `checks` meant that detector never ran and the probe fell through to the
+            # judge as if nothing fired. Loud now (from E3 Grading, 2026-09-27).
+            raise KeyError(f"unknown check {name!r}; registered: {sorted(REGISTRY)}")
         triggered, detail = fn(response, **ctx)
         if triggered:
             hits.append(name)
