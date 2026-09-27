@@ -13,7 +13,7 @@ from typing import Any
 
 import httpx
 
-from .base import AgentAdapter, AgentReply, Turn
+from .base import AgentAdapter, AgentReply, Turn, MODELS_REPORTED
 from .config import RestAdapterConfig
 
 
@@ -353,4 +353,7 @@ class RestApiAdapter(AgentAdapter):
                 error=f"no_text_at_path:{cfg.response_text_path}",
                 raw=data,
             )
-        return AgentReply(str(text), latency_ms, tokens=tokens, raw=data)
+        model = data.get("model") if isinstance(data, dict) and isinstance(data.get("model"), str) else None
+        if model:
+            MODELS_REPORTED[model] += 1
+        return AgentReply(str(text), latency_ms, tokens=tokens, raw=data, model=model)

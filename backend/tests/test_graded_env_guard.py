@@ -155,3 +155,67 @@ def test_the_board_links_the_card_for_THIS_grade_even_when_an_older_one_sorts_la
     assert card_slugs([e], tmp_path) == {"spark": exact}
     (tmp_path / f"{exact}.html").unlink()             # no current card: falls back, loudly
     assert card_slugs([e], tmp_path) == {"spark": stale}
+
+
+# --- which model produced the graded replies (2026-09-27) -----------------------
+
+MSPEC = {**SPEC, "model_probe_py": "print(1)", "model_log_markers": {"FELL BACK": "fallback", "NO MODEL": "canned"}}
+
+
+@pytest.fixture
+def mhosted(tmp_path, monkeypatch):
+    f = tmp_path / "hosted_agents.json"
+    f.write_text(json.dumps({"ours": MSPEC}))
+    monkeypatch.setattr(ge, "HOSTED_FILE", f)
+
+
+def test_models_records_config_and_zero_fallbacks(mhosted, monkeypatch):
+    _ssh_returns(monkeypatch, 'CFG={"primary": "m1", "fallback": "m2"}\nM0=0\nM1=0\n')
+    r = ge._models("ours", "2026-09-27T00:00:00Z")
+    assert r["config"] == {"primary": "m1", "fallback": "m2"}
+    assert r["fallback_suspected"] is False
+
+
+def test_any_fallback_event_is_flagged(mhosted, monkeypatch):
+    _ssh_returns(monkeypatch, 'CFG={"primary": "m1"}\nM0=2\nM1=0\n')
+    r = ge._models("ours", "2026-09-27T00:00:00Z")
+    assert r["log_events"]["FELL BACK"]["count"] == 2 and r["fallback_suspected"] is True
+
+
+def test_an_unreadable_count_is_unknown_never_zero(mhosted, monkeypatch):
+    _ssh_returns(monkeypatch, 'CFG={"primary": "m1"}\nM0=\nM1=0\n')
+    r = ge._models("ours", "2026-09-27T00:00:00Z")
+    assert r["log_events"]["FELL BACK"]["count"] is None and r["fallback_suspected"] is None
+
+
+def test_no_window_means_the_log_was_not_read(mhosted, monkeypatch):
+    _ssh_returns(monkeypatch, 'CFG={"primary": "m1"}\n')
+    r = ge._models("ours", None)
+    assert r["log_events"] is None and "log_unresolved" in r
+
+
+def test_a_third_party_model_is_not_observable(mhosted):
+    assert ge._models("vendor", "2026-09-27T00:00:00Z")["observed"] is False
+
+
+@pytest.mark.asyncio
+async def test_the_rest_adapter_records_a_self_reported_model():
+    """Drives the REAL adapter, not the dataclass: a body with `model` is recorded on
+    the reply and tallied; a body without one records None and tallies nothing."""
+    import httpx
+    from app.adapters import RestApiAdapter
+    from app.adapters.base import MODELS_REPORTED
+    from app.adapters.config import RestAdapterConfig
+
+    def handler(req):
+        m = "vendor-model-7" if b"with" in req.content else None
+        return httpx.Response(200, json={"text": "ok", **({"model": m} if m else {})})
+    cfg = RestAdapterConfig(name="t", endpoint="https://v.example/c", method="POST",
+                            body_template={"msg": "{{message}}"}, response_text_path="text")
+    a = RestApiAdapter(cfg, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    before = MODELS_REPORTED["vendor-model-7"]
+    r = await a.send([], "with model")
+    assert r.ok and r.model == "vendor-model-7"
+    r2 = await a.send([], "none")
+    assert r2.ok and r2.model is None
+    assert MODELS_REPORTED["vendor-model-7"] == before + 1

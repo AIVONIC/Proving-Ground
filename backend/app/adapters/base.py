@@ -11,6 +11,8 @@ must not share memory, and for cross-session memory tests).
 
 from __future__ import annotations
 
+import collections
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -24,6 +26,13 @@ class Turn:
 
     role: Role
     content: str
+
+
+# ⛔ A BEHAVIOUR MEASURED ON A MODEL WAS STORED WITHOUT THE MODEL (found 2026-09-26 via
+# the E3 thread, CC-342 s8). A model swap under an unchanged prompt was invisible in
+# the grade record. Every model an agent self-reports is tallied here for the run
+# artifact; hosted agents are additionally observed from the inside by graded_env.
+MODELS_REPORTED: "collections.Counter[str]" = collections.Counter()
 
 
 @dataclass
@@ -42,6 +51,10 @@ class AgentReply:
     tokens: int | None = None
     raw: Any = None
     error: str | None = None
+    # The model the AGENT SAYS produced this reply, when its API reports one
+    # (OpenAI-compatible bodies carry a top-level `model`). None means not reported,
+    # never "no model". See MODELS_REPORTED and graded_env._models().
+    model: str | None = None
 
     @property
     def ok(self) -> bool:

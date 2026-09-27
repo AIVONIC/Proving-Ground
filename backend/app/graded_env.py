@@ -137,7 +137,66 @@ def _guard(agent: str) -> dict:
             "refusal_marker": spec.get("refusal_marker")}
 
 
-def capture(agent: str) -> dict:
+def _models(agent: str, since: str | None) -> dict:
+    """WHICH MODEL produced the graded replies, observed from inside a hosted agent.
+
+    ⛔ A behaviour measured on a model was stored without the model (2026-09-26, via
+    the E3 thread). For SPARK it is worse than a missing config stamp: its primary is
+    one model and ANY failed call falls back, per reply, to another vendor's model -
+    and the reply it sends carries text only. So a grade taken during a primary-model
+    blip is partly a grade of a different model, and nothing said so.
+
+    Two observations, both from the agent itself, never declared:
+    - `config`: the agent's OWN module asked for its primary and fallback models
+      (the production object, not a re-reading of its source).
+    - `log_events`: how many times the agent logged each marker (fallback used,
+      no model at all) in the grading window. Counts EVERY conversation in that
+      window, so it is an UPPER BOUND on graded replies affected: zero proves none
+      were; non-zero means look before publishing.
+    Anything not observable says so. It never reads as "none happened".
+    """
+    try:
+        spec = json.loads(HOSTED_FILE.read_text()).get(agent)
+    except Exception:
+        spec = None
+    if not spec or "model_probe_py" not in spec:
+        return {"observed": False,
+                "reason": "not operator-hosted or no model probe; the model is not observable black-box"}
+    out: dict = {"observed": True, "window_since": since}
+    c = shlex.quote(spec["container"])
+    wd = shlex.quote(spec.get("model_probe_workdir", "/"))
+    parts = [f"echo CFG=$(docker exec -w {wd} {c} python3 -c {shlex.quote(spec['model_probe_py'])} 2>/dev/null | tail -1)"]
+    markers = spec.get("model_log_markers") or {}
+    if since:
+        for i, mk in enumerate(markers):
+            parts.append(f"echo M{i}=$(docker logs --since {shlex.quote(since)} {c} 2>&1 | grep -c -F {shlex.quote(mk)})")
+    try:
+        r = subprocess.run(["ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes", spec["ssh"],
+                            "; ".join(parts)], capture_output=True, text=True, timeout=120)
+        kv = dict(ln.split("=", 1) for ln in r.stdout.splitlines() if "=" in ln)
+    except Exception as e:
+        return {"observed": False, "unresolved": f"model probe failed: {type(e).__name__}"}
+    try:
+        out["config"] = json.loads(kv.get("CFG") or "")
+    except ValueError:
+        out["config"] = None
+        out["config_unresolved"] = "the agent's own module did not answer"
+    if not since:
+        out["log_events"] = None
+        out["log_unresolved"] = "no grading window was given, so no log was read"
+    else:
+        ev = {}
+        for i, (mk, meaning) in enumerate(markers.items()):
+            v = (kv.get(f"M{i}") or "").strip()
+            ev[mk] = {"meaning": meaning, "count": int(v) if v.isdigit() else None}
+        out["log_events"] = ev
+        # None anywhere means the log could not be read: never a silent zero.
+        out["fallback_suspected"] = (None if any(e["count"] is None for e in ev.values())
+                                     else any(e["count"] > 0 for e in ev.values()))
+    return out
+
+
+def capture(agent: str, since: str | None = None) -> dict:
     """Best-effort manifest of the graded agent's own build."""
     stack_name = agent.split("-")[0]
     stack = STACKS / stack_name
@@ -155,4 +214,5 @@ def capture(agent: str) -> dict:
     else:
         man["unresolved"] = f"no stack directory at {stack}"
     man["guard"] = _guard(agent)
+    man["models"] = _models(agent, since)
     return man

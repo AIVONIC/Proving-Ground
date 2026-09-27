@@ -22,6 +22,7 @@ from pathlib import Path
 
 from app.adapters.aivonic import aivonic_adapter
 from app.adapters import RestApiAdapter
+from app.adapters.base import MODELS_REPORTED
 from app.adapters.config import RestAdapterConfig
 from app.pregrade import check_adapter
 from app.scoring.version import (METHODOLOGY_VERSION, composite_id,
@@ -135,6 +136,8 @@ def _format_report(agent: str, grade) -> str:
 
 
 _PROFILE_USED = ""
+# Wall-clock UTC start of grading: the window graded_env reads the agent's log over.
+_GRADE_STARTED: str | None = None
 
 
 def _profile_digest(s: str) -> str | None:
@@ -158,7 +161,10 @@ def _write_run(agent: str, grade, all_dim_results) -> Path:
         # What the graded agent was MADE of, so "did the agent change?" is answerable
         # from the artifact instead of reconstructed from surviving mtimes. See
         # app/graded_env.py for the incident that produced it.
-        "graded_env": graded_env.capture(agent),
+        "graded_env": graded_env.capture(agent, since=_GRADE_STARTED),
+        # Every model an agent SELF-REPORTED across the run (REST bodies with `model`).
+        # Empty means none reported, not "no model".
+        "models_reported_by_agent": dict(MODELS_REPORTED),
         # ⛔ RECORD THE SCOPE THE JUDGE GRADED AGAINST. Scope-relative dimensions grade
         # against the capability profile, so two runs of the same agent under different
         # profiles are different measurements - and until 2026-09-19 nothing in the
@@ -423,6 +429,8 @@ def main() -> int:
                 "Fix the adapter and re-run; nothing has been spent on judges.")
         print()
 
+    global _GRADE_STARTED
+    _GRADE_STARTED = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     grade, all_dim_results = asyncio.run(grade_agent(factory, dim_ids, judge, args.runs, args.suite, concurrency=args.concurrency))
     print(_format_report(args.agent, grade))
     print(format_reliability(all_dim_results))
