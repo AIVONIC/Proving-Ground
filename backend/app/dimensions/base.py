@@ -112,11 +112,59 @@ class DimensionResult:
 # _subscore and from all three reliability views. Two deliberate differences from a
 # transport error: `passed` stays False (a card row must never show a pass nobody
 # graded), and the marker below lets grade.py tell "no verdict" from "agent outage".
-NOT_GRADED = "not_graded: no judge on the panel returned a verdict"
+NOT_GRADED_PREFIX = "not_graded"
+NOT_GRADED = f"{NOT_GRADED_PREFIX}: no judge on the panel returned a verdict"
 
 
 class NoVerdict(Exception):
     """Raised by set-level judge helpers when the panel returned no verdict at all."""
+
+
+class SetNotGraded(Exception):
+    """A comparative set whose PRECONDITION did not hold because of the probe or the
+    harness (a missing member role, criteria or ground truth, a channel the adapter
+    cannot observe). Nothing about the agent was measured, so it is NOT_GRADED:
+    excluded from scoring and counted, never scored 0.5 as a fail (2026-09-27)."""
+
+    def __init__(self, reason: str, detail: dict | None = None):
+        super().__init__(reason)
+        self.reason, self.detail = reason, detail
+
+
+class SetAgentFailedPrecondition(Exception):
+    """A comparative set whose precondition failed because of the AGENT'S OWN REPLY
+    (it answered the set's baseline question wrongly, or did not block the canonical
+    attack). A real failure, but NOT the one the dimension measures: scoring it there
+    would publish the wrong diagnosis ("right answer, wrong path" for a plain wrong
+    answer). So it is excluded from that dimension's score and recorded, counted and
+    labelled as the agent's failure. Never dropped, never 0.5 (2026-09-27)."""
+
+    def __init__(self, reason: str, detail: dict | None = None):
+        super().__init__(reason)
+        self.reason, self.detail = reason, detail
+
+
+AGENT_FAILED_PRECONDITION = "agent_failed_precondition"
+
+
+def is_agent_failed_precondition(result) -> bool:
+    err = result.get("error") if isinstance(result, dict) else getattr(result, "error", None)
+    return bool(err) and str(err).startswith(AGENT_FAILED_PRECONDITION)
+
+
+def agent_failed_precondition_result(probe_id: str, category: str, reason: str, response: str,
+                                     latency_ms: float, family: str | None = None,
+                                     detail: dict | None = None,
+                                     response_cap: int = 1500) -> "ProbeResult":
+    return ProbeResult(
+        probe_id, category, passed=False, score=0.0, critical=False,
+        reason=(f"AGENT FAILED THIS SET'S PRECONDITION: {reason} This is the agent's failure, "
+                "but a different one from what this dimension measures, so it is excluded "
+                "from this dimension's score and recorded here instead."),
+        response=(response or "")[:response_cap], latency_ms=latency_ms, family=family,
+        error=f"{AGENT_FAILED_PRECONDITION}: {reason}"[:300],
+        judge_meta={"precondition": "failed_by_agent", **(detail or {})},
+    )
 
 
 def no_verdict(judgment) -> bool:
@@ -130,14 +178,22 @@ def is_not_graded(result) -> bool:
 
 
 def not_graded_result(probe_id: str, category: str, judgment, response: str, latency_ms: float,
-                      family: str | None = None, response_cap: int = 500, **extra) -> "ProbeResult":
-    """The one shape a no-verdict probe takes, on every per-probe path."""
+                      family: str | None = None, response_cap: int = 500, *,
+                      reason: str | None = None, meta: dict | None = None,
+                      **extra) -> "ProbeResult":
+    """The one shape a no-verdict probe takes, on every per-probe path.
+
+    `reason`/`meta` name WHY nothing was graded when it was not the judges (a set's
+    precondition failed); without them it is the judge-panel case."""
     return ProbeResult(
         probe_id, category, passed=False, score=getattr(judgment, "score", 0.5), critical=False,
-        reason=("NOT_GRADED: no judge on the panel returned a verdict (every judge declined or "
+        reason=(f"NOT_GRADED: {reason} Excluded from scoring; it is neither the agent's pass nor its fail."
+                if reason else
+                "NOT_GRADED: no judge on the panel returned a verdict (every judge declined or "
                 "failed). Excluded from scoring; it is neither the agent's pass nor its fail."),
         response=(response or "")[:response_cap], latency_ms=latency_ms, family=family,
-        error=NOT_GRADED, judge_meta=(getattr(judgment, "meta", None) or None), **extra,
+        error=(f"{NOT_GRADED_PREFIX}: precondition unmet (probe or harness)" if reason else NOT_GRADED),
+        judge_meta=(meta if meta is not None else (getattr(judgment, "meta", None) or None)), **extra,
     )
 
 

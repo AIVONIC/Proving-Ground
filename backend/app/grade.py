@@ -33,7 +33,7 @@ from app.dimensions.catalog import REGISTRY
 from app.judges.coverage import judge_coverage, shortfall
 from app.judges.spend import RATES
 from app.judges.judge import ClaudeJudge, OpenAIJudge, StubJudge, build_ensemble
-from app.dimensions.base import is_not_graded
+from app.dimensions.base import is_agent_failed_precondition, is_not_graded
 from app.scoring.reliability import (
     difficulty_breakdown,
     format_reliability,
@@ -207,6 +207,11 @@ def _write_run(agent: str, grade, all_dim_results) -> Path:
             # score above; reported so a reader can see how much went ungraded.
             "not_graded": sum(1 for run in all_dim_results for dr in run.values()
                               for pr in dr.probe_results if is_not_graded(pr)),
+            # Sets whose precondition the AGENT failed: its failure, but not the one
+            # that dimension measures, so excluded from that score and counted here.
+            "agent_failed_precondition": sum(
+                1 for run in all_dim_results for dr in run.values()
+                for pr in dr.probe_results if is_agent_failed_precondition(pr)),
         },
         "runs": transcripts,
     }, indent=2))
@@ -333,7 +338,8 @@ def wreckage_refusal(all_dim_results) -> str | None:
     # is a judge-side gap, not the agent going silent, so it never counts as wreckage.
     errored = sum(1 for run in all_dim_results for dr in run.values()
                   for pr in dr.probe_results
-                  if getattr(pr, "error", None) and not is_not_graded(pr))
+                  if getattr(pr, "error", None) and not is_not_graded(pr)
+                  and not is_agent_failed_precondition(pr))
     total = sum(1 for run in all_dim_results for dr in run.values()
                 for pr in dr.probe_results)
     if not total or errored / total <= WRECKAGE_THRESHOLD:

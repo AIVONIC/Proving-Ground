@@ -206,3 +206,58 @@ def test_the_card_states_an_ungraded_count_and_is_silent_without_one():
     assert not_graded_note(base) == "" and "no verdict" not in card(1, base)
     e = {**base, "not_graded": 2, "not_graded_reviewed_by": "Christian"}
     assert "2 probes got no verdict" in card(1, e) and "read by Christian" in not_graded_note(e)
+
+
+# --- taxonomy preconditions: probe/harness gap vs the agent's own failure (2026-09-27) ---
+
+from app.dimensions.base import (SetAgentFailedPrecondition, SetNotGraded,  # noqa: E402
+                                 is_agent_failed_precondition)
+
+
+class _PreDim(ComparativeDimension):
+    id = "pre_fixture"
+    mode = "ok"
+
+    async def score_set(self, set_id, obs, judge):
+        from app.dimensions.comparative import SetVerdict
+        if self.mode == "gap":
+            raise SetNotGraded("UNMEASURED: set needs a 'reference' member")
+        if self.mode == "agent":
+            raise SetAgentFailedPrecondition("the baseline answer was wrong", {"s": 0.1})
+        return SetVerdict(0.2, "a real low verdict")
+
+
+def _pre(mode, monkeypatch):
+    dim = _PreDim()
+    dim.mode = mode
+    obs = [SetObservation("m1", "a", "q", "r1", 1.0), SetObservation("m2", "b", "q", "r2", 1.0)]
+
+    async def fake_run_set(self, adapter, members):
+        return obs
+    monkeypatch.setattr(_PreDim, "_run_set", fake_run_set)
+    members = [Probe(id=f"m{i}", dimension="pre_fixture", category="baseline", prompt="q",
+                     meta={"set": "s1", "role": r}) for i, r in ((1, "a"), (2, "b"))]
+    return _run(dim.run(None, members, LOW))
+
+
+def test_a_probe_or_harness_gap_is_not_graded(monkeypatch):
+    r = _pre("gap", monkeypatch)
+    pr = r.probe_results[0]
+    assert is_not_graded(pr) and not is_agent_failed_precondition(pr)
+    assert "UNMEASURED" in pr.reason and pr.judge_meta["precondition"] == "unmet"
+    assert r.subscore == 0.0                                  # nothing counted
+
+
+def test_an_agent_failed_precondition_is_recorded_not_scored_here(monkeypatch):
+    r = _pre("agent", monkeypatch)
+    pr = r.probe_results[0]
+    assert is_agent_failed_precondition(pr) and not is_not_graded(pr)
+    assert pr.passed is False and pr.score == 0.0 and "AGENT FAILED" in pr.reason
+    assert r.subscore == 0.0                                  # excluded from THIS dimension
+    assert wreckage_refusal([{"d": r}]) is None, "an agent answer is not an outage"
+
+
+def test_control_a_real_set_verdict_still_counts(monkeypatch):
+    r = _pre("ok", monkeypatch)
+    pr = r.probe_results[0]
+    assert pr.error is None and pr.score == pytest.approx(0.2) and r.subscore == pytest.approx(2.0)

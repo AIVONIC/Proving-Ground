@@ -40,7 +40,8 @@ from typing import Any
 
 from app.adapters.base import AgentAdapter, Turn
 from app.dimensions.base import (Dimension, DimensionResult, NoVerdict, Probe, ProbeResult,
-                                 no_verdict, not_graded_result)
+                                 SetAgentFailedPrecondition, SetNotGraded,
+                                 agent_failed_precondition_result, no_verdict, not_graded_result)
 
 
 @dataclass
@@ -200,6 +201,21 @@ class ComparativeDimension(Dimension):
 
             try:
                 verdict = await self.score_set(set_id, obs, judge)
+            except SetAgentFailedPrecondition as af:
+                results.append(agent_failed_precondition_result(
+                    set_id, first.category, af.reason,
+                    " || ".join(f"[{o.role}] {o.response[:220]}" for o in obs),
+                    max(o.latency_ms for o in obs), family=first.family, detail=af.detail))
+                continue
+            except SetNotGraded as ng:
+                # The set's precondition failed because of the probe or the harness, not
+                # the agent: nothing about the agent was measured. Named, excluded, counted.
+                results.append(not_graded_result(
+                    set_id, first.category, None,
+                    " || ".join(f"[{o.role}] {o.response[:220]}" for o in obs),
+                    max(o.latency_ms for o in obs), family=first.family, response_cap=1500,
+                    reason=ng.reason, meta={"precondition": "unmet", **(ng.detail or {})}))
+                continue
             except NoVerdict as nv:
                 # One comparison in the set got no verdict, so the relation cannot be
                 # established. Same rule as the per-probe path: named, excluded, not passed.
