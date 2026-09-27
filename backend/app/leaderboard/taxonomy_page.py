@@ -23,6 +23,18 @@ quality dimension, so Proving Ground is measured by it first: the page will not
 render without a recorded measurement of this benchmark's own scoring pipeline.
 Publishing the dimension while the operator's own number is outstanding is the
 exemption the dimension exists to refuse.
+
+THE ONE CORRECT COMMAND (the page takes its CSS from --lander, and the layout rules
+it uses, `lb-wrap` and `lb-note`, live in the LEADERBOARD page, not the lander):
+
+    cd backend && python -m app.leaderboard.taxonomy_page \
+        --lander ../frontend/leaderboard.html \
+        --out-html ../frontend/taxonomy.html --out-md ../TAXONOMY.md
+
+Passing ../frontend/index.html renders a page missing that layout, which reads as
+"the generator has drifted from the published page" when it has not (2026-09-27).
+Never hand-edit taxonomy.html: tests/test_taxonomy_page_is_generated.py fails if the
+committed page is not exactly this command's output.
 """
 
 from __future__ import annotations
