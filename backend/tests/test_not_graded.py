@@ -159,7 +159,7 @@ def _p(pid, ng=False):
 
 def _art(**dims):
     runs = [{d: rows for d, rows in dims.items()}]
-    return {"grade": {"composite": 88.0, "tier": "Premium",
+    return {"grade": {"composite": 88.0, "tier": "Premium", "critical_failures": 0,
                       "subscores": {k: 9.0 for k in _REG}, "confidence": {"runs": 1}},
             "runs": runs}
 

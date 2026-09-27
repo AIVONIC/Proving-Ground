@@ -71,7 +71,7 @@ def restate(artifact: dict) -> dict:
     g = artifact.get("grade") or {}
     # Criticals are counted the way scorer.py aggregates runs: the WORST run,
     # not the mean - a failure in one run of three is the interesting one.
-    old_n = int(g.get("critical_failures", 0))
+    old_n = int(g["critical_failures"])   # indexed: a missing count must raise, never read as 0
     new_n = max(per_run) if per_run else 0
     # ⛔ THE `_` DISCARDS THE `incomplete` FLAG, AND THAT IS SAFE ONLY BECAUSE OF
     # promote.py: entry_from_run refuses any grade with fewer than every dimension or

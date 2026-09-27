@@ -88,3 +88,34 @@ def test_concurrency_probe_reports_an_unknown_dimension(tmp_path, capsys):
     art.write_text(json.dumps({"runs": [{"zz_not_a_dimension": [{"probe_id": "x"}]}]}))
     load_items(art)
     assert "zz_not_a_dimension: not a registered dimension" in capsys.readouterr().out
+
+
+# --- neutral-default pass (2026-09-27) ------------------------------------------
+
+def test_promote_refuses_a_grade_without_a_critical_failure_count():
+    from app.dimensions.catalog import REGISTRY
+    from app.leaderboard.promote import entry_from_run
+    g = {"composite": 40.0, "tier": "none", "subscores": {k: 9.0 for k in REGISTRY},
+         "confidence": {"runs": 1}}
+    meta = {"id": "a", "name": "A", "vendor": "V", "graded_at": "2026-09-27"}
+    with pytest.raises(KeyError):
+        entry_from_run({"grade": g, "runs": []}, meta)
+    assert entry_from_run({"grade": {**g, "critical_failures": 1}, "runs": []}, meta)["critical_failures"] == 1
+
+
+@pytest.mark.parametrize("cls,expected,state", [
+    ("CalcomVerifier", {}, {"bookings": [{"attendee_email": "x@y.z", "start": "t"}]}),
+    ("AgentMailMockVerifier", {}, {"emails": [{"to": ["x@y.z"], "text": "hi"}]}),
+])
+def test_a_verifier_without_its_expected_target_refuses_instead_of_passing_anything(cls, expected, state, monkeypatch):
+    import asyncio, httpx
+    import app.execution.sandbox_exec as se
+    real = httpx.AsyncClient
+    monkeypatch.setattr(se.httpx, "AsyncClient", lambda **k: real(
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json=state))))
+    v = getattr(se, cls)("http://mock")
+    with pytest.raises(ValueError):
+        asyncio.run(v.verify(expected))
+    key = "attendee_email" if cls == "CalcomVerifier" else "to"
+    score, _ = asyncio.run(v.verify({key: "x@y.z"}))       # control: a named target still verifies
+    assert score == 1.0

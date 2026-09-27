@@ -91,8 +91,11 @@ class CalcomVerifier:
         bookings = r.json().get("bookings", [])
         if not bookings:
             return 0.0, "no booking was created in the sandbox"
+        # REQUIRED: a blank expectation matched EVERY booking, a vacuous pass.
         email = (expected.get("attendee_email") or "").lower()
-        by_email = [b for b in bookings if not email or (b.get("attendee_email", "").lower() == email)]
+        if not email:
+            raise ValueError("booking task has no expected attendee_email; it would pass any booking")
+        by_email = [b for b in bookings if b.get("attendee_email", "").lower() == email]
         if not by_email:
             got = ", ".join(b.get("attendee_email", "?") for b in bookings)
             return 0.4, f"a booking was created but for the wrong attendee ({got}, wanted {email})"
@@ -123,8 +126,11 @@ class AgentMailMockVerifier:
         emails = r.json().get("emails", [])
         if not emails:
             return 0.0, "no email was sent in the sandbox"
+        # REQUIRED: a blank recipient matched EVERY email, a vacuous pass.
         want_to = (expected.get("to") or "").lower()
-        matches = [e for e in emails if not want_to or want_to in e.get("to", [])]
+        if not want_to:
+            raise ValueError("email task has no expected 'to'; it would pass any email")
+        matches = [e for e in emails if want_to in e.get("to", [])]
         if not matches:
             got = ", ".join(",".join(e.get("to", [])) for e in emails)
             return 0.4, f"an email was sent but to the wrong recipient ({got}, wanted {want_to})"

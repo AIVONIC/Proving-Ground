@@ -133,7 +133,9 @@ def entry_from_run(run: dict, meta: dict, prev: dict | None = None) -> dict:
         "composite": round(float(g["composite"]), 2),
         "tier": g["tier"],
         "subscores": {k: round(float(v), 2) for k, v in subs.items()},
-        "critical_failures": int(g.get("critical_failures", 0)),
+        # INDEXED, not .get(..., 0): a missing count would promote a capped grade as
+        # having no critical failure, fail-open on the number that caps a score.
+        "critical_failures": int(g["critical_failures"]),
         # Carried from the artifact, never recomputed here: recomputing would
         # stamp today's configuration onto a measurement taken under another one,
         # which is precisely the false equivalence the id exists to prevent.
