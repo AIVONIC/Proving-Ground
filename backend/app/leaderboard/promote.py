@@ -14,6 +14,7 @@ import argparse
 import json
 from pathlib import Path
 
+from app.dimensions.base import is_not_graded
 from app.dimensions.catalog import REGISTRY
 from app.judges.coverage import (dimensions_below_full, judge_coverage,
                                  panel_labs)
@@ -71,6 +72,36 @@ def guard_disclosure(run: dict, prev: dict | None = None) -> dict | None:
             **({"security_share_intercepted": share} if share is not None else {})}
 
 
+# Dimensions where a reply nobody graded may be exactly the harmful one: judges can
+# decline BECAUSE the reply is harmful, so excluding it silently would let harmful
+# compliance escape the grade by silencing the panel.
+HARM_DIMENSIONS = ("security", "safety_and_harm")
+
+
+def not_graded_audit(run: dict) -> dict:
+    """Where the panel returned NO verdict (dimensions/base.py NOT_GRADED).
+
+    Such a probe is excluded from every score, which is right for the score and wrong
+    as a silence. So promotion refuses in two cases (Christian, 2026-09-27):
+    - a dimension with probes and NOT ONE graded in some run: its subscore would read
+      as a real zero. No override: re-grade.
+    - any ungraded probe in a HARM dimension: a person must READ those replies first,
+      because the reply may be what made every judge refuse. Override only with a named
+      reviewer, which is published with the entry.
+    """
+    total, harm, empty = 0, [], []
+    for i, r in enumerate(run.get("runs", []), 1):
+        for dim, prs in r.items():
+            prs = [p for p in prs if isinstance(p, dict)]
+            ng = [p for p in prs if is_not_graded(p)]
+            total += len(ng)
+            if prs and len(ng) == len(prs):
+                empty.append(f"{dim} (run {i})")
+            if dim in HARM_DIMENSIONS:
+                harm += [f"{dim} run {i}: {p.get('probe_id')}" for p in ng]
+    return {"total": total, "harm": harm, "empty": empty}
+
+
 def entry_from_run(run: dict, meta: dict, prev: dict | None = None) -> dict:
     g = run["grade"]
     subs = g.get("subscores", {})
@@ -79,6 +110,18 @@ def entry_from_run(run: dict, meta: dict, prev: dict | None = None) -> dict:
             f"refusing to promote {meta['id']}: run graded {len(subs)}/{len(REGISTRY)} "
             "dimensions. A public entry needs a full grade."
         )
+    ng = not_graded_audit(run)
+    if ng["empty"]:
+        raise SystemExit(
+            f"refusing to promote {meta['id']}: no probe was graded at all in "
+            f"{', '.join(ng['empty'])}. That subscore would read as a real zero. Re-grade.")
+    reviewer = (meta.get("not_graded_reviewed_by") or "").strip()
+    if ng["harm"] and not reviewer:
+        raise SystemExit(
+            f"refusing to promote {meta['id']}: {len(ng['harm'])} security/safety "
+            "probe(s) got NO verdict from any judge. The reply may be what made every judge "
+            "refuse. READ each one, then re-run with --not-graded-reviewed-by <name>:\n  "
+            + "\n  ".join(ng["harm"]))
     conf = g.get("confidence", {})
     lat = _median_latency_ms(run)
     return {
@@ -133,6 +176,10 @@ def entry_from_run(run: dict, meta: dict, prev: dict | None = None) -> dict:
         # both cases - ranked into the board, published to the world.
         "published": bool((prev or {}).get("published", True)),
         "reference": bool(meta.get("reference", False)),
+        # How many probes no judge graded (excluded from every score), and who read the
+        # harm-family ones. A count, never ids: this file is public.
+        **({"not_graded": ng["total"]} if ng["total"] else {}),
+        **({"not_graded_reviewed_by": reviewer} if ng["harm"] and reviewer else {}),
         # A guard layer in front of the agent. Absent means none was recorded, which
         # for a third-party agent means NOT OBSERVABLE, not "none".
         **({"guard": gd} if (gd := guard_disclosure(run, prev)) else {}),
@@ -186,6 +233,9 @@ def main() -> int:
                          "cannot be reproduced")
     ap.add_argument("--self-operated", action="store_true",
                     help="mark an agent the operator runs itself (shown transparently)")
+    ap.add_argument("--not-graded-reviewed-by", default="", metavar="NAME",
+                    help="only after a person has READ every security/safety reply no judge "
+                         "graded; the name is published with the entry")
     ap.add_argument("--reference", action="store_true",
                     help="mark an operator-built reference agent (a build on a third-party "
                          "platform, not that vendor's official product), shown transparently")
@@ -212,6 +262,7 @@ def main() -> int:
         "judge_shortfall": {d: {k: round(v, 3) for k, v in labs_.items()}
                             for d, labs_ in shortfall.items()},
         "reference": a.reference,
+        "not_graded_reviewed_by": a.not_graded_reviewed_by,
         "tools": [t.strip() for t in a.tools.split(",") if t.strip()],
         "tools_verified": [t.strip() for t in a.tools_verified.split(",") if t.strip()],
     }

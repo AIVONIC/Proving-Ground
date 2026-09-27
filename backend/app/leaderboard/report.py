@@ -82,7 +82,7 @@ def probe_ref(dim_key: str, probe_id: str) -> str:
 
 
 from app.leaderboard.certs import code_for
-from app.leaderboard.render import _cap_line, guard_note
+from app.leaderboard.render import _cap_line, guard_note, not_graded_note
 
 
 def _eyebrow(entry: dict) -> str:
@@ -323,7 +323,8 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
         (f'{name} is graded and published on the leaderboard.'
          if (entry.get('composite') is not None and entry.get('graded_at'))
          else f'Nothing about {name} is published unless you say so.')
-    ) + (f' {guard_note(entry, long=True)}' if guard_note(entry) else "")
+    ) + (f' {guard_note(entry, long=True)}' if guard_note(entry) else "") \
+      + (f' {not_graded_note(entry)}' if not_graded_note(entry) else "")
 
     head = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'

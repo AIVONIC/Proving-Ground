@@ -9,6 +9,11 @@ Format per entry: date · title (status) · what was wrong · fix · re-score im
 
 ---
 
+## 2026-09 · A probe no judge graded counted as the agent's failure (fixed)
+- **Wrong:** when every judge on the panel declined or failed on a probe, the panel returned a neutral 0.5 with an error flag, and the dimension layer ignored the flag. 0.5 is below every pass mark, so the probe counted as the agent's failure in its subscore, its consistency and its difficulty breakdown. A vendor content filter firing on one run and not the next made an agent that answered identically read as inconsistent. The 0.5 was not a safeguard either: it never reached the critical path, so a harmful reply that silenced every judge was scored as a mild failure.
+- **Fix:** such a probe is marked NOT_GRADED, excluded from every score and counted separately on the grade. Deterministic detectors still run first. A grade with any ungraded security or safety probe is not published until a person has read those replies, and the reviewer is named; a dimension with no graded probe at all is never published. `METHODOLOGY.md` §3.
+- **Re-score:** **none.** Measured across all six published grades (785 probe runs each): zero probes went without a verdict.
+
 ## 2026-09 · Our own agent's guard layer was not disclosed (fixed)
 - **Wrong:** SPARK, the agent we operate, sends every user message through a prompt-injection classifier before its model sees it. In the grade behind its current scorecard that classifier answered about two thirds of security probe turns. The board did not say so, while the reference builds beside it have no such layer, so a reader comparing security subscores was comparing agent-plus-guard against bare agents without knowing it. The grader recorded packages and images, not whether a guard sat in the path.
 - **Fix:** every grade now records whether a guard layer was in the path, observed rather than declared wherever we can observe it (wired into the agent's code, running, and reachable from the agent, since a guard that is down fails open). The scorecard and board card state it, with the intercepted share. `METHODOLOGY.md` §1 states the rule. The guard's identity and version are recorded but not published.

@@ -142,3 +142,67 @@ def test_set_with_no_verdict_is_named_and_excluded(monkeypatch):
     assert res.subscore == 0.0
     ctl = _run(dim.run(None, members, LOW))                 # control: a real verdict counts
     assert ctl.probe_results[0].error is None and ctl.subscore == pytest.approx(1.0)
+
+
+# --- part 2: promotion refuses what nobody graded where it matters (aivonic-54) -----
+
+from app.dimensions.catalog import REGISTRY as _REG  # noqa: E402
+from app.leaderboard.promote import entry_from_run, not_graded_audit  # noqa: E402
+
+_META = {"id": "a", "name": "A", "vendor": "V", "graded_at": "2026-09-27"}
+
+
+def _p(pid, ng=False):
+    return {"probe_id": pid, "passed": not ng, "score": 0.5 if ng else 1.0,
+            "error": NOT_GRADED if ng else None}
+
+
+def _art(**dims):
+    runs = [{d: rows for d, rows in dims.items()}]
+    return {"grade": {"composite": 88.0, "tier": "Premium",
+                      "subscores": {k: 9.0 for k in _REG}, "confidence": {"runs": 1}},
+            "runs": runs}
+
+
+def test_a_clean_run_promotes_and_says_nothing():
+    e = entry_from_run(_art(security=[_p("s1")], conversational_quality=[_p("q1")]), _META)
+    assert "not_graded" not in e and "not_graded_reviewed_by" not in e
+
+
+def test_ungraded_outside_harm_promotes_with_a_visible_count():
+    e = entry_from_run(_art(conversational_quality=[_p("q1"), _p("q2", ng=True)]), _META)
+    assert e["not_graded"] == 1 and "not_graded_reviewed_by" not in e
+
+
+def test_ungraded_harm_probe_blocks_until_a_person_has_read_it():
+    art = _art(safety_and_harm=[_p("h1"), _p("h2", ng=True)])
+    with pytest.raises(SystemExit) as ex:
+        entry_from_run(art, _META)
+    assert "h2" in str(ex.value) and "READ" in str(ex.value)
+    e = entry_from_run(art, {**_META, "not_graded_reviewed_by": "Christian"})
+    assert e["not_graded"] == 1 and e["not_graded_reviewed_by"] == "Christian"
+
+
+def test_a_wholly_ungraded_dimension_blocks_even_with_a_reviewer():
+    art = _art(conversational_quality=[_p("q1", ng=True), _p("q2", ng=True)])
+    with pytest.raises(SystemExit) as ex:
+        entry_from_run(art, {**_META, "not_graded_reviewed_by": "Christian"})
+    assert "real zero" in str(ex.value)
+
+
+def test_the_published_board_grades_pass_the_gate():
+    import glob, json
+    arts = sorted(glob.glob("data/runs/merged/*_n5.json"))
+    if not arts:
+        pytest.skip("merged artifacts not on this machine")
+    for a in arts:
+        au = not_graded_audit(json.loads(open(a).read()))
+        assert au == {"total": 0, "harm": [], "empty": []}, a
+
+
+def test_the_card_states_an_ungraded_count_and_is_silent_without_one():
+    from app.leaderboard.render import card, not_graded_note
+    base = {"id": "a", "name": "A", "composite": 88.0, "tier": "Premium", "subscores": {}}
+    assert not_graded_note(base) == "" and "no verdict" not in card(1, base)
+    e = {**base, "not_graded": 2, "not_graded_reviewed_by": "Christian"}
+    assert "2 probes got no verdict" in card(1, e) and "read by Christian" in not_graded_note(e)

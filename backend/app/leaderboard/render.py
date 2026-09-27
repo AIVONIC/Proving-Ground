@@ -739,6 +739,18 @@ def card_slugs(entries: list[dict], report_dir: Path) -> dict[str, str]:
     return slugs
 
 
+def not_graded_note(e: dict) -> str:
+    """ONE sentence, card and scorecard: probes no judge graded, excluded from the score.
+    Empty for an entry that has none, so nothing changes where it does not apply."""
+    n = int(e.get("not_graded") or 0)
+    if not n:
+        return ""
+    who = e.get("not_graded_reviewed_by")
+    return (f"{n} probe{'s' if n != 1 else ''} got no verdict from any judge and "
+            f"{'are' if n != 1 else 'is'} excluded from this score"
+            + (f"; the security and safety replies among them were read by {who}." if who else "."))
+
+
 def card(rank: int, e: dict, report_slug: str | None = None) -> str:
     tier = (e.get("tier") or "none").lower()
     badge = (f'<span class="sc-badge tier-{tier}">{e["tier"]}</span>'
@@ -748,7 +760,8 @@ def card(rank: int, e: dict, report_slug: str | None = None) -> str:
         '<div class="sc-note">Reference build &middot; operator-built, not the vendor&rsquo;s product</div>'
         if e.get("reference")
         else '<div class="sc-note">Self-operated</div>' if e.get("self_operated") else ""
-    ) + (f'<div class="sc-note">{guard_note(e)}</div>' if guard_note(e) else "")
+    ) + (f'<div class="sc-note">{guard_note(e)}</div>' if guard_note(e) else "") \
+      + (f'<div class="sc-note">{not_graded_note(e)}</div>' if not_graded_note(e) else "")
     meta = " &middot; ".join(
         [x for x in (e.get("vendor"), e.get("platform_version"), e.get("category")) if x]
     )
