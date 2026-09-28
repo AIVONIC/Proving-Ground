@@ -196,7 +196,73 @@ def _models(agent: str, since: str | None) -> dict:
     return out
 
 
-def capture(agent: str, since: str | None = None) -> dict:
+def action_gate(agent: str) -> dict:
+    """Did the agent's ACTION GATE apply to our probes the way it applies to a visitor?
+
+    ⛔ WHY. On 2026-09-28 SPARK's SAGE gate was found to BYPASS synthetic sessions
+    (so our own probes create no review rows), and its own `is_synthetic_session`
+    returns True for every session id this harness mints. A real visitor at SPARK's
+    earned autonomy level had checkout, send_email and human_escalation WITHHELD;
+    every probe had them allowed. So a grade scored actions a visitor could not
+    get, and nothing in the artifact said so. Same shape as `_guard`: the graded
+    path and the deployed path differ, and the difference must be RECORDED.
+
+    Observed from inside the agent by an operator-private probe that calls the
+    agent's own modules and prints one JSON line. The production decision function
+    is NOT invoked: on a withhold it writes a review row for a human, and a probe
+    must not page anyone. So `would_withhold_for_visitor` is DERIVED from the
+    recorded inputs (level, trust, thresholds, each skill's minimum level) and is
+    labelled so; the inputs are stored beside it for re-derivation.
+
+    Levels can change mid-run (an operator override did, an hour before this was
+    written), so `capture` records this twice: at grade start and at artifact time.
+    """
+    try:
+        spec = json.loads(HOSTED_FILE.read_text()).get(agent)
+    except Exception:
+        spec = None
+    if not spec or "action_gate_probe_py" not in spec:
+        return {"observed": False,
+                "reason": "not operator-hosted or no gate probe; an action gate is not observable black-box"}
+    c = shlex.quote(spec["container"])
+    wd = shlex.quote(spec.get("action_gate_probe_workdir", "/"))
+    cmd = (f"echo GATE=$(docker exec -w {wd} {c} python3 -c "
+           f"{shlex.quote(spec['action_gate_probe_py'])} 2>/dev/null | tail -1)")
+    try:
+        r = subprocess.run(["ssh", "-o", "ConnectTimeout=10", "-o", "BatchMode=yes", spec["ssh"], cmd],
+                           capture_output=True, text=True, timeout=60)
+        kv = dict(ln.split("=", 1) for ln in r.stdout.splitlines() if "=" in ln)
+        g = json.loads(kv["GATE"])
+    except Exception as e:
+        return {"observed": False, "unresolved": f"gate probe failed: {type(e).__name__}"}
+    try:
+        level = int(g["effective_level"])
+        admit = (float(g["trust_score"]) >= float(g["admit_thresholds"]["trust"])
+                 and float(g["trust_confidence"]) >= float(g["admit_thresholds"]["confidence"]))
+        withheld = sorted(s for s, rc in g["skills"].items()
+                          if level < int(rc["min_level"])
+                          and not (rc["governance"] == "require_oversight" and admit))
+        bypassed = all(g["synthetic_bypass"].values()) and bool(g["synthetic_bypass"])
+    except (KeyError, TypeError, ValueError) as e:
+        return {"observed": False, "unresolved": f"gate probe answered without {e}"}
+    return {"observed": True,
+            "observed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            **g,
+            # True: our probes skipped the gate. If also `would_withhold_for_visitor`
+            # is non-empty, the grade scored those actions and a visitor would not get them.
+            "probes_bypass_gate": bypassed,
+            "would_withhold_for_visitor": withheld if g.get("gate_mode") == "enforce" else [],
+            "would_withhold_is": "derived from the recorded inputs, not a gate call"}
+
+
+def _gate_comparable(g: dict) -> tuple | None:
+    if not g.get("observed"):
+        return None
+    return (g.get("gate_mode"), g.get("effective_level"), g.get("probes_bypass_gate"),
+            tuple(g.get("would_withhold_for_visitor") or ()))
+
+
+def capture(agent: str, since: str | None = None, gate_at_start: dict | None = None) -> dict:
     """Best-effort manifest of the graded agent's own build."""
     stack_name = agent.split("-")[0]
     stack = STACKS / stack_name
@@ -215,4 +281,13 @@ def capture(agent: str, since: str | None = None) -> dict:
         man["unresolved"] = f"no stack directory at {stack}"
     man["guard"] = _guard(agent)
     man["models"] = _models(agent, since)
+    at_end = action_gate(agent)
+    a, b = _gate_comparable(gate_at_start or {}), _gate_comparable(at_end)
+    man["action_gate"] = {
+        "at_start": gate_at_start if gate_at_start is not None
+        else {"observed": False, "reason": "no observation was taken at grade start"},
+        "at_end": at_end,
+        # None: one end was not observed, so a change cannot be ruled out.
+        "changed_during_run": None if a is None or b is None else a != b,
+    }
     return man
