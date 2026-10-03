@@ -81,7 +81,6 @@ def probe_ref(dim_key: str, probe_id: str) -> str:
     return f"{PROBE_REF_CODES[dim_key]}-{_PROBE_INDEX[probe_id]:03d}"
 
 
-from app.leaderboard.certs import code_for
 from app.leaderboard.render import _cap_line, guard_note, not_graded_note
 
 
@@ -358,7 +357,6 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
   publish your reply with it.</p>
 </div>"""
     elif entry.get("composite") is not None and entry.get("graded_at"):
-        _code = code_for(entry["id"])
         _alias = entry["id"]      # readable, names the build, resolves identically
         cert_block = f"""
 <div class="rp-cert">
@@ -374,8 +372,6 @@ def render_report(lander_html: str, entry: dict, data: dict, slug: str) -> str:
   &lt;img src="https://theprovingground.io/badge/{_alias}.svg"
        alt="Proving Ground grade for {name}"&gt;
 &lt;/a&gt;</code></pre>
-  <p class="rp-omitted">This also resolves at <code>/verify/{_code}</code>, which is permanent and
-  never changes. Either address works; the readable one is easier to paste.</p>
 </div>"""
 
     body = f"""<main class="rp-wrap">

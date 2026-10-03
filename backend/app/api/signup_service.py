@@ -19,7 +19,7 @@ from email.message import EmailMessage
 from pathlib import Path
 
 from fastapi import FastAPI, Header, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse, RedirectResponse, Response
 from pydantic import BaseModel, Field, field_validator
 
 # The scoring identity's wording lives with the identity itself, so the verify
@@ -598,6 +598,14 @@ async def verify(code: str):
     if want_json:
         code = code[:-5]
     c = _lookup(code)
+    # ⛔ THE ADDRESS NAMES THE AGENT, NEVER THE pg- CODE (Christian 2026-09-26, again 2026-10-03).
+    # Links were rewritten to the alias then, but a code URL already out still served the page
+    # under the code. A human page requested by code now moves to the alias, permanently, so the
+    # old link still works and shows the name. JSON is not redirected: an API client or an
+    # embed may not follow redirects, and a certificate check must never break on one.
+    if (not want_json and isinstance(c, dict) and c.get("alias")
+            and code.strip().lower() != str(c["alias"]).lower()):
+        return RedirectResponse(f"/verify/{c['alias']}", status_code=301)
     if c is _UNAVAILABLE:
         # 503, not 404: "we cannot check" must never be served as "no such
         # certificate". A retryable status also stops a crawler caching the
