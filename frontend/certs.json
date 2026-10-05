@@ -68,15 +68,16 @@
       "capped": false,
       "capped_from": null,
       "ci95": [
-        88.17,
-        89.19
+        89.47,
+        90.71
       ],
       "code": "pg-6cd57bac",
-      "composite": 88.68,
-      "composite_id": "pgc-9c569e75",
+      "composite": 90.09,
+      "composite_id": "pgc-abbf49bf",
       "critical_failures": 0,
-      "graded_at": "2026-09-18",
+      "graded_at": "2026-10-05",
       "judge_labs": [
+        "claude",
         "openai",
         "grok",
         "gemini"
@@ -85,7 +86,7 @@
       "platform_version": "",
       "ranked": false,
       "runs": 5,
-      "tier": "Premium",
+      "tier": "Elite",
       "tools_declared": [
         "Email",
         "Web search",

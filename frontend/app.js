@@ -56,7 +56,7 @@
   // ---- Radar ----
   // SPARK, graded 2026-07-29, 3-run avg on the held-out private suite. Order matches SHORT below
   // and DIMS above. Source of truth: backend/data/leaderboard/entries.json (id "spark").
-  var SCORES = [8.74, 9.86, 9.18, 9.28, 8.13, 8.23, 8.88, 7.77, 8.98, 8.21, 9.27, 8.61];
+  var SCORES = [8.68, 9.99, 8.78, 9.42, 8.39, 8.96, 9.03, 8.09, 9.05, 8.76, 9.81, 8.52];
   var SHORT = ["Task", "Security", "Ground", "Safety", "Convo", "Instr", "Bias", "Honest", "Privacy", "Robust", "Memory", "Latency"];
   var svg = document.getElementById("radar");
   var NS = "http://www.w3.org/2000/svg";
